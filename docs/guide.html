@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nibble guide</title>
+<meta name="description" content="How to use nibble: reading plates, answering your agent, and the CLI your agent runs.">
+<link rel="icon" href="assets/mark-light.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f1ec; --surface: #fffdf9; --surface-2: #f7f3ed; --border: #e6dfd4;
+  --text: #2a2622; --muted: #7a7166; --accent: #e8590c; --accent-soft: #fde6d6;
+  --lit: #fff1c2; --lit-edge: #f0b429; --ok: #2f9e44; --warn: #d9480f; --sel: #1c6fb0;
+  --shadow: 0 1px 2px rgba(40,30,20,.06), 0 8px 24px rgba(40,30,20,.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15130f; --surface: #1e1b17; --surface-2: #25211c; --border: #36302a;
+    --text: #ece6dd; --muted: #a0968a; --accent: #ff8a3d; --accent-soft: #3a2416;
+    --lit: #3a3015; --lit-edge: #f0b429; --ok: #51cf66; --warn: #ff6b3d; --sel: #7cb8f0;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15130f; --surface: #1e1b17; --surface-2: #25211c; --border: #36302a;
+  --text: #ece6dd; --muted: #a0968a; --accent: #ff8a3d; --accent-soft: #3a2416;
+  --lit: #3a3015; --lit-edge: #f0b429; --ok: #51cf66; --warn: #ff6b3d; --sel: #7cb8f0;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15.5px/1.6 Inter, system-ui, sans-serif; }
+.page { max-width: 1060px; margin: 0 auto; padding: 0 20px 80px; }
+a { color: var(--accent); }
+.mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: var(--surface-2); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; }
+nav { display: flex; align-items: center; gap: 14px; padding: 18px 0 32px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -.02em; color: var(--text); text-decoration: none; margin-right: auto; }
+.mark { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); position: relative; overflow: hidden; }
+.mark::after { content: ""; position: absolute; width: 15px; height: 15px; border-radius: 50%; background: var(--bg); top: -5px; right: -5px; }
+nav .lk { font-size: 13.5px; color: var(--text); text-decoration: none; }
+nav .lk:hover { color: var(--accent); }
+nav .lk[aria-current="page"] { color: var(--accent); font-weight: 700; }
+button { font: inherit; color: inherit; }
+.chipbtn { font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 13px; cursor: pointer; }
+.gh { font-size: 13.5px; font-weight: 600; background: var(--text); color: var(--bg); border-radius: 999px; padding: 7px 15px; text-decoration: none; }
+@media (max-width: 700px) { nav .lk { display: none; } }
+
+h1 { font-size: 36px; letter-spacing: -.02em; margin: 0 0 8px; }
+.lede { color: var(--muted); max-width: 680px; margin: 0 0 18px; }
+.banner { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 12px; padding: 12px 16px; font-size: 14px; margin-bottom: 44px; max-width: 760px; }
+section { margin-bottom: 60px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin: 0 0 6px; font-weight: 700; }
+h3 { font-size: 24px; margin: 0 0 10px; letter-spacing: -.01em; }
+h4 { font-size: 16px; margin: 22px 0 6px; }
+p, li { color: var(--text); }
+.note, section > p { color: var(--muted); max-width: 720px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.card b { display: block; margin-bottom: 4px; }
+.card p { margin: 0; color: var(--muted); font-size: 14px; }
+table.keys { border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 14px; min-width: min(100%, 560px); }
+table.keys th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--surface-2); padding: 9px 14px; border-bottom: 1px solid var(--border); }
+table.keys td { padding: 8px 14px; border-bottom: 1px solid var(--border); }
+table.keys tr:last-child td { border-bottom: 0; }
+.soon { font-size: 10.5px; font-weight: 700; border-radius: 4px; padding: 1px 6px; color: var(--sel); background: color-mix(in srgb, var(--sel) 14%, transparent); vertical-align: 1px; }
+.trust { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 1px 7px; }
+.trust.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.trust.shift { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.trust.stale { color: var(--muted); background: var(--surface-2); }
+pre.cli { background: #171512; color: #e7e1d8; border-radius: 14px; padding: 16px 18px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; line-height: 1.7; overflow-x: auto; margin: 14px 0 0; }
+pre.cli .p { color: #ff8a3d; } pre.cli .d { color: #8f877c; } pre.cli .y { color: #f0c674; } pre.cli .g { color: #8fd19e; }
+footer { border-top: 1px solid var(--border); margin-top: 30px; padding-top: 20px; font-size: 13px; color: var(--muted); display: flex; gap: 8px 22px; flex-wrap: wrap; }
+footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+<nav>
+  <a class="brand" href="./"><span class="mark" aria-hidden="true"></span>nibble</a>
+  <a class="lk" href="PRD.html">PRD</a>
+  <a class="lk" href="roadmap.html">Roadmap</a>
+  <a class="lk" href="design/mockups.html">Mockups</a>
+  <a class="lk" href="guide.html" aria-current="page">Guide</a>
+  <button class="chipbtn" id="themeBtn" type="button">Theme</button>
+  <a class="gh" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
+</nav>
+
+<h1>User guide</h1>
+<p class="lede">Everything you do with nibble, from asking to answering. The short version: <b>your agent runs nibble; you just read, poke and reply.</b></p>
+<div class="banner">⚠ nibble is <b>pre-release</b> — v0.1 is in progress. This guide describes the designed behaviour and is kept current as pieces ship; anything not yet real is marked. There is no installer yet; follow the <a href="roadmap.html">roadmap</a>.</div>
+
+<section id="start">
+  <h2>01</h2>
+  <h3>Getting started <span class="soon">ships with v0.1</span></h3>
+  <p>One install, then your agent does the rest:</p>
+<pre class="cli"><span class="p">$</span> curl -fsSL https://nibble.dev/install | sh    <span class="d"># or: brew install gianfrancodemarco/tap/nibble</span>
+<span class="p">$</span> nibble setup                                   <span class="d"># installs the skill into Claude Code / Codex / Cursor</span></pre>
+  <p style="margin-top:14px"><span class="mono">setup</span> teaches each agent it finds when to reach for nibble and how to write good plates. After that you never type nibble commands yourself — you just talk to your agent:</p>
+  <div class="cards">
+    <div class="card"><b>"review PR #1247"</b><p>The #1 use case. Big PRs are proposed as chapters first; you agree before the first plate.</p></div>
+    <div class="card"><b>"walk me through one checkout request, end to end"</b><p>System parts, request flows — a map and a sequence, the code at every stop.</p></div>
+    <div class="card"><b>"walk me through what you just changed"</b><p>The uncommitted diff as a map coloured by churn, one compare per claim.</p></div>
+  </div>
+</section>
+
+<section id="arrive">
+  <h2>02</h2>
+  <h3>A plate arrives</h3>
+  <p>A <b>plate</b> is one explanation: up to ~7 <b>nibbles</b>, each one claim with one visual and the code behind it. How it reaches you follows one rule — <i>the human holds the pen</i>:</p>
+  <div class="cards">
+    <div class="card"><b>You asked for it</b><p>It opens itself. You were waiting for it; no extra click.</p></div>
+    <div class="card"><b>The agent volunteered it</b><p>It waits in the pill (menu-bar icon, v1) until you open it. It never steals focus. <span class="soon">v0.1: browser tab</span></p></div>
+    <div class="card"><b>It's still being written</b><p>Open it anyway — nibbles stream in live while the agent works.</p></div>
+  </div>
+</section>
+
+<section id="read">
+  <h2>03</h2>
+  <h3>Reading a plate</h3>
+  <p>The canvas takes most of the window; the caption sits below it; code lives in a drawer. Moving between nibbles glides the camera across <b>one shared map</b>, so you build a spatial picture as you go. Try the <a href="design/mockups.html">live mockup</a>.</p>
+
+  <h4>Keys</h4>
+  <table class="keys">
+    <thead><tr><th>key</th><th>does</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>previous / next nibble (camera move, not a page swap)</td></tr>
+      <tr><td><kbd>space</kbd></td><td>play / step the active visual</td></tr>
+      <tr><td><kbd>e</kbd></td><td>open the evidence drawer (the code behind the selection)</td></tr>
+      <tr><td><kbd>c</kbd></td><td>comment on the selected thing</td></tr>
+      <tr><td><kbd>v</kbd></td><td>request a missing visual from the selected thing <span class="soon">v0.2</span></td></tr>
+      <tr><td><kbd>w</kbd></td><td>voice walk: captions read aloud, highlight in sync <span class="soon">v0.2</span></td></tr>
+      <tr><td><kbd>s</kbd></td><td>submit your review</td></tr>
+      <tr><td><kbd>q</kbd></td><td>close without answering</td></tr>
+    </tbody>
+  </table>
+
+  <h4>What each visual lets you do</h4>
+  <div class="cards">
+    <div class="card"><b>map</b><p>Click a node → its code in the drawer. Highlight a path. Collapse a group.</p></div>
+    <div class="card"><b>sequence</b><p>Step message by message; branches (<i>alt</i>) show where it could have gone.</p></div>
+    <div class="card"><b>timeline</b><p>Scrub time. Toggle precomputed states — "jitter off / on" — and compare.</p></div>
+    <div class="card"><b>compare</b><p>Flip or slide between before and after: code, a map, or metrics.</p></div>
+  </div>
+
+  <h4>The detail dial</h4>
+  <p>Every plate reads at three depths on the same canvas: <b>overview</b> (the shape, one sentence — enough to decide whether to care), <b>standard</b> (what a plate opens at), <b>deep</b> (per-element numbers and edge cases, generated on demand <span class="soon">v0.2</span>). A ninety-second review and a ten-minute one are the same plate.</p>
+
+  <h4>Trust badges</h4>
+  <p>Code moves while plates sit. Every ref re-checks against the file as it is now:</p>
+  <div class="cards">
+    <div class="card"><b><span class="trust ok">exact</span></b><p>The lines are exactly where the agent said.</p></div>
+    <div class="card"><b><span class="trust shift">shifted +3</span></b><p>Same lines, found whole at one new position; the offset is shown.</p></div>
+    <div class="card"><b><span class="trust stale">stale</span></b><p>Rewritten, gone, or ambiguous. nibble never guesses — stale means go look.</p></div>
+  </div>
+</section>
+
+<section id="answer">
+  <h2>04</h2>
+  <h3>Answering</h3>
+  <p>Disagree on the thing itself: select a node, an edge, a moment on the timeline or lines in the drawer, and press <kbd>c</kbd>. Two ways to send it:</p>
+  <div class="cards">
+    <div class="card"><b>Ask now</b><p>Ends the agent's wait immediately with your question. The answer comes back threaded into the same plate.</p></div>
+    <div class="card"><b>Hold for review</b><p>Keeps the comment until you press <kbd>s</kbd> and choose a verdict: <b>approve</b>, <b>changes</b>, or <b>discuss</b>.</p></div>
+  </div>
+  <p style="margin-top:14px">In a PR review, check the end of the plate before approving: the <b>not-shown ledger</b> lists every hunk of the diff no nibble referenced, and the map badges <b>dependents the plate never visited</b> — callers, tests, configs of changed code. That's where agent-written PRs go wrong, and both are open to comments like anything else.</p>
+</section>
+
+<section id="agents">
+  <h2>05</h2>
+  <h3>For agents (and the curious)</h3>
+  <p>Everything above rides on four commands and a folder of plain JSON. The full contract — formats, the ref grammar, fingerprint and trust rules, every error code — is <a href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">PROTOCOL.md</a>, with golden fixtures as its executable conformance suite.</p>
+<pre class="cli"><span class="p">$</span> nibble new   --title "PR 1247 · ch 1: payments" --about pr:1247   <span class="d"># prints the plate path</span>
+<span class="p">$</span> nibble add   &lt;plate&gt; --caption "…" --visual timeline.json \
+               --ref "src/cache/prices.ts:43-45 @cache"
+<span class="y">✗ rejected: src/cache/prices.ts has 41 lines, ref ends at 45</span>      <span class="d"># validation is strict, errors are fix-its</span>
+<span class="p">$</span> nibble done  &lt;plate&gt;                                              <span class="d"># seals it; coverage gaps reported</span>
+<span class="p">$</span> nibble serve &lt;plate&gt;                                              <span class="d"># blocks; exits with your review</span></pre>
+  <p style="margin-top:14px">Worth knowing:</p>
+  <div class="cards">
+    <div class="card"><b>Plates live in <span class="mono">~/.nibble/plates</span></b><p>Keyed by repo and commit; your repos stay clean. <span class="mono">nibble export</span> copies one into a repo to share it.</p></div>
+    <div class="card"><b>Budgets, not walls</b><p>~5 nibbles for a bug, maybe 12 for a PR chapter. Going over needs <span class="mono">--because</span>, and the reason is printed on the plate for you to judge.</p></div>
+    <div class="card"><b>No pixels</b><p>Agents declare what things are — plus semantic hints (group, tier, focus). nibble draws everything, so the same idea always looks the same.</p></div>
+  </div>
+</section>
+
+<footer>
+  <span>Apache-2.0</span>
+  <a href="https://github.com/gianfrancodemarco/nibble">github.com/gianfrancodemarco/nibble</a>
+  <a href="./">nibble home</a>
+</footer>
+
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { var t = localStorage.getItem('nibble-theme'); if (t) root.setAttribute('data-theme', t); } catch (e) {}
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = cur === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('nibble-theme', next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>
