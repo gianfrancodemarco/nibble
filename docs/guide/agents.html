@@ -44,12 +44,14 @@
                --ref "src/cache/prices.ts:43-45 @cache"
 <span class="y">✗ rejected: src/cache/prices.ts has 41 lines, ref ends at 45</span>      <span class="d"># validation is strict, errors are fix-its</span>
 <span class="p">$</span> nibble done  &lt;plate&gt;                                              <span class="d"># seals it; coverage gaps reported</span>
+<span class="p">$</span> nibble lint  &lt;visual.json&gt;                                        <span class="d"># validate a visual standalone</span>
 <span class="p">$</span> nibble serve &lt;plate&gt;                                              <span class="d"># blocks; exits with your review</span></pre>
+<p><b>Exit codes are the contract:</b> 0 ok · 1 validation error · 2 usage — and <span class="mono">serve</span> encodes the verdict: 0 approve · 2 changes · 3 question · 4 closed · 5 timeout. Full reference in <a href="https://github.com/gianfrancodemarco/nibble/blob/main/cli/README.md">cli/README.md</a>.</p>
 
 <h4 id="rules">The rules</h4>
 <div class="cards">
   <div class="card"><b>Plates live in <span class="mono">~/.nibble/plates</span></b><p>Keyed by repo and commit; your repos stay clean. <span class="mono">nibble export</span> copies one into a repo to share it.</p></div>
-  <div class="card"><b>Budgets, not walls</b><p>~5 nibbles for a bug, maybe 12 for a PR chapter. Going over needs <span class="mono">--because</span>, and the reason is printed on the plate for you to judge.</p></div>
+  <div class="card"><b>Budgets, not walls</b><p>Captions ≤ 40 words; 7 nibbles per plate, 12 for a PR-range plate. Going over needs <span class="mono">--because</span>, and the reason is printed on the plate for you to judge.</p></div>
   <div class="card"><b>No pixels</b><p>Agents declare what things are — plus semantic hints (group, tier, focus). nibble draws everything, so the same idea always looks the same.</p></div>
 </div>
 <nav class="pager">

@@ -39,8 +39,10 @@
 <p class="lede">Everything you do with nibble, from asking to answering. The short version: <b>your agent runs nibble; you just read, poke and reply.</b></p>
 <div class="banner">⚠ nibble is <b>pre-release</b> — v0.1 is in progress. This guide describes the designed behaviour and is kept current as pieces ship; anything not yet real is marked. There is no installer yet; follow the <a href="../roadmap.html">roadmap</a>.</div>
 
-<h4 id="install">Install <span class="soon">ships with v0.1</span></h4>
-<p>One install, then your agent does the rest:</p>
+<h4 id="install">Install <span class="soon">installer ships with v0.1</span></h4>
+<p>The CLI already works — today it builds from source:</p>
+<pre class="cli"><span class="p">$</span> go install github.com/gianfrancodemarco/nibble/cli/cmd/nibble@main</pre>
+<p>The one-line installer and skill setup are coming:</p>
 <pre class="cli"><span class="p">$</span> curl -fsSL https://nibble.dev/install | sh    <span class="d"># or: brew install gianfrancodemarco/tap/nibble</span>
 <span class="p">$</span> nibble setup                                   <span class="d"># installs the skill into Claude Code / Codex / Cursor</span></pre>
 <p><span class="mono">setup</span> teaches each agent it finds when to reach for nibble and how to write good plates. After that you never type nibble commands yourself.</p>

@@ -165,3 +165,20 @@ can return:
 | `nibble.file` | nibble file unreadable |
 | `nibble.visual.missing` | nibble has no visual |
 | `review.verdict.unknown` | verdict not in the allowed set |
+
+The CLI adds codes of its own, same contract:
+
+| code | meaning |
+| --- | --- |
+| `cli.repo.missing` | command run outside a git repository |
+| `cli.budget` | caption or nibble count over budget, and no `--because` |
+| `cli.plate.empty` | sealing a plate that has no nibbles |
+
+## The CLI, briefly
+
+`nibble new / add / done / lint / serve` — commands, budgets and exit codes
+are documented in [`cli/README.md`](../cli/README.md). The exit-code contract:
+0 ok, 1 validation/protocol error, 2 usage; `serve` encodes the verdict —
+0 approve, 2 changes, 3 question, 4 closed, 5 timeout. The
+[`golden/plates/cli-authored/`](golden/plates/cli-authored/) fixture is a
+plate written end-to-end by the CLI's own test suite.

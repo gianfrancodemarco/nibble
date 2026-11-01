@@ -1,0 +1,55 @@
+{
+  "caption": "Every key expires **on the hour**.",
+  "refs": [
+    {
+      "ref": "src/pool.ts:1 @db pool size",
+      "fp": "fp1:f52314814c6173c17f7dca9738380b2679d3df670dcc0b30703b71cffa2e38ae",
+      "lines": [
+        "f52314814c6173c17f7dca9738380b2679d3df670dcc0b30703b71cffa2e38ae"
+      ],
+      "ctx_after": [
+        "1b58026bf2d7ac7c8a5851c39c34a72945c9b5cf37067a39cb9a5902090acdf9"
+      ]
+    }
+  ],
+  "visual": {
+    "kind": "timeline",
+    "title": "expiries on the hour",
+    "lanes": [
+      {
+        "id": "cache",
+        "label": "cache"
+      },
+      {
+        "id": "db",
+        "label": "db"
+      }
+    ],
+    "states": [
+      {
+        "name": "jitter-off",
+        "default": true,
+        "events": [
+          {
+            "id": "spike",
+            "lane": "db",
+            "at": "12:00:00",
+            "label": "41 misses",
+            "weight": 847
+          }
+        ]
+      },
+      {
+        "name": "jitter-on",
+        "events": [
+          {
+            "lane": "db",
+            "at": "12:00:00",
+            "label": "75 qps",
+            "weight": 75
+          }
+        ]
+      }
+    ]
+  }
+}

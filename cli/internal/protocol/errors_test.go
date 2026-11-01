@@ -12,14 +12,17 @@ import (
 // documented in protocol/PROTOCOL.md's error code index, and no code may be
 // declared twice.
 func TestErrorCodeIndex(t *testing.T) {
-	src, err := os.ReadFile("errors.go")
-	if err != nil {
-		t.Fatal(err)
-	}
+	var matches [][]string
 	re := regexp.MustCompile(`Code\w+\s*=\s*"([a-z0-9.\-]+)"`)
-	matches := re.FindAllStringSubmatch(string(src), -1)
+	for _, src := range []string{"errors.go", filepath.Join("..", "cmd", "errors.go")} {
+		raw, err := os.ReadFile(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		matches = append(matches, re.FindAllStringSubmatch(string(raw), -1)...)
+	}
 	if len(matches) == 0 {
-		t.Fatal("no error codes found in errors.go")
+		t.Fatal("no error codes found")
 	}
 
 	doc, err := os.ReadFile(filepath.Join("..", "..", "..", "protocol", "PROTOCOL.md"))
