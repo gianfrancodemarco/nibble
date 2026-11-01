@@ -1,19 +1,21 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/mark-dark.svg">
-  <img alt="nibble" height="64" src="assets/mark-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/mark-dark.svg">
+  <img alt="nibble" height="64" src="docs/assets/mark-light.svg">
 </picture>
 
 **Agent explanations you can poke.**
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![Status](https://img.shields.io/badge/status-design_phase-e8590c)](docs/PRD.html)
+[![Status](https://img.shields.io/badge/status-design_phase-e8590c)](https://gianfrancodemarco.github.io/nibble/PRD.html)
+
+**[Site](https://gianfrancodemarco.github.io/nibble/)** · [PRD](https://gianfrancodemarco.github.io/nibble/PRD.html) · [Roadmap](https://gianfrancodemarco.github.io/nibble/roadmap.html) · [Mockups](https://gianfrancodemarco.github.io/nibble/design/mockups.html)
 
 </div>
 
 <p align="center">
-<img src="assets/hero.svg" width="780" alt="The nibble reader: a service map of checkout-api, price cache and postgres above a scrubbable timeline of a cache stampede, with a caption and the code drawer open at the TTL lines">
+<img src="docs/assets/hero.svg" width="780" alt="The nibble reader: a service map of checkout-api, price cache and postgres above a scrubbable timeline of a cache stampede, with a caption and the code drawer open at the TTL lines">
 </p>
 
 <p align="center"><i>The agent claims every cached price expires on the hour. You scrub the timeline, watch Postgres saturate at 12:00, flip the fix on, and click any box to see the lines behind it.</i></p>
@@ -37,7 +39,7 @@ line you disagreed with.
 ## How it works
 
 <p align="center">
-<img src="assets/flow.svg" width="780" alt="Component diagram: the agent and its skill talk to the Go CLI, which owns the plate folders and serves the TypeScript reader; the reader is hosted in a browser tab, the Tauri pill, or later an editor panel; everything shares the protocol">
+<img src="docs/assets/flow.svg" width="780" alt="Component diagram: the agent and its skill talk to the Go CLI, which owns the plate folders and serves the TypeScript reader; the reader is hosted in a browser tab, the Tauri pill, or later an editor panel; everything shares the protocol">
 </p>
 
 Your agent needs only a shell. It writes a *plate* — a folder of small JSON
@@ -73,11 +75,12 @@ nibble is opinionated on purpose:
 **Design phase** — no code yet. The PRD and mockups are done and the initial
 product decisions are settled:
 
-- **[docs/PRD.html](docs/PRD.html)** — the PRD, interactive: step the loop,
-  turn the detail dial, filter requirements, read the decision log. Clone and
-  open in a browser.
-- **[docs/design/mockups.html](docs/design/mockups.html)** — design mockups
-  with a live reader demo: scrub the stampede timeline, flip the fix on.
+- **[PRD](https://gianfrancodemarco.github.io/nibble/PRD.html)** — interactive:
+  step the loop, turn the detail dial, filter requirements, read the decision log.
+- **[Roadmap](https://gianfrancodemarco.github.io/nibble/roadmap.html)** — v0.1
+  to v1 and beyond, stages not promises.
+- **[Mockups](https://gianfrancodemarco.github.io/nibble/design/mockups.html)** —
+  a live reader demo: scrub the stampede timeline, flip the fix on.
 
 | Component | What it is | Stage |
 | --- | --- | --- |

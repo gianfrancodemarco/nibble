@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nibble roadmap</title>
+<meta name="description" content="nibble's roadmap: v0.1 MVP, v0.2, v1 with the Tauri pill, and what comes later.">
+<link rel="icon" href="assets/mark-light.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f1ec; --surface: #fffdf9; --surface-2: #f7f3ed; --border: #e6dfd4;
+  --text: #2a2622; --muted: #7a7166; --accent: #e8590c; --accent-soft: #fde6d6;
+  --ok: #2f9e44;
+  --shadow: 0 1px 2px rgba(40,30,20,.06), 0 8px 24px rgba(40,30,20,.08);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15130f; --surface: #1e1b17; --surface-2: #25211c; --border: #36302a;
+    --text: #ece6dd; --muted: #a0968a; --accent: #ff8a3d; --accent-soft: #3a2416;
+    --ok: #51cf66;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15130f; --surface: #1e1b17; --surface-2: #25211c; --border: #36302a;
+  --text: #ece6dd; --muted: #a0968a; --accent: #ff8a3d; --accent-soft: #3a2416;
+  --ok: #51cf66;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15.5px/1.6 Inter, system-ui, sans-serif; }
+.page { max-width: 860px; margin: 0 auto; padding: 0 16px 80px; }
+a { color: var(--accent); }
+.mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+nav { display: flex; align-items: center; gap: 14px; padding: 18px 0 40px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; letter-spacing: -.02em; color: var(--text); text-decoration: none; margin-right: auto; }
+.mark { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); position: relative; overflow: hidden; }
+.mark::after { content: ""; position: absolute; width: 15px; height: 15px; border-radius: 50%; background: var(--bg); top: -5px; right: -5px; }
+nav .lk { font-size: 13.5px; color: var(--text); text-decoration: none; }
+nav .lk:hover { color: var(--accent); }
+button { font: inherit; color: inherit; }
+.chipbtn { font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 13px; cursor: pointer; }
+h1 { font-size: 36px; letter-spacing: -.02em; margin: 0 0 8px; }
+.lede { color: var(--muted); max-width: 640px; margin: 0 0 48px; }
+
+.stage { position: relative; border-left: 2px solid var(--border); padding: 0 0 44px 32px; margin-left: 8px; }
+.stage:last-child { border-left-color: transparent; }
+.stage::before { content: ""; position: absolute; left: -8px; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--border); border: 3px solid var(--bg); }
+.stage.now::before { background: var(--accent); }
+.stage.done::before { background: var(--ok); }
+.stage .tag { display: inline-block; font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 700; border-radius: 6px; padding: 2px 9px; margin-bottom: 8px; background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+.stage.now .tag { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.stage.done .tag { color: var(--ok); }
+.stage h2 { font-size: 21px; margin: 0 0 4px; letter-spacing: -.01em; }
+.stage .goal { color: var(--muted); font-size: 14.5px; margin: 0 0 14px; max-width: 620px; }
+.items { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; max-width: 760px; }
+.it { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 13px; font-size: 13.5px; }
+.it b { font-weight: 600; }
+.it span { color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); margin-top: 14px; font-style: italic; }
+footer { border-top: 1px solid var(--border); margin-top: 30px; padding-top: 20px; font-size: 13px; color: var(--muted); display: flex; gap: 8px 22px; flex-wrap: wrap; }
+footer a { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="page">
+
+<nav>
+  <a class="brand" href="./"><span class="mark" aria-hidden="true"></span>nibble</a>
+  <a class="lk" href="PRD.html">PRD</a>
+  <a class="lk" href="design/mockups.html">Mockups</a>
+  <a class="lk" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
+  <button class="chipbtn" id="themeBtn" type="button">Theme</button>
+</nav>
+
+<h1>Roadmap</h1>
+<p class="lede">Stages, not promises — dates are intentionally absent. Scope and decisions live in the <a href="PRD.html">PRD</a>; what's listed here follows its decision log.</p>
+
+<div class="stage done">
+  <span class="tag">done · 2026-11</span>
+  <h2>Design</h2>
+  <p class="goal">The PRD, the design mockups with a live reader demo, and every initial open question settled: Go CLI, Tauri pill for v1, semantic layout hints, what-ifs as precomputed states, plates in <span class="mono">~/.nibble</span>, no deck interop.</p>
+</div>
+
+<div class="stage now">
+  <span class="tag">next · v0.1</span>
+  <h2>The MVP: PR review, worktree review, explain</h2>
+  <p class="goal">The full loop working end to end in a browser tab, dogfooded on real PRs.</p>
+  <div class="items">
+    <div class="it"><b>Protocol v1</b> <span>— plate format, visual JSON Schemas, fingerprint &amp; trust rules, golden files</span></div>
+    <div class="it"><b>Go CLI</b> <span>— new · add · done · serve; validation with fix-it messages; budgets with --because</span></div>
+    <div class="it"><b>Diff refs</b> <span>— --about worktree and pr:N, validated against both sides</span></div>
+    <div class="it"><b>Reader</b> <span>— one canvas, camera moves, code drawer, comments, live SSE</span></div>
+    <div class="it"><b>Visual kinds</b> <span>— map, sequence, timeline, compare, with built-in interactions</span></div>
+    <div class="it"><b>Detail dial</b> <span>— overview and standard ship with every plate</span></div>
+    <div class="it"><b>Blast radius</b> <span>— three-ring PR map; unvisited dependents badged</span></div>
+    <div class="it"><b>Not-shown ledger</b> <span>— every plate ends with the hunks no nibble referenced</span></div>
+    <div class="it"><b>Claude Code skill</b> <span>— when to reach for nibble, with worked examples</span></div>
+  </div>
+</div>
+
+<div class="stage">
+  <span class="tag">v0.2</span>
+  <h2>Depth and breadth</h2>
+  <p class="goal">The plate grows in place, and the agent can be asked for more.</p>
+  <div class="items">
+    <div class="it"><b>Deep layer + visuals on demand</b> <span>— press v on anything; answers thread in place</span></div>
+    <div class="it"><b>Chapter flow</b> <span>— big PRs proposed as chapters, agreed before the first plate</span></div>
+    <div class="it"><b>Voice walk</b> <span>— captions read aloud, highlight and camera in sync</span></div>
+    <div class="it"><b>state · data · chart</b> <span>— the remaining visual kinds</span></div>
+    <div class="it"><b>What-if toggles</b> <span>— between agent-precomputed states</span></div>
+    <div class="it"><b>More agents</b> <span>— Codex and Cursor skills via nibble setup</span></div>
+    <div class="it"><b>nibble lint &amp; export</b> <span>— validate visuals standalone; share a plate into a repo</span></div>
+  </div>
+</div>
+
+<div class="stage">
+  <span class="tag">v1</span>
+  <h2>The pill, and polish</h2>
+  <p class="goal">Calm by default, installable in one line, documented.</p>
+  <div class="items">
+    <div class="it"><b>Tauri pill</b> <span>— menu-bar icon + floating pill for waiting plates (decided 2026-11-01)</span></div>
+    <div class="it"><b>Auto-open</b> <span>— plates you asked for open themselves; volunteered ones wait</span></div>
+    <div class="it"><b>Install</b> <span>— one-line script + Homebrew tap; signed builds</span></div>
+    <div class="it"><b>User guide</b> <span>— on this site</span></div>
+  </div>
+</div>
+
+<div class="stage">
+  <span class="tag">later</span>
+  <h2>Where the code already lives</h2>
+  <div class="items">
+    <div class="it"><b>Editor panel</b> <span>— the same reader inside VS Code / Cursor, status-bar tray</span></div>
+    <div class="it"><b>Continuous what-ifs</b> <span>— sliders, and the DSL-vs-sandboxed-JS decision, only if dogfooding demands them</span></div>
+    <div class="it"><b>Export storyboard</b> <span>— a plate as SVG/markdown for PR descriptions</span></div>
+  </div>
+  <p class="note">Explicitly not planned: themes and layout knobs for agents, hosting plates on a server, telemetry before there's something worth measuring.</p>
+</div>
+
+<footer>
+  <span>Apache-2.0</span>
+  <a href="https://github.com/gianfrancodemarco/nibble">github.com/gianfrancodemarco/nibble</a>
+  <a href="./">nibble home</a>
+</footer>
+
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { var t = localStorage.getItem('nibble-theme'); if (t) root.setAttribute('data-theme', t); } catch (e) {}
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = cur === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('nibble-theme', next); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>
