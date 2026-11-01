@@ -1,0 +1,228 @@
+package protocol
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
+	"slices"
+	"strings"
+)
+
+// About says what code a plate is about: the code as it is, the uncommitted
+// working tree, a PR, or an arbitrary base..head range.
+type About struct {
+	Kind  string // "code", "worktree", "pr", "range"
+	PR    int
+	Range string
+}
+
+// PlateHeader is plate.json. Raw preserves the original bytes so unknown
+// fields survive a rewrite.
+type PlateHeader struct {
+	Version   int    `json:"version"`
+	Title     string `json:"title"`
+	Repo      string `json:"repo"`
+	HeadSHA   string `json:"head_sha"`
+	About     About  `json:"-"`
+	CreatedAt string `json:"created_at"`
+	Raw       json.RawMessage `json:"-"`
+}
+
+// NibbleRef is one stored ref inside a nibble file: the ref string plus its
+// fp1 fingerprint record.
+type NibbleRef struct {
+	Ref       string   `json:"ref"`
+	FP        string   `json:"fp"`
+	Lines     []string `json:"lines"`
+	CtxBefore []string `json:"ctx_before,omitempty"`
+	CtxAfter  []string `json:"ctx_after,omitempty"`
+}
+
+// Nibble is one n<N>.json file.
+type Nibble struct {
+	Caption string          `json:"caption"`
+	Visual  json.RawMessage `json:"visual"`
+	View    json.RawMessage `json:"view,omitempty"`
+	Because string          `json:"because,omitempty"`
+	Refs    []NibbleRef     `json:"refs"`
+	Raw     json.RawMessage `json:"-"`
+}
+
+// Review is review.json: the human's answer.
+type Review struct {
+	Verdict  string `json:"verdict"`
+	Comments []struct {
+		Target string `json:"target,omitempty"`
+		Text   string `json:"text"`
+	} `json:"comments,omitempty"`
+}
+
+// Plate is a parsed, validated plate folder.
+type Plate struct {
+	Header  PlateHeader
+	Nibbles []Nibble
+	Total   int  // from the done marker; 0 while open
+	Open    bool // no done marker yet
+	Review  *Review
+}
+
+// UnmarshalJSON accepts the four about forms: "code", "worktree",
+// {"pr": N}, {"range": "<base>..<head>"}.
+func (a *About) UnmarshalJSON(raw []byte) error {
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		if s != "code" && s != "worktree" {
+			return errf(CodePlateHeader, "about: unknown form %q", s)
+		}
+		a.Kind = s
+		return nil
+	}
+	var obj struct {
+		PR    *int    `json:"pr"`
+		Range *string `json:"range"`
+	}
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return errf(CodePlateHeader, "about: %v", err)
+	}
+	switch {
+	case obj.PR != nil:
+		a.Kind, a.PR = "pr", *obj.PR
+	case obj.Range != nil:
+		a.Kind, a.Range = "range", *obj.Range
+	default:
+		return errf(CodePlateHeader, "about: want \"code\", \"worktree\", {\"pr\":N} or {\"range\":\"a..b\"}")
+	}
+	return nil
+}
+
+var fpRe = regexp.MustCompile(`^fp1:[0-9a-f]{64}$`)
+var hashRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
+
+// Verdicts are the review verdicts protocol v1 allows.
+var Verdicts = []string{"approve", "changes", "question", "closed"}
+
+// ParsePlate reads and validates a plate directory per protocol v1.
+// Files that are not part of the protocol are ignored.
+func ParsePlate(dir string) (*Plate, error) {
+	p := &Plate{}
+
+	// Header.
+	rawHeader, err := os.ReadFile(filepath.Join(dir, "plate.json"))
+	if err != nil {
+		return nil, errf(CodePlateHeader, "plate.json: %v", err)
+	}
+	var probe map[string]json.RawMessage
+	if err := json.Unmarshal(rawHeader, &probe); err != nil {
+		return nil, errf(CodePlateHeader, "plate.json: %v", err)
+	}
+	if _, ok := probe["version"]; !ok {
+		return nil, errf(CodePlateVersionMissing, "plate.json has no version field")
+	}
+	var hdr struct {
+		Version   int    `json:"version"`
+		Title     string `json:"title"`
+		Repo      string `json:"repo"`
+		HeadSHA   string `json:"head_sha"`
+		About     About  `json:"about"`
+		CreatedAt string `json:"created_at"`
+	}
+	if err := json.Unmarshal(rawHeader, &hdr); err != nil {
+		if pe, ok := err.(*Error); ok {
+			return nil, pe
+		}
+		return nil, errf(CodePlateHeader, "plate.json: %v", err)
+	}
+	if hdr.Version != Version {
+		return nil, errf(CodePlateVersionUnsupported, "plate version %d; this consumer supports version %d", hdr.Version, Version)
+	}
+	if hdr.Title == "" {
+		return nil, errf(CodePlateHeader, "plate.json: title must not be empty")
+	}
+	p.Header = PlateHeader{
+		Version: hdr.Version, Title: hdr.Title, Repo: hdr.Repo,
+		HeadSHA: hdr.HeadSHA, About: hdr.About, CreatedAt: hdr.CreatedAt,
+		Raw: rawHeader,
+	}
+
+	// Nibbles: n1.json, n2.json, … contiguous from 1.
+	for n := 1; ; n++ {
+		raw, err := os.ReadFile(filepath.Join(dir, fmt.Sprintf("n%d.json", n)))
+		if err != nil {
+			// A gap is an error only if a later nibble file exists.
+			if _, err2 := os.Stat(filepath.Join(dir, fmt.Sprintf("n%d.json", n+1))); err2 == nil {
+				return nil, errf(CodePlateNibblesGap, "n%d.json missing but n%d.json exists", n, n+1)
+			}
+			break
+		}
+		nib, err := parseNibble(raw, n)
+		if err != nil {
+			return nil, err
+		}
+		p.Nibbles = append(p.Nibbles, *nib)
+	}
+
+	// Lifecycle.
+	if rawDone, err := os.ReadFile(filepath.Join(dir, "done")); err == nil {
+		var done struct {
+			Total int `json:"total"`
+		}
+		if err := json.Unmarshal(rawDone, &done); err != nil {
+			return nil, errf(CodePlateSealed, "done marker: %v", err)
+		}
+		p.Total = done.Total
+		if len(p.Nibbles) > done.Total {
+			return nil, errf(CodePlateSealed, "plate sealed at %d nibbles but %d exist", done.Total, len(p.Nibbles))
+		}
+	} else {
+		p.Open = true
+	}
+
+	// Review.
+	if rawReview, err := os.ReadFile(filepath.Join(dir, "review.json")); err == nil {
+		var r Review
+		if err := json.Unmarshal(rawReview, &r); err != nil {
+			return nil, errf(CodeReviewVerdictUnknown, "review.json: %v", err)
+		}
+		if !slices.Contains(Verdicts, r.Verdict) {
+			return nil, errf(CodeReviewVerdictUnknown, "verdict %q; want one of %s", r.Verdict, strings.Join(Verdicts, ", "))
+		}
+		p.Review = &r
+	}
+
+	return p, nil
+}
+
+func parseNibble(raw []byte, n int) (*Nibble, error) {
+	var nib Nibble
+	if err := json.Unmarshal(raw, &nib); err != nil {
+		return nil, errf(CodeNibbleFile, "n%d.json: %v", n, err)
+	}
+	nib.Raw = raw
+	if len(nib.Visual) == 0 || string(nib.Visual) == "null" {
+		return nil, errf(CodeNibbleVisualMissing, "n%d.json has no visual: every nibble leads with one (map, sequence, timeline or compare)", n)
+	}
+	if err := ValidateVisual(nib.Visual); err != nil {
+		return nil, err
+	}
+	anchors := CollectAnchors(nib.Visual)
+	for _, r := range nib.Refs {
+		ref, err := ParseRef(r.Ref)
+		if err != nil {
+			return nil, err
+		}
+		if !fpRe.MatchString(r.FP) {
+			return nil, errf(CodeRefFPInvalid, "n%d.json ref %q: fp must match fp1:<64 hex>", n, r.Ref)
+		}
+		for _, h := range append(append(append([]string{}, r.Lines...), r.CtxBefore...), r.CtxAfter...) {
+			if !hashRe.MatchString(h) {
+				return nil, errf(CodeRefFPInvalid, "n%d.json ref %q: line hash %q is not 64 hex", n, r.Ref, h)
+			}
+		}
+		if ref.Anchor != "" && !slices.Contains(anchors, ref.Anchor) {
+			return nil, errf(CodeRefAnchorDangling, "n%d.json ref %q: no element %q in this nibble's visual", n, r.Ref, ref.Anchor)
+		}
+	}
+	return &nib, nil
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nibble.dev/schemas/v1/map.schema.json",
+  "title": "nibble visual: map",
+  "type": "object",
+  "required": ["kind", "title", "nodes"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "const": "map" },
+    "title": { "type": "string", "minLength": 1 },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    }
+  },
+  "$defs": {
+    "node": {
+      "type": "object",
+      "required": ["id", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+        "label": { "type": "string", "minLength": 1 },
+        "detail": { "type": "string" },
+        "group": { "type": "string" },
+        "tier": { "enum": ["edge", "service", "data"] },
+        "focus": { "type": "boolean" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": ["from", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "label": { "type": "string" },
+        "style": { "enum": ["flow", "miss", "weak"] }
+      }
+    }
+  }
+}

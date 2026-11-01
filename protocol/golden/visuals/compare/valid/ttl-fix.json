@@ -1,0 +1,6 @@
+{
+  "kind": "compare",
+  "title": "The TTL, today and with jitter",
+  "before": { "label": "today", "content": { "ref": "src/cache/prices.ts:43-45" } },
+  "after": { "label": "with jitter", "content": { "ref": "diff:src/cache/prices.ts@worktree:43-46" } }
+}

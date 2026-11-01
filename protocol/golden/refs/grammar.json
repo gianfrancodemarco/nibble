@@ -1,0 +1,32 @@
+{
+  "cases": [
+    {
+      "in": "src/cache/prices.ts:43-45 @cache the TTL lines",
+      "want": { "path": "src/cache/prices.ts", "start": 43, "end": 45, "anchor": "cache", "note": "the TTL lines" }
+    },
+    { "in": "src/a.ts:7", "want": { "path": "src/a.ts", "start": 7, "end": 7 } },
+    {
+      "in": "src/batch.ts:140-148 decremented twice when the write fails",
+      "want": { "path": "src/batch.ts", "start": 140, "end": 148, "note": "decremented twice when the write fails" }
+    },
+    {
+      "in": "diff:src/db/pool.ts@worktree:12-18",
+      "want": { "path": "src/db/pool.ts", "start": 12, "end": 18, "diff": { "worktree": true } }
+    },
+    {
+      "in": "diff:src/pay.ts@main..feat#head:5-9 @retry the new guard",
+      "want": { "path": "src/pay.ts", "start": 5, "end": 9, "anchor": "retry", "note": "the new guard", "diff": { "base": "main", "head": "feat", "side": "head" } }
+    },
+    {
+      "in": "diff:src/pay.ts@main..feat#base:5",
+      "want": { "path": "src/pay.ts", "start": 5, "end": 5, "diff": { "base": "main", "head": "feat", "side": "base" } }
+    },
+    { "in": "src/a.ts:45-43", "err": "ref.range" },
+    { "in": "src/a.ts:0", "err": "ref.range" },
+    { "in": "../secrets.env:1", "err": "ref.path" },
+    { "in": "/etc/passwd:1", "err": "ref.path" },
+    { "in": "src/a.ts", "err": "ref.syntax" },
+    { "in": "diff:src/pay.ts@main..feat:5-9", "err": "ref.syntax" },
+    { "in": "diff:src/pay.ts@main..feat#top:5-9", "err": "ref.syntax" }
+  ]
+}

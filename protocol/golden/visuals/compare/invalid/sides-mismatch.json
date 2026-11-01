@@ -1,0 +1,9 @@
+{
+  "expect": "compare.sides.mismatch",
+  "visual": {
+    "kind": "compare",
+    "title": "ref vs metrics",
+    "before": { "label": "today", "content": { "ref": "src/a.ts:1-3" } },
+    "after": { "label": "plan", "content": { "metrics": [ { "name": "p99", "value": 0.26 } ] } }
+  }
+}

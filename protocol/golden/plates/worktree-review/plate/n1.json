@@ -1,0 +1,37 @@
+{
+  "caption": "The TTL now carries jitter; everything else is untouched.",
+  "visual": {
+    "kind": "compare",
+    "title": "The TTL, today and with jitter",
+    "before": {
+      "label": "today",
+      "content": {
+        "ref": "src/cache/prices.ts:43-45"
+      }
+    },
+    "after": {
+      "label": "with jitter",
+      "content": {
+        "ref": "diff:src/cache/prices.ts@worktree:43-46"
+      }
+    }
+  },
+  "refs": [
+    {
+      "ref": "diff:src/cache/prices.ts@worktree:43-46 @after the new ttl",
+      "fp": "fp1:efb8d68877fdf8d212049418bdc1776f35bbe8b27a2cbc40c9ee9d2a3017d817",
+      "lines": [
+        "63115393b5eb224b2426b43cee08f13e6d8f6682fb084c492fda19312d051fa4",
+        "8c0c497edc237211402dc852ca1d9ec2cc72cdf1e09f30204f52cd2a4c0e47f9",
+        "62d5ce1e95f85826513f2f3d7b4bd11825319d3700d74c4baa69804133c94cc9",
+        "2db84f7e7d06be796406994b69ffc3edd621fe2af66aba944c2a3817cc8aa6af"
+      ],
+      "ctx_before": [
+        "1b15cf2c87e7124f30f20d80aa42092b68a2a631b6b5e0af27390df0b3de9989"
+      ],
+      "ctx_after": [
+        "bea4d96a96e5378708b2eb2a2a8e7e354bce6daa77a00db8a29bfd61926cf796"
+      ]
+    }
+  ]
+}

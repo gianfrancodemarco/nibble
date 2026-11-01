@@ -1,0 +1,37 @@
+{
+  "caption": "Jitter spreads the expiries; the spike becomes a plateau.",
+  "visual": {
+    "kind": "compare",
+    "title": "The TTL, today and with jitter",
+    "before": {
+      "label": "today",
+      "content": {
+        "ref": "src/cache/prices.ts:43-45"
+      }
+    },
+    "after": {
+      "label": "with jitter",
+      "content": {
+        "ref": "diff:src/cache/prices.ts@worktree:43-46"
+      }
+    }
+  },
+  "refs": [
+    {
+      "ref": "diff:src/cache/prices.ts@worktree:43-46 @after",
+      "fp": "fp1:c8695e9b4c5ee912b9f9405aee787fca4b3c05b3a9cc4a2be8ba15ebbee37219",
+      "lines": [
+        "fd877fa407ebedc25f92838b0f8f66881ffba80a187cd71ca2a06cc8f88ff69a",
+        "389853adf990fb74a8c0d650d1a23e8b433174a2f3b5a46ae536025e001c6a56",
+        "90d438bd8564d2ca41aae8907b1df5a9c9c50a64a885efdb45cff20d8ce6e856",
+        "c80cc373678dcdbc18c81841b40150f8c99464691136485932addcec159bb15a"
+      ],
+      "ctx_before": [
+        "bd01853637336ccd9022a6105f16fcbb4cb9cc5a01cb7a7a9ca4ca588ecd7182"
+      ],
+      "ctx_after": [
+        "e3bae7b8909526ef1e33eacc99242a08755a763fafda553e668349eff8014a9a"
+      ]
+    }
+  ]
+}

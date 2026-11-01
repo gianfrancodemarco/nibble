@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nibble.dev/schemas/v1/compare.schema.json",
+  "title": "nibble visual: compare",
+  "type": "object",
+  "required": ["kind", "title", "before", "after"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "const": "compare" },
+    "title": { "type": "string", "minLength": 1 },
+    "before": { "$ref": "#/$defs/side" },
+    "after": { "$ref": "#/$defs/side" }
+  },
+  "$defs": {
+    "side": {
+      "type": "object",
+      "required": ["label", "content"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "content": {
+          "type": "object",
+          "oneOf": [
+            {
+              "required": ["ref"],
+              "additionalProperties": false,
+              "properties": { "ref": { "type": "string", "minLength": 1 } }
+            },
+            {
+              "required": ["map"],
+              "additionalProperties": false,
+              "properties": { "map": { "type": "object" } }
+            },
+            {
+              "required": ["metrics"],
+              "additionalProperties": false,
+              "properties": {
+                "metrics": {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "object",
+                    "required": ["name", "value"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "name": { "type": "string", "minLength": 1 },
+                      "value": { "type": "number" },
+                      "unit": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

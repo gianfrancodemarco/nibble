@@ -1,0 +1,9 @@
+{
+  "expect": "sequence.step.dangling",
+  "visual": {
+    "kind": "sequence",
+    "title": "step to nowhere",
+    "actors": [ { "id": "api", "label": "api" } ],
+    "steps": [ { "from": "api", "to": "db", "label": "query" } ]
+  }
+}

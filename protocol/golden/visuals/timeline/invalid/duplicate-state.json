@@ -1,0 +1,12 @@
+{
+  "expect": "timeline.state.duplicate",
+  "visual": {
+    "kind": "timeline",
+    "title": "two states, one name",
+    "lanes": [ { "id": "db", "label": "db" } ],
+    "states": [
+      { "name": "fix", "events": [ { "lane": "db", "at": 0, "label": "a" } ] },
+      { "name": "fix", "events": [ { "lane": "db", "at": 0, "label": "b" } ] }
+    ]
+  }
+}

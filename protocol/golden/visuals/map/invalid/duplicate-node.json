@@ -1,0 +1,8 @@
+{
+  "expect": "map.node.duplicate",
+  "visual": {
+    "kind": "map",
+    "title": "two caches",
+    "nodes": [ { "id": "cache", "label": "cache A" }, { "id": "cache", "label": "cache B" } ]
+  }
+}

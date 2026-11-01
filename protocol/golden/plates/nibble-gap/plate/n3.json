@@ -1,0 +1,43 @@
+{
+  "caption": "c",
+  "visual": {
+    "kind": "map",
+    "title": "What a getPrice call touches",
+    "nodes": [
+      {
+        "id": "checkout",
+        "label": "checkout-api",
+        "detail": "src/api/checkout.ts",
+        "tier": "service"
+      },
+      {
+        "id": "cache",
+        "label": "price cache",
+        "detail": "ttl 3600s",
+        "tier": "data",
+        "focus": true
+      },
+      {
+        "id": "db",
+        "label": "postgres",
+        "detail": "pool 20",
+        "tier": "data"
+      }
+    ],
+    "edges": [
+      {
+        "from": "checkout",
+        "to": "cache",
+        "label": "getPrice",
+        "style": "flow"
+      },
+      {
+        "from": "cache",
+        "to": "db",
+        "label": "miss",
+        "style": "miss"
+      }
+    ]
+  },
+  "refs": []
+}

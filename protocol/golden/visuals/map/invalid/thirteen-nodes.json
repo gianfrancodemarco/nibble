@@ -1,0 +1,61 @@
+{
+  "expect": "map.nodes.budget",
+  "visual": {
+    "kind": "map",
+    "title": "thirteen nodes",
+    "nodes": [
+      {
+        "id": "n1",
+        "label": "service 1"
+      },
+      {
+        "id": "n2",
+        "label": "service 2"
+      },
+      {
+        "id": "n3",
+        "label": "service 3"
+      },
+      {
+        "id": "n4",
+        "label": "service 4"
+      },
+      {
+        "id": "n5",
+        "label": "service 5"
+      },
+      {
+        "id": "n6",
+        "label": "service 6"
+      },
+      {
+        "id": "n7",
+        "label": "service 7"
+      },
+      {
+        "id": "n8",
+        "label": "service 8"
+      },
+      {
+        "id": "n9",
+        "label": "service 9"
+      },
+      {
+        "id": "n10",
+        "label": "service 10"
+      },
+      {
+        "id": "n11",
+        "label": "service 11"
+      },
+      {
+        "id": "n12",
+        "label": "service 12"
+      },
+      {
+        "id": "n13",
+        "label": "service 13"
+      }
+    ]
+  }
+}

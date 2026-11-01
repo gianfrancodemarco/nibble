@@ -1,0 +1,8 @@
+{
+  "expect": "visual.field.unknown",
+  "visual": {
+    "kind": "map",
+    "title": "sneaky",
+    "nodes": [ { "id": "a", "label": "A", "x": 340, "color": "#ff0000" } ]
+  }
+}

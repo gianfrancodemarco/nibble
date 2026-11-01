@@ -61,8 +61,9 @@ reserved for over-budget reasons and SHALL round-trip untouched.
 ### Requirement: Plate lifecycle
 
 A plate SHALL be append-only while open: nibble files are added with
-increasing numbers and never renumbered. The empty `done` file marks the
-plate sealed; a nibble file numbered after `done` exists SHALL make the
+increasing numbers and never renumbered. The `done` file seals the plate and
+SHALL carry the final count as `{"total": N}` (an empty marker could not
+detect later additions); a nibble file numbered beyond `total` SHALL make the
 plate invalid (`plate.sealed`). `review.json` (verdict plus comments) marks
 the plate answered. A reader SHALL be able to consume a plate that has
 nibbles but no `done` yet.

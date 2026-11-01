@@ -1,0 +1,167 @@
+# nibble protocol v1
+
+The contract every nibble component is written against. Plates are plain JSON
+on disk; anything can read them without nibble installed. This document is
+normative; the fixtures under [`golden/`](golden/) are its executable
+conformance suite, run by `cli/internal/protocol`'s tests.
+
+Versioning: this is **version 1**, named by `version` in `plate.json` and by
+the `fp1:` fingerprint prefix. Consumers refuse versions they don't support;
+they never guess.
+
+## A plate on disk
+
+```
+<plate-dir>/
+  plate.json     the header (required)
+  n1.json        nibbles, numbered from 1, contiguous
+  n2.json
+  done           seals the plate: {"total": N}
+  review.json    the human's answer
+```
+
+A plate is **append-only while open**: nibbles are added with increasing
+numbers and never renumbered. A reader may consume a plate before `done`
+exists. Files not named here are ignored (`notes.txt`, editor droppings);
+unknown *fields* in protocol files are preserved by tools that rewrite them.
+Fixtures: [`golden/plates/`](golden/plates/).
+
+### plate.json
+
+| field | type | meaning |
+| --- | --- | --- |
+| `version` | int | protocol version; this document is 1 |
+| `title` | string | non-empty |
+| `repo` | string | absolute path of the repository root the plate is about |
+| `head_sha` | string | commit the working tree was at |
+| `about` | see below | what code the plate is about |
+| `created_at` | string | RFC 3339 |
+
+`about` takes one of four forms: `"code"` (the code as it is), `"worktree"`
+(the uncommitted diff), `{"pr": 1247}`, or `{"range": "main..feat"}`.
+
+### n\<N\>.json — one nibble
+
+| field | type | meaning |
+| --- | --- | --- |
+| `caption` | string | markdown; one or two sentences |
+| `visual` | object | required — a visual document (below) |
+| `view` | object | optional camera hint on the plate's canvas |
+| `because` | string | optional reason for exceeding a budget, shown to the reader |
+| `refs` | array | stored refs (below), may be empty |
+
+### done
+
+`{"total": N}` — the final nibble count. A nibble file numbered beyond
+`total` makes the plate invalid: sealing is a promise.
+
+### review.json
+
+`verdict` is one of `approve`, `changes`, `question`, `closed`, plus
+`comments`: `[{"target": "n2:cache", "text": "…"}]`, each pinned to a nibble
+and optionally an element or line.
+
+## Refs
+
+Grammar (fixtures: [`golden/refs/grammar.json`](golden/refs/grammar.json)):
+
+```
+<path>:<start>[-<end>] [@<anchor>] [note]
+diff:<path>@worktree:<start>[-<end>] [@<anchor>] [note]
+diff:<path>@<base>..<head>#<base|head>:<start>[-<end>] [@<anchor>] [note]
+```
+
+`path` is relative to `repo` and may not escape it. `1 ≤ start ≤ end`.
+`@anchor` binds the ref to an element id in the same nibble's visual. At
+write time a ref is verified against the file it names: the file must exist
+and the range must lie within it — a running agent gets a machine-readable
+error and can correct itself.
+
+### Stored form
+
+```json
+{ "ref": "src/cache/prices.ts:43-45 @cache the TTL lines",
+  "fp": "fp1:<sha256 hex>",
+  "lines": ["<hex>", "<hex>", "<hex>"],
+  "ctx_before": ["<hex>", "<hex>"],
+  "ctx_after": ["<hex>", "<hex>"] }
+```
+
+No source text is stored beyond what the agent quoted — only hashes.
+
+### Fingerprint fp1
+
+Normalization: CRLF → LF, trailing whitespace stripped per line. `fp` is
+SHA-256 over the normalized referenced lines joined with `\n`, prefixed
+`fp1:`. `lines` holds one SHA-256 per referenced line; `ctx_before` /
+`ctx_after` hold up to 2 adjacent line hashes on each side. Deterministic on
+every platform. Fixtures:
+[`golden/trust/fingerprint.json`](golden/trust/fingerprint.json).
+
+### Trust
+
+Computed against the file as it is now
+([`golden/trust/trust.json`](golden/trust/trust.json)):
+
+- **exact** — the content still matches at the original position (other
+  copies elsewhere don't matter).
+- **shifted ±N** — the content matches whole at exactly one other position;
+  when several positions match, the stored context must single one out.
+- **stale** — everything else: rewritten, gone, or ambiguous. Never a guess.
+
+## Visuals
+
+A visual declares *what things are*, never how they look: no colours,
+coordinates or sizes, and unknown fields are rejected. Four kinds in v1, one
+JSON Schema each under [`schemas/`](schemas/), draft 2020-12, fixtures under
+[`golden/visuals/`](golden/visuals/):
+
+| kind | declares | reader interaction |
+| --- | --- | --- |
+| `map` | nodes (id, label, `group`/`tier`/`focus` hints), edges | click for code, highlight paths |
+| `sequence` | actors, ordered steps (`call`/`return`/`async`, `alt`) | step through |
+| `timeline` | lanes, events (`at`, `weight`), named `states` | scrub; toggle precomputed states |
+| `compare` | `before`/`after`, same content type: `ref`, `map` or `metrics` | flip, slide |
+
+Structural budget owned by the protocol: a map holds at most **12 nodes**.
+What-ifs are **precomputed states** on a timeline — complete alternative
+event sets the reader toggles between; at most one is `default`.
+
+**Anchors**: map node ids, sequence actor/step ids, timeline lane/event ids
+and state names, and `before`/`after` are stable ids — what a ref's
+`@anchor` and a review comment's `target` point at.
+
+## Error code index
+
+Codes are the stable API; messages are not. Every code the implementation
+can return:
+
+| code | meaning |
+| --- | --- |
+| `ref.syntax` | malformed ref string |
+| `ref.range` | start/end not `1 ≤ start ≤ end` |
+| `ref.path` | absolute path, or escapes the repo |
+| `ref.file.missing` | referenced file does not exist |
+| `ref.range.beyond-eof` | range ends past the file's last line (count reported) |
+| `ref.diff.side-missing` | named diff side does not contain the path |
+| `ref.anchor.dangling` | `@anchor` names no element in the nibble's visual |
+| `ref.fp.invalid` | stored fingerprint is not `fp1:<64 hex>` (or a bad line hash) |
+| `visual.kind.unknown` | not a v1 kind |
+| `visual.field.unknown` | unknown field (usually a presentation knob) |
+| `visual.schema` | any other schema violation |
+| `map.node.duplicate` | node id declared twice |
+| `map.edge.dangling` | edge references a missing node |
+| `map.nodes.budget` | more than 12 nodes |
+| `sequence.step.dangling` | step references a missing actor |
+| `timeline.event.dangling` | event in a missing lane |
+| `timeline.state.duplicate` | two states share a name |
+| `timeline.state.default` | more than one default state |
+| `compare.sides.mismatch` | sides hold different content types |
+| `plate.header` | plate.json unreadable or a field malformed |
+| `plate.version.missing` | no `version` field |
+| `plate.version.unsupported` | version this consumer does not implement |
+| `plate.nibbles.gap` | nibble numbering has a hole |
+| `plate.sealed` | nibbles beyond the sealed `total` |
+| `nibble.file` | nibble file unreadable |
+| `nibble.visual.missing` | nibble has no visual |
+| `review.verdict.unknown` | verdict not in the allowed set |

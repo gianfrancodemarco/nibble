@@ -1,0 +1,59 @@
+{
+  "caption": "The query itself is fine; it is the **41 at once** that saturates the pool.",
+  "visual": {
+    "kind": "sequence",
+    "title": "One getPrice, on the hour",
+    "actors": [
+      {
+        "id": "api",
+        "label": "checkout-api"
+      },
+      {
+        "id": "cache",
+        "label": "price cache"
+      },
+      {
+        "id": "db",
+        "label": "postgres"
+      }
+    ],
+    "steps": [
+      {
+        "id": "q1",
+        "from": "api",
+        "to": "cache",
+        "label": "getPrice(sku)",
+        "kind": "call"
+      },
+      {
+        "id": "q2",
+        "from": "cache",
+        "to": "db",
+        "label": "SELECT price (miss)",
+        "kind": "call"
+      },
+      {
+        "id": "q3",
+        "from": "db",
+        "to": "cache",
+        "label": "row, 210ms",
+        "kind": "return"
+      }
+    ]
+  },
+  "refs": [
+    {
+      "ref": "src/db/pool.ts:12 @q2 pool max 20",
+      "fp": "fp1:72dfe7e7f9cbec0e74f083e9b440880b4a5391f9611c48eb4a6560bc4452e0bb",
+      "lines": [
+        "64b18e54ea4d5fae4d79faf3575f6b24dbfcd82d284d486dd3683302a5dc1fe6"
+      ],
+      "ctx_before": [
+        "21811f64b99a121d50a7bec8c516d0e48ca637a31c7bbcd293816331d783b044"
+      ],
+      "ctx_after": [
+        "483fdde67a83b59e1c0b149763dace6813f04be056d39794db1782d8c815a73c"
+      ]
+    }
+  ]
+}

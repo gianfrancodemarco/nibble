@@ -1,0 +1,68 @@
+{
+  "cases": [
+    {
+      "name": "untouched file is exact",
+      "original_file": "a\nb\nc\nd\ne\n",
+      "start": 3,
+      "end": 4,
+      "current_file": "a\nb\nc\nd\ne\n",
+      "want": { "level": "exact", "offset": 0 }
+    },
+    {
+      "name": "three lines inserted above shifts +3",
+      "original_file": "a\nb\nTTL = 3600\ncache.set()\ne\n",
+      "start": 3,
+      "end": 4,
+      "current_file": "x\ny\nz\na\nb\nTTL = 3600\ncache.set()\ne\n",
+      "want": { "level": "shifted", "offset": 3 }
+    },
+    {
+      "name": "line removed above shifts -1",
+      "original_file": "a\nb\nTTL = 3600\ncache.set()\ne\n",
+      "start": 3,
+      "end": 4,
+      "current_file": "b\nTTL = 3600\ncache.set()\ne\n",
+      "want": { "level": "shifted", "offset": -1 }
+    },
+    {
+      "name": "rewritten content is stale",
+      "original_file": "a\nb\nTTL = 3600\ncache.set()\ne\n",
+      "start": 3,
+      "end": 4,
+      "current_file": "a\nb\nTTL = jitter(3600)\ncache.set()\ne\n",
+      "want": { "level": "stale", "offset": 0 }
+    },
+    {
+      "name": "file gone is stale",
+      "original_file": "a\nb\nc\n",
+      "start": 2,
+      "end": 2,
+      "current_file": null,
+      "want": { "level": "stale", "offset": 0 }
+    },
+    {
+      "name": "ambiguous double match is stale",
+      "original_file": "p\nmarker\nq\n",
+      "start": 2,
+      "end": 2,
+      "current_file": "x\ny\nmarker\nz\nmarker\nw\n",
+      "want": { "level": "stale", "offset": 0 }
+    },
+    {
+      "name": "two matches but original position still holds is exact",
+      "original_file": "p\nmarker\nq\n",
+      "start": 2,
+      "end": 2,
+      "current_file": "x\nmarker\ny\nmarker\nz\n",
+      "want": { "level": "exact", "offset": 0 }
+    },
+    {
+      "name": "whitespace only edit stays exact",
+      "original_file": "a\nb\nTTL = 3600\ncache.set()\ne\n",
+      "start": 3,
+      "end": 4,
+      "current_file": "a\nb\nTTL = 3600   \ncache.set()\t\ne\n",
+      "want": { "level": "exact", "offset": 0 }
+    }
+  ]
+}

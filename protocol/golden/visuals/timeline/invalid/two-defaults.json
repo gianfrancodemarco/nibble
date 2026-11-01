@@ -1,0 +1,12 @@
+{
+  "expect": "timeline.state.default",
+  "visual": {
+    "kind": "timeline",
+    "title": "two defaults",
+    "lanes": [ { "id": "db", "label": "db" } ],
+    "states": [
+      { "name": "a", "default": true, "events": [ { "lane": "db", "at": 0, "label": "a" } ] },
+      { "name": "b", "default": true, "events": [ { "lane": "db", "at": 0, "label": "b" } ] }
+    ]
+  }
+}

@@ -512,7 +512,7 @@ nibble/
 <section id="protocol">
   <h2>§8.3 · §9</h2>
   <h3>On disk, and the CLI</h3>
-  <p class="note">A plate is a folder of small JSON files, append-only while open, readable by anything, versioned from day one. Refs store a fingerprint of the lines they point at; when a file changes underneath a plate, elements come back as <b>exact</b>, <b>shifted</b> or <b>stale</b> instead of silently wrong.</p>
+  <p class="note">A plate is a folder of small JSON files, append-only while open, readable by anything, versioned from day one. Refs store a fingerprint of the lines they point at; when a file changes underneath a plate, elements come back as <b>exact</b>, <b>shifted</b> or <b>stale</b> instead of silently wrong. <b>Shipped:</b> the protocol is specified in <a class="inline" href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">protocol/PROTOCOL.md</a>, with JSON Schemas, golden conformance fixtures, and a tested Go package implementing it.</p>
   <p class="note"><b>Decided (2026-11-01):</b> the CLI is a single static <b>Go</b> binary (small, instant start, easy installs); the reader stays TypeScript but is <b>pure presentation</b>. All protocol logic — fingerprints, ref parsing, budgets, validation, trust — lives once, in Go: the reader talks only to the Go server and receives trust badges already computed, never files to check. TS types are generated from the JSON Schema files, so nothing protocol-shaped is hand-written twice.</p>
 <pre class="cli"><span class="d"># what the agent runs — most of the time the skill does, not you</span>
 <span class="p">$</span> nibble new   --title "PR 1247 · ch 1: payments" --about pr:1247    <span class="d"># prints the plate path</span>

@@ -1,0 +1,17 @@
+{
+  "kind": "sequence",
+  "title": "One checkout request, end to end",
+  "actors": [
+    { "id": "client", "label": "browser" },
+    { "id": "api", "label": "checkout-api" },
+    { "id": "cache", "label": "price cache" },
+    { "id": "db", "label": "postgres" }
+  ],
+  "steps": [
+    { "id": "s1", "from": "client", "to": "api", "label": "POST /checkout", "kind": "call" },
+    { "id": "s2", "from": "api", "to": "cache", "label": "getPrice(sku)", "kind": "call" },
+    { "id": "s3", "from": "cache", "to": "db", "label": "SELECT price", "kind": "call", "alt": "on miss" },
+    { "id": "s4", "from": "db", "to": "cache", "label": "row", "kind": "return" },
+    { "id": "s5", "from": "api", "to": "client", "label": "200, total", "kind": "return" }
+  ]
+}

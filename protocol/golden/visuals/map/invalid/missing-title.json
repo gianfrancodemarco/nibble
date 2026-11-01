@@ -1,0 +1,4 @@
+{
+  "expect": "visual.schema",
+  "visual": { "kind": "map", "nodes": [ { "id": "a", "label": "A" } ] }
+}

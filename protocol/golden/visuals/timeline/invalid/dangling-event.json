@@ -1,0 +1,9 @@
+{
+  "expect": "timeline.event.dangling",
+  "visual": {
+    "kind": "timeline",
+    "title": "event in a missing lane",
+    "lanes": [ { "id": "cache", "label": "cache" } ],
+    "events": [ { "lane": "db", "at": 0, "label": "boom" } ]
+  }
+}

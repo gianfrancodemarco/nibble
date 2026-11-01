@@ -1,0 +1,81 @@
+{
+  "caption": "One `getPrice` call touches three things; the **cache** is where the trouble starts.",
+  "visual": {
+    "kind": "map",
+    "title": "What a getPrice call touches",
+    "nodes": [
+      {
+        "id": "checkout",
+        "label": "checkout-api",
+        "detail": "src/api/checkout.ts",
+        "tier": "service"
+      },
+      {
+        "id": "cache",
+        "label": "price cache",
+        "detail": "ttl 3600s",
+        "tier": "data",
+        "focus": true
+      },
+      {
+        "id": "db",
+        "label": "postgres",
+        "detail": "pool 20",
+        "tier": "data"
+      }
+    ],
+    "edges": [
+      {
+        "from": "checkout",
+        "to": "cache",
+        "label": "getPrice",
+        "style": "flow"
+      },
+      {
+        "from": "cache",
+        "to": "db",
+        "label": "miss",
+        "style": "miss"
+      }
+    ]
+  },
+  "refs": [
+    {
+      "ref": "src/api/checkout.ts:18-22 @checkout",
+      "fp": "fp1:c3fecd9157248c6315fe889e82cdb59c9097dc5895c5f6c00124a24ec5e907d3",
+      "lines": [
+        "a15c1fc6237dca8cc53f0e69e61cd5522b34c85372ee44f5c9c1209c08582c4c",
+        "2d1fec75d4b51093a8137b97935ba198e393a1075bacfcf6aaeb16836274b047",
+        "dac9160765207096df64840e0680bb554eed7e6316b3b5251e4db9f8caaf4c2c",
+        "cc3f56a9bfdfeb1783325c05444533f5823a60098c3995c0d90a64285a3c9ed4",
+        "885a4bc05b6611107818a58561e61ea7862ae590e29b3b3dcbbfe8ded5dc1391"
+      ],
+      "ctx_before": [
+        "fc829bdf39944e026dbb6133f9e897d31ffc61de44dcd004473df4ef534d3ebb"
+      ],
+      "ctx_after": [
+        "ee767e66c213d3611ef30f7b382ad2e3fd327f69f8c607cb36345d4cf2bed59f"
+      ]
+    },
+    {
+      "ref": "src/cache/prices.ts:40-47 @cache",
+      "fp": "fp1:4887438518b2e0f9348d35cf2eebe197efc986f789eb330e9b139b12b1f89bf6",
+      "lines": [
+        "3f32f5246a9380491132fc2276477b9f2f37d3ea97c74927cd3aa233797f48bd",
+        "55cb8b5a8322bc47f94842001d1d4d56ac2637bc161ddb4b038f3d5ad3e1b0cd",
+        "5a7294353d449e5d70e19661fbe828f5accb5ee77c54ffeb5cb12639361209e4",
+        "0ee3090c2ecd87487eb55038348d217429b3315b5b9bf330fd5f94343d25f414",
+        "2447f21fa9eeb65e4a226a8fc2f1f955d812984c92476f3fb0bc022707a137e3",
+        "574ec6df661e8f2929474df73cacd89b1c7aa10d4e20638f1dd5a152adb75b96",
+        "a6a32a1fd7c1637119073a4b992b7d35849c209c602da3cc7c1062e5942a54e2",
+        "c54bbf61479a8f5cf0d76fdc6fa6405a7dfbac3facdadbdb5b34180bee656691"
+      ],
+      "ctx_before": [
+        "44347414dbc601f5a9f2a11ca49821925e3e315c28caa223bab35733a2e8854c"
+      ],
+      "ctx_after": [
+        "0f69805233e33a4cc11f92f785764cac263f44fa0a2c2395101283b0dbd82449"
+      ]
+    }
+  ]
+}

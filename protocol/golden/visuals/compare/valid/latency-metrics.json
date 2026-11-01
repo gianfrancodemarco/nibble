@@ -1,0 +1,6 @@
+{
+  "kind": "compare",
+  "title": "What the queue buys",
+  "before": { "label": "today", "content": { "metrics": [ { "name": "p99", "value": 4.2, "unit": "s" }, { "name": "receipts delayed", "value": 0, "unit": "min" } ] } },
+  "after": { "label": "with queue", "content": { "metrics": [ { "name": "p99", "value": 0.26, "unit": "s" }, { "name": "receipts delayed", "value": 9, "unit": "min" } ] } }
+}

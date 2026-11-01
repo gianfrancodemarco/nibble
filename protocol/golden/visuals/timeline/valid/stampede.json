@@ -1,0 +1,33 @@
+{
+  "kind": "timeline",
+  "title": "Every cached price expires on the hour",
+  "lanes": [
+    { "id": "checkout", "label": "checkout-api" },
+    { "id": "cache", "label": "price cache" },
+    { "id": "db", "label": "postgres" }
+  ],
+  "states": [
+    {
+      "name": "jitter-off",
+      "label": "jitter off",
+      "default": true,
+      "events": [
+        { "id": "warm", "lane": "cache", "at": "11:58:00", "label": "41 keys cached, ttl 3600s" },
+        { "id": "expiry", "lane": "cache", "at": "12:00:00", "label": "all 41 keys expire together", "weight": 41 },
+        { "id": "stampede", "lane": "db", "at": "12:00:00", "label": "41 concurrent misses hit the pool", "weight": 847 },
+        { "id": "saturated", "lane": "db", "at": "12:00:01", "label": "pool 20 saturated" },
+        { "id": "slow", "lane": "checkout", "at": "12:00:02", "label": "p99 4.2s" }
+      ]
+    },
+    {
+      "name": "jitter-on",
+      "label": "jitter on",
+      "events": [
+        { "lane": "cache", "at": "11:58:00", "label": "41 keys cached, ttl 3600s ± 300s" },
+        { "lane": "cache", "at": "12:00:00", "label": "expiries spread over 10 min", "weight": 4 },
+        { "lane": "db", "at": "12:00:00", "label": "~75 queries/s, under the limit", "weight": 75 },
+        { "lane": "checkout", "at": "12:00:02", "label": "p99 260ms" }
+      ]
+    }
+  ]
+}

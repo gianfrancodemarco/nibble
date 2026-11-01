@@ -1,0 +1,36 @@
+{
+  "cases": [
+    {
+      "name": "crlf equals lf",
+      "file_a": "alpha\nbeta\ngamma\n",
+      "file_b": "alpha\r\nbeta\r\ngamma\r\n",
+      "start": 1,
+      "end": 3,
+      "equal": true
+    },
+    {
+      "name": "trailing whitespace ignored",
+      "file_a": "alpha\nbeta\ngamma\n",
+      "file_b": "alpha  \nbeta\t\ngamma\n",
+      "start": 1,
+      "end": 3,
+      "equal": true
+    },
+    {
+      "name": "leading whitespace matters",
+      "file_a": "alpha\n  beta\ngamma\n",
+      "file_b": "alpha\nbeta\ngamma\n",
+      "start": 1,
+      "end": 3,
+      "equal": false
+    },
+    {
+      "name": "different content differs",
+      "file_a": "ttl: 3600\n",
+      "file_b": "ttl: 3601\n",
+      "start": 1,
+      "end": 1,
+      "equal": false
+    }
+  ]
+}

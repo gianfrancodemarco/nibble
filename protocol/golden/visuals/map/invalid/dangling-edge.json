@@ -1,0 +1,9 @@
+{
+  "expect": "map.edge.dangling",
+  "visual": {
+    "kind": "map",
+    "title": "edge to nowhere",
+    "nodes": [ { "id": "api", "label": "api" } ],
+    "edges": [ { "from": "api", "to": "db" } ]
+  }
+}

@@ -60,6 +60,8 @@ h1 { font-size: 36px; letter-spacing: -.02em; margin: 0 0 8px; }
 .stage .goal { color: var(--muted); font-size: 14.5px; margin: 0 0 14px; max-width: 620px; }
 .items { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; max-width: 760px; }
 .it { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 13px; font-size: 13.5px; }
+.it.done { border-color: color-mix(in srgb, var(--ok) 55%, var(--border)); }
+.it.done b::before { content: "✓ "; color: var(--ok); }
 .it b { font-weight: 600; }
 .it span { color: var(--muted); }
 .note { font-size: 13px; color: var(--muted); margin-top: 14px; font-style: italic; }
@@ -89,11 +91,11 @@ footer a { color: var(--muted); }
 </div>
 
 <div class="stage now">
-  <span class="tag">next · v0.1</span>
+  <span class="tag">in progress · v0.1</span>
   <h2>The MVP: PR review, worktree review, explain</h2>
   <p class="goal">The full loop working end to end in a browser tab, dogfooded on real PRs.</p>
   <div class="items">
-    <div class="it"><b>Protocol v1</b> <span>— plate format, visual JSON Schemas, fingerprint &amp; trust rules, golden files</span></div>
+    <div class="it done"><b>Protocol v1</b> <span>— <a href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">specified</a>, with schemas, golden fixtures and a tested Go package</span></div>
     <div class="it"><b>Go CLI</b> <span>— new · add · done · serve; validation with fix-it messages; budgets with --because</span></div>
     <div class="it"><b>Diff refs</b> <span>— --about worktree and pr:N, validated against both sides</span></div>
     <div class="it"><b>Reader</b> <span>— one canvas, camera moves, code drawer, comments, live SSE</span></div>

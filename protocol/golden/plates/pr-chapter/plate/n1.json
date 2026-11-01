@@ -1,0 +1,61 @@
+{
+  "caption": "The middleware is new; its callers did not change.",
+  "visual": {
+    "kind": "map",
+    "title": "What a getPrice call touches",
+    "nodes": [
+      {
+        "id": "checkout",
+        "label": "checkout-api",
+        "detail": "src/api/checkout.ts",
+        "tier": "service"
+      },
+      {
+        "id": "cache",
+        "label": "price cache",
+        "detail": "ttl 3600s",
+        "tier": "data",
+        "focus": true
+      },
+      {
+        "id": "db",
+        "label": "postgres",
+        "detail": "pool 20",
+        "tier": "data"
+      }
+    ],
+    "edges": [
+      {
+        "from": "checkout",
+        "to": "cache",
+        "label": "getPrice",
+        "style": "flow"
+      },
+      {
+        "from": "cache",
+        "to": "db",
+        "label": "miss",
+        "style": "miss"
+      }
+    ]
+  },
+  "refs": [
+    {
+      "ref": "diff:src/pay/retry.ts@main..feat#head:5-9 @cache",
+      "fp": "fp1:6c8dafc7a3574a4fd9b72afa37927cddb084ae34e4954495a12243a22c9c0579",
+      "lines": [
+        "a23ae74c5be76436e58e36212fb6b9a167760c2b4734fd1a28010734bedf17f9",
+        "ea85ef18d465fb329c2640817635253e6b368e7bfae8a7488360a7fda196327f",
+        "15ac8cec0b7b1b29e548ed970ff160e4ac517419326b35bd5ca5837ebbba7f00",
+        "2ee31ce25acae4b234aadcc5f3391e0bf5bacc41165245d686f93ee317d25c03",
+        "28a5b51bff4214ab0c6c52fcb66d5c05fa3c19b4c5704140fa397432a6bb2fe0"
+      ],
+      "ctx_before": [
+        "44dbc36c9303d6acc3ed2f3e53dc77c5defc79acb446adf78efd2a9ffd17089d"
+      ],
+      "ctx_after": [
+        "3f28dcdfb2446d211d1685d9766dddc25c5227820b5bff977d5795d56c8dbad1"
+      ]
+    }
+  ]
+}

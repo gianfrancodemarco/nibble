@@ -1,0 +1,75 @@
+{
+  "caption": "Every cached price expires **on the hour**, so every miss hits Postgres in the same second.",
+  "visual": {
+    "kind": "timeline",
+    "title": "Every key expires on the hour",
+    "lanes": [
+      {
+        "id": "cache",
+        "label": "price cache"
+      },
+      {
+        "id": "db",
+        "label": "postgres"
+      }
+    ],
+    "states": [
+      {
+        "name": "jitter-off",
+        "label": "jitter off",
+        "default": true,
+        "events": [
+          {
+            "id": "expiry",
+            "lane": "cache",
+            "at": "12:00:00",
+            "label": "41 keys expire together",
+            "weight": 41
+          },
+          {
+            "id": "stampede",
+            "lane": "db",
+            "at": "12:00:00",
+            "label": "41 misses hit the pool",
+            "weight": 847
+          }
+        ]
+      },
+      {
+        "name": "jitter-on",
+        "label": "jitter on",
+        "events": [
+          {
+            "lane": "cache",
+            "at": "12:00:00",
+            "label": "expiries spread over 10 min",
+            "weight": 4
+          },
+          {
+            "lane": "db",
+            "at": "12:00:00",
+            "label": "~75 queries/s",
+            "weight": 75
+          }
+        ]
+      }
+    ]
+  },
+  "refs": [
+    {
+      "ref": "src/cache/prices.ts:43-45 @stampede the flat ttl",
+      "fp": "fp1:0b3909ff3284ad273933819488ac6e4efc167cf30a9ea81090482471f85d5d41",
+      "lines": [
+        "cf8198217d97421e68fcf1b8ed97a95e6c16b67e74b5440e5bf16cec61d324b5",
+        "3ecd270ea653a9bb9e71dbeeb36fdfe1f03b016588e33b51ced15226ed37f266",
+        "657c6aa9e6423f7155eb65d2e1d2dd3c19fa415c10a1d1f91c4793510298b442"
+      ],
+      "ctx_before": [
+        "6f8fecf4ac591b03489089508fa14dfc15e1a90ab46b2e27edb92c9ad4d74404"
+      ],
+      "ctx_after": [
+        "a9ce4021befb051f6f7f66cee9e4ad50731e71dcb3ba7df37790da10e3c7115c"
+      ]
+    }
+  ]
+}
