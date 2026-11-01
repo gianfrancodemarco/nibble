@@ -74,6 +74,24 @@ pre.cli { background: #171512; color: #e7e1d8; border-radius: 14px; padding: 16p
 pre.cli .p { color: #ff8a3d; } pre.cli .d { color: #8f877c; } pre.cli .y { color: #f0c674; } pre.cli .g { color: #8fd19e; }
 footer { border-top: 1px solid var(--border); margin-top: 30px; padding-top: 20px; font-size: 13px; color: var(--muted); display: flex; gap: 8px 22px; flex-wrap: wrap; }
 footer a { color: var(--muted); }
+
+.layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 44px; align-items: start; }
+aside.toc { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
+.toc .head { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin: 0 0 8px 12px; }
+.toc a { display: block; color: var(--muted); text-decoration: none; padding: 5px 12px; border-left: 2px solid var(--border); }
+.toc a:hover { color: var(--text); }
+.toc a.on { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
+.toc a.sub { padding-left: 26px; font-size: 12.5px; }
+section { scroll-margin-top: 20px; }
+h4 { scroll-margin-top: 20px; }
+@media (max-width: 880px) {
+  .layout { grid-template-columns: 1fr; gap: 0; }
+  aside.toc { position: static; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 28px; padding-top: 0; }
+  .toc .head { display: none; }
+  .toc a { border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; background: var(--surface); }
+  .toc a.sub { display: none; }
+  .toc a.on { border-color: var(--accent); }
+}
 </style>
 </head>
 <body>
@@ -92,6 +110,21 @@ footer a { color: var(--muted); }
 <h1>User guide</h1>
 <p class="lede">Everything you do with nibble, from asking to answering. The short version: <b>your agent runs nibble; you just read, poke and reply.</b></p>
 <div class="banner">⚠ nibble is <b>pre-release</b> — v0.1 is in progress. This guide describes the designed behaviour and is kept current as pieces ship; anything not yet real is marked. There is no installer yet; follow the <a href="roadmap.html">roadmap</a>.</div>
+
+<div class="layout">
+<aside class="toc" aria-label="On this page">
+  <p class="head">On this page</p>
+  <a href="#start">Getting started</a>
+  <a href="#arrive">A plate arrives</a>
+  <a href="#read">Reading a plate</a>
+  <a class="sub" href="#keys">Keys</a>
+  <a class="sub" href="#visuals">The visuals</a>
+  <a class="sub" href="#dial">The detail dial</a>
+  <a class="sub" href="#trust">Trust badges</a>
+  <a href="#answer">Answering</a>
+  <a href="#agents">For agents</a>
+</aside>
+<div class="content">
 
 <section id="start">
   <h2>01</h2>
@@ -123,7 +156,7 @@ footer a { color: var(--muted); }
   <h3>Reading a plate</h3>
   <p>The canvas takes most of the window; the caption sits below it; code lives in a drawer. Moving between nibbles glides the camera across <b>one shared map</b>, so you build a spatial picture as you go. Try the <a href="design/mockups.html">live mockup</a>.</p>
 
-  <h4>Keys</h4>
+  <h4 id="keys">Keys</h4>
   <table class="keys">
     <thead><tr><th>key</th><th>does</th></tr></thead>
     <tbody>
@@ -138,7 +171,7 @@ footer a { color: var(--muted); }
     </tbody>
   </table>
 
-  <h4>What each visual lets you do</h4>
+  <h4 id="visuals">What each visual lets you do</h4>
   <div class="cards">
     <div class="card"><b>map</b><p>Click a node → its code in the drawer. Highlight a path. Collapse a group.</p></div>
     <div class="card"><b>sequence</b><p>Step message by message; branches (<i>alt</i>) show where it could have gone.</p></div>
@@ -146,10 +179,10 @@ footer a { color: var(--muted); }
     <div class="card"><b>compare</b><p>Flip or slide between before and after: code, a map, or metrics.</p></div>
   </div>
 
-  <h4>The detail dial</h4>
+  <h4 id="dial">The detail dial</h4>
   <p>Every plate reads at three depths on the same canvas: <b>overview</b> (the shape, one sentence — enough to decide whether to care), <b>standard</b> (what a plate opens at), <b>deep</b> (per-element numbers and edge cases, generated on demand <span class="soon">v0.2</span>). A ninety-second review and a ten-minute one are the same plate.</p>
 
-  <h4>Trust badges</h4>
+  <h4 id="trust">Trust badges</h4>
   <p>Code moves while plates sit. Every ref re-checks against the file as it is now:</p>
   <div class="cards">
     <div class="card"><b><span class="trust ok">exact</span></b><p>The lines are exactly where the agent said.</p></div>
@@ -187,6 +220,9 @@ footer a { color: var(--muted); }
   </div>
 </section>
 
+</div>
+</div>
+
 <footer>
   <span>Apache-2.0</span>
   <a href="https://github.com/gianfrancodemarco/nibble">github.com/gianfrancodemarco/nibble</a>
@@ -204,6 +240,18 @@ footer a { color: var(--muted); }
     root.setAttribute('data-theme', next);
     try { localStorage.setItem('nibble-theme', next); } catch (e) {}
   });
+
+  // Sidebar scrollspy: highlight the section (or subsection) in view.
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var targets = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); }).filter(Boolean);
+  function spy() {
+    var line = window.scrollY + 110, current = targets[0];
+    targets.forEach(function (el) { if (el.offsetTop <= line) current = el; });
+    links.forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + current.id); });
+  }
+  window.addEventListener('scroll', spy, { passive: true });
+  window.addEventListener('resize', spy);
+  spy();
 })();
 </script>
 </body>
