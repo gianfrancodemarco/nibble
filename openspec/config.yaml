@@ -1,0 +1,28 @@
+schema: spec-driven
+
+context: |
+  nibble is pre-code. The PRD is docs/PRD.html (single source, interactive HTML);
+  its decision log is binding: Go CLI owns ALL protocol logic (ref parsing,
+  fingerprints, budgets, validation, trust); the TypeScript reader is pure
+  presentation with types generated from the JSON Schemas; plates live in
+  ~/.nibble/plates; protocol is versioned plain JSON; no deck interop.
+  Monorepo layout: cli/ (Go), reader/ (TS SPA), skill/, protocol/ (spec,
+  schemas, golden files), pill/ (Tauri, v1), docs/ (site, GitHub Pages
+  serves main:/docs — pushes to docs/ go live immediately).
+  Development is strictly TDD: no production code without a failing test first.
+  Worked examples are first-class deliverables: real plate/visual JSON fixtures
+  double as the golden conformance suite.
+
+rules:
+  proposal:
+    - Always state what is out of scope
+  tasks:
+    - Order tasks test-first; each behavior task starts red (failing test), then green, then refactor
+    - Include worked example fixtures (real plate/visual JSON) as explicit deliverables
+    - End every change with a task updating the affected site pages in docs/
+
+operations:
+  apply:
+    guidance:
+      - Run the full test suite after each task group, not only at the end
+      - Before finishing, update docs/ (site) pages affected by the change
