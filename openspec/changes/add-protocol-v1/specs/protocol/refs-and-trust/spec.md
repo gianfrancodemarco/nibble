@@ -9,30 +9,48 @@ computation against the code as it is now.
 
 ## ADDED Requirements
 
-### Requirement: Ref grammar
+### Requirement: Plain ref grammar
 
-A ref SHALL be written as `<path>:<start>[-<end>]` with an optional trailing
-note, where `path` is relative to the plate's `repo`, and `1 ≤ start ≤ end`.
-A diff ref SHALL be written as `diff:<path>@<side-spec>:<start>[-<end>]`
-where `<side-spec>` is `worktree`, or `<base>..<head>` followed by `#base` or
-`#head` naming which side the lines are on. An optional `@<anchor>` suffix
-binds the ref to a visual element id. Parsing SHALL reject malformed refs
-with error code `ref.syntax`, reversed ranges with `ref.range`, and absolute
-or escaping paths (`/…`, `..`) with `ref.path`.
+A ref SHALL be written as `<path>:<start>[-<end>]`, optionally followed by
+`@<anchor>` (binding it to a visual element id) and a trailing note, where
+`path` is relative to the plate's `repo` and `1 ≤ start ≤ end`.
 
 #### Scenario: Plain ref with range and anchor
 - **WHEN** parsing `src/cache/prices.ts:43-45 @cache the TTL lines`
 - **THEN** it yields path `src/cache/prices.ts`, lines 43–45, anchor `cache`,
   note `the TTL lines`
 
+#### Scenario: Reversed range rejected
+- **WHEN** parsing `src/a.ts:45-43`
+- **THEN** parsing fails with error code `ref.range`
+
+#### Scenario: Escaping path rejected
+- **WHEN** parsing `../secrets.env:1` or `/etc/passwd:1`
+- **THEN** parsing fails with error code `ref.path`
+
+#### Scenario: Malformed ref rejected
+- **WHEN** parsing `src/a.ts` (no line part)
+- **THEN** parsing fails with error code `ref.syntax`
+
+### Requirement: Diff ref grammar
+
+A diff ref SHALL be written as `diff:<path>@<side-spec>:<start>[-<end>]`,
+where `<side-spec>` is `worktree`, or `<base>..<head>` followed by `#base`
+or `#head` naming which side the lines are on. Anchor and note suffixes
+apply as for plain refs.
+
 #### Scenario: Worktree diff ref
 - **WHEN** parsing `diff:src/db/pool.ts@worktree:12-18`
 - **THEN** it yields a diff ref against the uncommitted working tree,
   lines 12–18
 
-#### Scenario: Escaping path rejected
-- **WHEN** parsing `../secrets.env:1`
-- **THEN** parsing fails with error code `ref.path`
+#### Scenario: Range diff ref with side
+- **WHEN** parsing `diff:src/pay.ts@main..feat#head:5-9`
+- **THEN** it yields a diff ref on the `head` side of `main..feat`, lines 5–9
+
+#### Scenario: Range diff ref without side rejected
+- **WHEN** parsing `diff:src/pay.ts@main..feat:5-9`
+- **THEN** parsing fails with error code `ref.syntax`
 
 ### Requirement: Write-time validation
 
