@@ -18,14 +18,14 @@
   <a class="lk" href="../PRD.html">PRD</a>
   <a class="lk" href="../roadmap.html">Roadmap</a>
   <a class="lk" href="../design/mockups.html">Mockups</a>
-  <a class="lk" href="index.html" aria-current="page">Guide</a>
+  <a class="lk" href="index.html" aria-current="page">Docs</a>
   <button class="chipbtn" id="themeBtn" type="button">Theme</button>
   <a class="gh" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
 </nav>
 
 <div class="layout">
 <aside class="toc" aria-label="Guide chapters">
-  <p class="head">Guide</p>
+  <p class="head">Docs</p>
   <a href="index.html">Getting started</a>
   <a href="receiving.html">A plate arrives</a>
   <a href="reading.html">Reading a plate</a>
@@ -38,8 +38,9 @@
 <p>Two ways to send a comment:</p>
 <div class="cards">
   <div class="card"><b>Ask now</b><p>Ends the agent's wait immediately with your question. The answer comes back threaded into the same plate.</p></div>
-  <div class="card"><b>Hold for review</b><p>Keeps the comment until you press <kbd>s</kbd> and choose a verdict: <b>approve</b>, <b>changes</b>, or <b>discuss</b>.</p></div>
+  <div class="card"><b>Hold for review</b><p>Keeps the comment until you send your review with a verdict: <b>approve</b>, <b>changes</b>, <b>question</b> or <b>close</b>.</p></div>
 </div>
+<p><b>Choosing a verdict is a draft, sending is the commitment.</b> Clicking approve (or any verdict) only selects it — the plate stays open, the agent keeps waiting, you can change your mind or add comments. One explicit <b>send review</b> click posts it; that single deliberate act is what ends the agent’s wait, as its exit code. No stray click ever closes a review.</p>
 <p>In a PR review, check the end of the plate before approving: the <b>not-shown ledger</b> lists every hunk of the diff no nibble referenced, and the map badges <b>dependents the plate never visited</b> — callers, tests, configs of changed code. That's where agent-written PRs go wrong, and both are open to comments like anything else.</p>
 <p>Comments travel back pinned to what you selected, each carrying its trust level, so the agent knows exactly what you meant even if the code moved.</p>
 <nav class="pager">

@@ -1,1 +1,9 @@
-{"verdict":"changes","comments":[{"target":"n2:cache","text":"callers in billing/ also read this"}]}
+{
+  "verdict": "changes",
+  "comments": [
+    {
+      "target": "n2:cache",
+      "text": "callers in billing/ also read this"
+    }
+  ]
+}

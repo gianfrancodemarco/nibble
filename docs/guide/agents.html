@@ -18,20 +18,21 @@
   <a class="lk" href="../PRD.html">PRD</a>
   <a class="lk" href="../roadmap.html">Roadmap</a>
   <a class="lk" href="../design/mockups.html">Mockups</a>
-  <a class="lk" href="index.html" aria-current="page">Guide</a>
+  <a class="lk" href="index.html" aria-current="page">Docs</a>
   <button class="chipbtn" id="themeBtn" type="button">Theme</button>
   <a class="gh" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
 </nav>
 
 <div class="layout">
 <aside class="toc" aria-label="Guide chapters">
-  <p class="head">Guide</p>
+  <p class="head">Docs</p>
   <a href="index.html">Getting started</a>
   <a href="receiving.html">A plate arrives</a>
   <a href="reading.html">Reading a plate</a>
   <a href="answering.html">Answering</a>
   <a href="agents.html" aria-current="page">For agents</a>
   <a class="sub" href="#cli">The CLI</a>
+  <a class="sub" href="#serve">serve, fully</a>
   <a class="sub" href="#rules">The rules</a>
 </aside>
 <div class="content">
@@ -46,7 +47,27 @@
 <span class="p">$</span> nibble done  &lt;plate&gt;                                              <span class="d"># seals it; coverage gaps reported</span>
 <span class="p">$</span> nibble lint  &lt;visual.json&gt;                                        <span class="d"># validate a visual standalone</span>
 <span class="p">$</span> nibble serve &lt;plate&gt;                                              <span class="d"># blocks; exits with your review</span></pre>
+<p><span class="mono">serve</span> prints one <span class="mono">reader: http://127.0.0.1:…</span> line to stderr — the agent relays that link to the human and then sleeps until the verdict comes back as its exit code.</p>
 <p><b>Exit codes are the contract:</b> 0 ok · 1 validation error · 2 usage — and <span class="mono">serve</span> encodes the verdict: 0 approve · 2 changes · 3 question · 4 closed · 5 timeout. Full reference in <a href="https://github.com/gianfrancodemarco/nibble/blob/main/cli/README.md">cli/README.md</a>.</p>
+
+<h4 id="serve">serve, fully</h4>
+<pre class="cli"><span class="p">$</span> nibble serve &lt;plate&gt; [--timeout 2h] [--addr 127.0.0.1:4000] [--no-ui] [--json]</pre>
+<p>While it blocks, <span class="mono">serve</span> hosts the reader on loopback (random port unless <span class="mono">--addr</span> pins one; <span class="mono">--no-ui</span> waits headless). The review can come from the reader or from any tool writing <span class="mono">review.json</span> — one code path either way. Behind the page sits a small JSON API; the reader is pure presentation and all protocol work stays server-side:</p>
+<table class="keys">
+  <thead><tr><th>endpoint</th><th>does</th></tr></thead>
+  <tbody>
+    <tr><td><span class="mono">GET /api/plate</span></td><td>header + nibbles, every ref with trust already computed against the code as it is now</td></tr>
+    <tr><td><span class="mono">GET /api/code?n=2&amp;ref=0</span></td><td>the drawer: referenced lines ±3 context, diff sides resolved through git, at the trust-resolved position</td></tr>
+    <tr><td><span class="mono">POST /api/review</span></td><td>writes <span class="mono">review.json</span> atomically; a plate takes one review (<span class="mono">409 review.exists</span>)</td></tr>
+    <tr><td><span class="mono">GET /api/events</span></td><td>SSE — <span class="mono">nibble</span>, <span class="mono">sealed</span>, <span class="mono">review</span> — so an open reader follows a plate still being written</td></tr>
+  </tbody>
+</table>
+<p><b>Serving degrades per ref</b>, by what the machine has. The plate’s <span class="mono">repo</span> may be absolute or relative to the plate folder:</p>
+<div class="cards">
+  <div class="card"><b>git repo</b><p>Everything: live trust and code for every ref kind.</p></div>
+  <div class="card"><b>just files</b><p>Plain and <span class="mono">@worktree</span> refs fully verified; <span class="mono">base..head</span> refs read <b>unverified</b> (they need git).</p></div>
+  <div class="card"><b>nothing</b><p>Captions and visuals still open, every ref unverified — and the review loop still works.</p></div>
+</div>
 
 <h4 id="rules">The rules</h4>
 <div class="cards">

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nibble.dev/schemas/v1/timeline.schema.json",
+  "$id": "https://raw.githubusercontent.com/gianfrancodemarco/nibble/main/protocol/schemas/timeline.schema.json",
   "title": "nibble visual: timeline",
   "type": "object",
   "required": ["kind", "title", "lanes"],

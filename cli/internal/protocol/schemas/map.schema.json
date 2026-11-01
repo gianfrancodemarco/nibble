@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://nibble.dev/schemas/v1/map.schema.json",
+  "$id": "https://raw.githubusercontent.com/gianfrancodemarco/nibble/main/protocol/schemas/map.schema.json",
   "title": "nibble visual: map",
   "type": "object",
   "required": ["kind", "title", "nodes"],

@@ -29,11 +29,11 @@ func review(verdict string) string {
 func TestRunServe(t *testing.T) {
 	repo := gitInit(t)
 
-	t.Run("pre-existing review prints and exits", func(t *testing.T) {
+	t.Run("pre-existing review prints and exits headless", func(t *testing.T) {
 		ctx, plate := sealedPlate(t, repo)
 		writeFile(t, plate, "review.json", review("approve"))
 		start := time.Now()
-		code, out, _ := run(t, ctx, "serve", plate)
+		code, out, _ := run(t, ctx, "serve", plate, "--no-ui")
 		if code != 0 {
 			t.Fatalf("exit = %d, want 0 (approve)", code)
 		}
@@ -68,7 +68,7 @@ func TestRunServe(t *testing.T) {
 		for verdict, want := range map[string]int{"question": 3, "closed": 4} {
 			ctx, plate := sealedPlate(t, repo)
 			writeFile(t, plate, "review.json", review(verdict))
-			if code, _, _ := run(t, ctx, "serve", plate); code != want {
+			if code, _, _ := run(t, ctx, "serve", plate, "--no-ui"); code != want {
 				t.Fatalf("%s: exit = %d, want %d", verdict, code, want)
 			}
 		}
@@ -88,7 +88,7 @@ func TestRunServe(t *testing.T) {
 	t.Run("json output", func(t *testing.T) {
 		ctx, plate := sealedPlate(t, repo)
 		writeFile(t, plate, "review.json", review("changes"))
-		code, out, _ := run(t, ctx, "serve", plate, "--json")
+		code, out, _ := run(t, ctx, "serve", plate, "--json", "--no-ui")
 		if code != 2 {
 			t.Fatalf("exit = %d", code)
 		}

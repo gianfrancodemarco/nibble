@@ -175,7 +175,7 @@ pre.cli .p { color: #ff8a3d; } pre.cli .d { color: #8f877c; } pre.cli .g { color
   <a class="lk" href="PRD.html" aria-current="page">PRD</a>
   <a class="lk" href="roadmap.html">Roadmap</a>
   <a class="lk" href="design/mockups.html">Mockups</a>
-  <a class="lk" href="guide/index.html">Guide</a>
+  <a class="lk" href="guide/index.html">Docs</a>
   <button class="chipbtn" id="themeBtn" type="button">Theme</button>
   <a class="gh" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
 </header>
@@ -514,7 +514,7 @@ nibble/
   <h2>§8.3 · §9</h2>
   <h3>On disk, and the CLI</h3>
   <p class="note">A plate is a folder of small JSON files, append-only while open, readable by anything, versioned from day one. Refs store a fingerprint of the lines they point at; when a file changes underneath a plate, elements come back as <b>exact</b>, <b>shifted</b> or <b>stale</b> instead of silently wrong. <b>Shipped:</b> the protocol is specified in <a class="inline" href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">protocol/PROTOCOL.md</a>, with JSON Schemas, golden conformance fixtures, and a tested Go package implementing it.</p>
-  <p class="note"><b>Decided (2026-11-01):</b> the CLI is a single static <b>Go</b> binary (small, instant start, easy installs); the reader stays TypeScript but is <b>pure presentation</b>. All protocol logic — fingerprints, ref parsing, budgets, validation, trust — lives once, in Go: the reader talks only to the Go server and receives trust badges already computed, never files to check. TS types are generated from the JSON Schema files, so nothing protocol-shaped is hand-written twice.</p>
+  <p class="note"><b>Decided (2026-11-01):</b> the CLI is a single static <b>Go</b> binary (small, instant start, easy installs); the reader stays TypeScript but is <b>pure presentation</b>. All protocol logic — fingerprints, ref parsing, budgets, validation, trust — lives once, in Go: the reader talks only to the Go server and receives trust badges already computed, never files to check. TS types are generated from the JSON Schema files, so nothing protocol-shaped is hand-written twice. <b>Shipped:</b> the Go CLI (new · add · done · lint · serve) and the reader shell — <span class="mono">serve</span> hosts the reader on loopback, computes trust per request, streams new nibbles over SSE and turns the submitted review into its exit code. Per-kind visual rendering is the next item.</p>
 <pre class="cli"><span class="d"># what the agent runs — most of the time the skill does, not you</span>
 <span class="p">$</span> nibble new   --title "PR 1247 · ch 1: payments" --about pr:1247    <span class="d"># prints the plate path</span>
 <span class="p">$</span> nibble add   &lt;plate&gt; --caption "…" --visual timeline.json \
@@ -582,7 +582,7 @@ nibble/
     <div class="card"><b>CLI: Go</b><p>Single static binary holding all protocol logic; the reader is pure presentation, its types generated from the schemas.</p></div>
     <div class="card"><b>Plates: ~/.nibble</b><p>Global, keyed by repo + commit; repos stay clean. <span class="mono">nibble export</span> writes a chosen plate into a repo to share it.</p></div>
     <div class="card"><b>No deck interop</b><p>Own format only (2026-10-31); deck credited for the mechanics we keep.</p></div>
-    <div class="card"><b>Still open: the name's homes</b><p>npm and crates.io are taken, but a Go binary doesn't need either (brew tap + install script). Left to pick: GitHub repo and domain.</p></div>
+    <div class="card"><b>The name's home: GitHub</b><p>npm and crates.io are taken, but a Go binary doesn't need either. nibble lives at <span class="mono">github.com/gianfrancodemarco/nibble</span> — repo, Pages site, go install, future brew tap. No domain (2026-11-01).</p></div>
   </div>
 
 </section>

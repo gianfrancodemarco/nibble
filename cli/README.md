@@ -23,9 +23,44 @@ nibble add   <plate> --caption <md> --visual <file.json> [--ref <ref>]...
 
 nibble done  <plate>          # seals: writes {"total": N}; idempotent
 nibble lint  <visual.json>    # validate a visual standalone
-nibble serve <plate> [--timeout <dur>] [--json]
-             # blocks until review.json appears, prints the review,
-             # exits with the verdict's code — this is what wakes the agent
+nibble serve <plate> [--timeout <dur>] [--addr <host:port>] [--no-ui] [--json]
+             # serves the reader on 127.0.0.1 (random port; the one
+             # "reader: http://…" line goes to stderr) and blocks until
+             # review.json appears — submitted in the reader or written by
+             # any tool — then prints the review and exits with the
+             # verdict's code. That exit is what wakes the agent.
+             # --no-ui waits headless; --addr pins the port (loopback only)
+```
+
+## The reader
+
+`serve` embeds the reader UI (a single static bundle built from
+[`reader/`](../reader/)) and a JSON API that keeps every protocol decision
+server-side — the UI receives computed trust, never hashes:
+
+| endpoint | does |
+| --- | --- |
+| `GET /api/plate` | header + nibbles, each ref with trust (`exact` / `shifted ±N` / `stale`) computed against the code as it is now |
+| `GET /api/code?n=2&ref=0` | the drawer: referenced lines ±3 context from the live repo (diff sides via git), at the trust-resolved position |
+| `POST /api/review` | writes `review.json` atomically; `409 review.exists` if the plate already has one |
+| `GET /api/events` | SSE: `nibble`, `sealed`, `review` — an open reader follows a plate still being written |
+
+Serving degrades per ref by what is available: a full git repo serves
+everything; a plain directory of files (the plate’s `repo` may be relative
+to the plate dir) verifies plain and `@worktree` refs and marks
+`base..head` refs `unverified`; a missing root serves captions and visuals
+with every ref `unverified` — the review loop works regardless.
+
+A plate that already has a review serves read-only (review shown, input
+locked) until interrupted or `--timeout`, exiting with the verdict's code;
+`--no-ui` keeps the print-and-exit path for scripts. So the bundled example
+plate works in place:
+
+```sh
+nibble serve protocol/golden/plates/cli-authored/plate   # read-only: it ships reviewed
+# to answer it yourself, serve an unreviewed copy:
+tmp=$(mktemp -d) && cp -R protocol/golden/plates/cli-authored/* "$tmp" && rm "$tmp/plate/review.json"
+nibble serve "$tmp/plate"
 ```
 
 ## Budgets

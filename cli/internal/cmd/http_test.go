@@ -1,0 +1,496 @@
+package cmd
+
+import (
+	"bufio"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+)
+
+// apiPlate builds a plate with three refs — a worktree-trusted plain ref, a
+// committed diff-side ref, and a plain ref we will invalidate — and returns
+// a test server over it.
+func apiFixture(t *testing.T) (repo, plate string, ts *httptest.Server) {
+	t.Helper()
+	repo = gitInit(t)
+	visual := writeFile(t, t.TempDir(), "map.json", testMap)
+	ctx, plate := newTestPlate(t, repo)
+
+	adds := [][]string{
+		{"add", plate, "--caption", "The **cache** sets the TTL.",
+			"--visual", visual, "--ref", "src/prices.ts:3-4 @cache the ttl lines"},
+		{"add", plate, "--caption", "The pool was doubled on `main`.",
+			"--visual", visual,
+			"--ref", "diff:src/pool.ts@main..feat#head:1",
+			"--ref", "src/pool.ts:2 @db idle timeout"},
+	}
+	for _, a := range adds {
+		if code, _, errb := run(t, ctx, a...); code != 0 {
+			t.Fatalf("%v: %s", a[:2], errb)
+		}
+	}
+
+	api, err := newAPIServer(plate)
+	if err != nil {
+		t.Fatalf("newAPIServer: %v", err)
+	}
+	ts = httptest.NewServer(api.handler())
+	t.Cleanup(ts.Close)
+	return repo, plate, ts
+}
+
+func getJSON(t *testing.T, url string, into any) int {
+	t.Helper()
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if err := json.NewDecoder(resp.Body).Decode(into); err != nil {
+		t.Fatalf("decode %s: %v", url, err)
+	}
+	return resp.StatusCode
+}
+
+type apiPlate struct {
+	Title   string          `json:"title"`
+	Open    bool            `json:"open"`
+	Total   int             `json:"total"`
+	Review  *map[string]any `json:"review"`
+	Nibbles []struct {
+		N       int             `json:"n"`
+		Caption string          `json:"caption"`
+		Visual  json.RawMessage `json:"visual"`
+		Refs    []struct {
+			Ref    string   `json:"ref"`
+			Path   string   `json:"path"`
+			Start  int      `json:"start"`
+			End    int      `json:"end"`
+			Anchor string   `json:"anchor"`
+			Trust  apiTrust `json:"trust"`
+		} `json:"refs"`
+	} `json:"nibbles"`
+}
+
+func TestAPIPlate(t *testing.T) {
+	repo, _, ts := apiFixture(t)
+
+	var p apiPlate
+	if code := getJSON(t, ts.URL+"/api/plate", &p); code != 200 {
+		t.Fatalf("status = %d", code)
+	}
+	if p.Title != "t" || !p.Open || len(p.Nibbles) != 2 {
+		t.Fatalf("plate = %+v", p)
+	}
+	n1, n2 := p.Nibbles[0], p.Nibbles[1]
+	if n1.N != 1 || n1.Refs[0].Path != "src/prices.ts" || n1.Refs[0].Start != 3 ||
+		n1.Refs[0].End != 4 || n1.Refs[0].Anchor != "cache" {
+		t.Fatalf("n1 ref = %+v", n1.Refs[0])
+	}
+	for _, r := range append(n1.Refs, n2.Refs...) {
+		if r.Trust.Level != "exact" {
+			t.Fatalf("ref %q trust = %+v, want exact", r.Ref, r.Trust)
+		}
+	}
+	if len(n1.Visual) == 0 || !strings.Contains(string(n1.Visual), `"map"`) {
+		t.Fatalf("visual missing: %s", n1.Visual)
+	}
+
+	// Rewrite the TTL lines: n1's ref goes stale, n2's refs stay exact.
+	path := filepath.Join(repo, "src/prices.ts")
+	if err := os.WriteFile(path, []byte("a\nb\nrewritten\nentirely\ne\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if getJSON(t, ts.URL+"/api/plate", &p); p.Nibbles[0].Refs[0].Trust.Level != "stale" {
+		t.Fatalf("after rewrite: %+v", p.Nibbles[0].Refs[0].Trust)
+	}
+	if p.Nibbles[1].Refs[0].Trust.Level != "exact" || p.Nibbles[1].Refs[1].Trust.Level != "exact" {
+		t.Fatalf("n2 refs should stay exact: %+v", p.Nibbles[1].Refs)
+	}
+
+	// Shift: two lines inserted above the pool's idle line.
+	pool := filepath.Join(repo, "src/pool.ts")
+	if err := os.WriteFile(pool, []byte("// hdr\n// hdr2\npool = 40\nidle = 30\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	getJSON(t, ts.URL+"/api/plate", &p)
+	tr := p.Nibbles[1].Refs[1].Trust
+	if tr.Level != "shifted" || tr.Shift != 2 || tr.Line != 4 {
+		t.Fatalf("idle ref trust = %+v, want shifted +2 line 4", tr)
+	}
+}
+
+type apiCode struct {
+	Ref     string   `json:"ref"`
+	Path    string   `json:"path"`
+	Missing bool     `json:"missing"`
+	Trust   apiTrust `json:"trust"`
+	Lines   []struct {
+		No   int    `json:"no"`
+		Text string `json:"text"`
+		In   bool   `json:"in"`
+	} `json:"lines"`
+}
+
+func TestAPICode(t *testing.T) {
+	_, _, ts := apiFixture(t)
+
+	var c apiCode
+	if code := getJSON(t, ts.URL+"/api/code?n=1&ref=0", &c); code != 200 {
+		t.Fatalf("status = %d", code)
+	}
+	// prices.ts has 5 lines; range 3-4 with 3 context each side clamps to 1-5.
+	if c.Path != "src/prices.ts" || len(c.Lines) != 5 || c.Lines[0].No != 1 {
+		t.Fatalf("code = %+v", c)
+	}
+	for _, l := range c.Lines {
+		want := l.No == 3 || l.No == 4
+		if l.In != want {
+			t.Fatalf("line %d in=%v want %v", l.No, l.In, want)
+		}
+	}
+	if !strings.Contains(c.Lines[2].Text, "ttl") {
+		t.Fatalf("line 3 = %q", c.Lines[2].Text)
+	}
+
+	// Diff-side ref: content comes from git, not the worktree.
+	getJSON(t, ts.URL+"/api/code?n=2&ref=0", &c)
+	if len(c.Lines) == 0 || !strings.Contains(c.Lines[0].Text, "pool = 20") {
+		t.Fatalf("diff side = %+v", c)
+	}
+
+	var e struct {
+		Error struct{ Code string } `json:"error"`
+	}
+	if code := getJSON(t, ts.URL+"/api/code?n=9&ref=0", &e); code != 404 {
+		t.Fatalf("unknown nibble: status %d", code)
+	}
+	if code := getJSON(t, ts.URL+"/api/code?n=1&ref=5", &e); code != 404 {
+		t.Fatalf("unknown ref: status %d", code)
+	}
+}
+
+func postJSON(t *testing.T, url, body string) (int, string) {
+	t.Helper()
+	resp, err := http.Post(url, "application/json", strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var b strings.Builder
+	sc := bufio.NewScanner(resp.Body)
+	for sc.Scan() {
+		b.WriteString(sc.Text())
+	}
+	return resp.StatusCode, b.String()
+}
+
+func TestAPIReview(t *testing.T) {
+	_, plate, ts := apiFixture(t)
+
+	code, body := postJSON(t, ts.URL+"/api/review",
+		`{"verdict":"nonsense"}`)
+	if code != 400 || !strings.Contains(body, "review.verdict.unknown") {
+		t.Fatalf("bad verdict: %d %s", code, body)
+	}
+	if _, err := os.Stat(filepath.Join(plate, "review.json")); !os.IsNotExist(err) {
+		t.Fatal("rejected review must not be written")
+	}
+
+	first := `{"verdict":"changes","comments":[{"target":"n1","text":"what about billing?"}]}`
+	if code, body = postJSON(t, ts.URL+"/api/review", first); code != 200 {
+		t.Fatalf("review: %d %s", code, body)
+	}
+	raw, err := os.ReadFile(filepath.Join(plate, "review.json"))
+	if err != nil || !strings.Contains(string(raw), "billing") {
+		t.Fatalf("review.json = %q err %v", raw, err)
+	}
+
+	code, body = postJSON(t, ts.URL+"/api/review", `{"verdict":"approve"}`)
+	if code != 409 || !strings.Contains(body, "review.exists") {
+		t.Fatalf("second review: %d %s", code, body)
+	}
+	raw2, _ := os.ReadFile(filepath.Join(plate, "review.json"))
+	if string(raw2) != string(raw) {
+		t.Fatal("second review must not overwrite the first")
+	}
+}
+
+// sseEvents connects to /api/events and forwards parsed events on a channel.
+func sseEvents(t *testing.T, url string) <-chan string {
+	t.Helper()
+	resp, err := http.Get(url + "/api/events")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { resp.Body.Close() })
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/event-stream") {
+		t.Fatalf("content-type = %q", ct)
+	}
+	ch := make(chan string, 16)
+	go func() {
+		sc := bufio.NewScanner(resp.Body)
+		var ev string
+		for sc.Scan() {
+			line := sc.Text()
+			if strings.HasPrefix(line, "event: ") {
+				ev = strings.TrimPrefix(line, "event: ")
+			}
+			if strings.HasPrefix(line, "data: ") && ev != "" {
+				ch <- ev + " " + strings.TrimPrefix(line, "data: ")
+				ev = ""
+			}
+		}
+	}()
+	return ch
+}
+
+func waitEvent(t *testing.T, ch <-chan string, want string) {
+	t.Helper()
+	deadline := time.After(2 * time.Second)
+	for {
+		select {
+		case got := <-ch:
+			if strings.Contains(got, want) {
+				return
+			}
+		case <-deadline:
+			t.Fatalf("no %q event within 2s", want)
+		}
+	}
+}
+
+func TestAPIEvents(t *testing.T) {
+	repo, plate, ts := apiFixture(t)
+	ch := sseEvents(t, ts.URL)
+
+	// A third nibble lands while a client is connected.
+	visual := writeFile(t, t.TempDir(), "map.json", testMap)
+	ctx := Ctx{Dir: repo, Home: filepath.Dir(filepath.Dir(plate))}
+	if code, _, errb := run(t, ctx, "add", plate, "--caption", "c3", "--visual", visual); code != 0 {
+		t.Fatal(errb)
+	}
+	waitEvent(t, ch, `nibble {"n":3}`)
+
+	if code, _, errb := run(t, ctx, "done", plate); code != 0 {
+		t.Fatal(errb)
+	}
+	waitEvent(t, ch, `sealed {"total":3}`)
+
+	writeFile(t, plate, "review.json", review("approve"))
+	waitEvent(t, ch, `review {"verdict":"approve"}`)
+}
+
+func TestAPIStaticUI(t *testing.T) {
+	_, _, ts := apiFixture(t)
+	for path, want := range map[string]string{
+		"/":          "id=\"canvas\"",
+		"/app.js":    "api/plate",
+		"/style.css": "--",
+	} {
+		resp, err := http.Get(ts.URL + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw := make([]byte, 1<<20)
+		n, _ := resp.Body.Read(raw)
+		for n < len(raw) {
+			m, err := resp.Body.Read(raw[n:])
+			n += m
+			if err != nil {
+				break
+			}
+		}
+		resp.Body.Close()
+		if resp.StatusCode != 200 || !strings.Contains(string(raw[:n]), want) {
+			t.Fatalf("%s: status %d, want body containing %q", path, resp.StatusCode, want)
+		}
+	}
+}
+
+// setPlateRepo rewrites the plate header's repo field.
+func setPlateRepo(t *testing.T, plate, repo string) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(plate, "plate.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var h map[string]any
+	if err := json.Unmarshal(raw, &h); err != nil {
+		t.Fatal(err)
+	}
+	h["repo"] = repo
+	out, _ := json.Marshal(h)
+	if err := os.WriteFile(filepath.Join(plate, "plate.json"), out, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// copyTree copies src into dst, skipping .git.
+func copyTree(t *testing.T, src, dst string) {
+	t.Helper()
+	err := filepath.WalkDir(src, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, p)
+		if rel == ".git" || strings.HasPrefix(rel, ".git"+string(filepath.Separator)) {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.IsDir() {
+			return os.MkdirAll(filepath.Join(dst, rel), 0o755)
+		}
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(filepath.Join(dst, rel), raw, 0o644)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// degradedFixture authors a plate in a real repo, then detaches it: the
+// files are copied to a plain directory and the plate re-pointed there.
+func degradedFixture(t *testing.T) (plate, root string) {
+	repo := gitInit(t)
+	visual := writeFile(t, t.TempDir(), "map.json", testMap)
+	ctx, plate := newTestPlate(t, repo)
+	adds := [][]string{
+		{"add", plate, "--caption", "plain", "--visual", visual,
+			"--ref", "src/prices.ts:3-4 @cache"},
+		{"add", plate, "--caption", "needs git", "--visual", visual,
+			"--ref", "diff:src/pool.ts@main..feat#head:1",
+			"--ref", "diff:src/prices.ts@worktree:3 @db"},
+	}
+	for _, a := range adds {
+		if code, _, errb := run(t, ctx, a...); code != 0 {
+			t.Fatalf("%v: %s", a[:2], errb)
+		}
+	}
+	root = t.TempDir()
+	copyTree(t, repo, root)
+	setPlateRepo(t, plate, root)
+	return plate, root
+}
+
+func TestAPIDegraded(t *testing.T) {
+	t.Run("files without git", func(t *testing.T) {
+		plate, _ := degradedFixture(t)
+		api, err := newAPIServer(plate)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ts := httptest.NewServer(api.handler())
+		defer ts.Close()
+
+		var p apiPlate
+		getJSON(t, ts.URL+"/api/plate", &p)
+		if got := p.Nibbles[0].Refs[0].Trust.Level; got != "exact" {
+			t.Fatalf("plain ref = %q, want exact", got)
+		}
+		if got := p.Nibbles[1].Refs[0].Trust.Level; got != "unverified" {
+			t.Fatalf("base..head ref = %q, want unverified", got)
+		}
+		if got := p.Nibbles[1].Refs[1].Trust.Level; got != "exact" {
+			t.Fatalf("worktree ref = %q, want exact", got)
+		}
+
+		// Drawer: plain ref has code; base..head ref has a reason instead.
+		var c apiCode
+		getJSON(t, ts.URL+"/api/code?n=1&ref=0", &c)
+		if len(c.Lines) == 0 || !strings.Contains(c.Lines[2].Text, "ttl") {
+			t.Fatalf("plain drawer = %+v", c)
+		}
+		var cw struct {
+			Why   string `json:"why"`
+			Lines []any  `json:"lines"`
+		}
+		getJSON(t, ts.URL+"/api/code?n=2&ref=0", &cw)
+		if cw.Why == "" || len(cw.Lines) != 0 {
+			t.Fatalf("unverifiable drawer = %+v, want a why and no lines", cw)
+		}
+	})
+
+	t.Run("root missing", func(t *testing.T) {
+		plate, _ := degradedFixture(t)
+		setPlateRepo(t, plate, filepath.Join(t.TempDir(), "gone"))
+		api, err := newAPIServer(plate)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ts := httptest.NewServer(api.handler())
+		defer ts.Close()
+
+		var p apiPlate
+		getJSON(t, ts.URL+"/api/plate", &p)
+		for _, nb := range p.Nibbles {
+			for _, r := range nb.Refs {
+				if r.Trust.Level != "unverified" {
+					t.Fatalf("ref %q = %q, want unverified", r.Ref, r.Trust.Level)
+				}
+			}
+		}
+		// The review loop does not need the root at all.
+		if code, _ := postJSON(t, ts.URL+"/api/review", `{"verdict":"closed"}`); code != 200 {
+			t.Fatalf("review on rootless plate: %d", code)
+		}
+	})
+
+	t.Run("relative root", func(t *testing.T) {
+		plate, root := degradedFixture(t)
+		// Move the snapshot to a sibling of the plate dir and point at it
+		// relatively: <parent>/{<plate>, repo}.
+		sib := filepath.Join(filepath.Dir(plate), "repo")
+		copyTree(t, root, sib)
+		setPlateRepo(t, plate, filepath.Join("..", "repo"))
+		api, err := newAPIServer(plate)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ts := httptest.NewServer(api.handler())
+		defer ts.Close()
+		var p apiPlate
+		getJSON(t, ts.URL+"/api/plate", &p)
+		if got := p.Nibbles[0].Refs[0].Trust.Level; got != "exact" {
+			t.Fatalf("plain ref via relative root = %q, want exact", got)
+		}
+	})
+}
+
+// TestGoldenPlateServes pins the committed fixture: the cli-authored plate
+// must serve straight from the checkout, trust computed from its bundled
+// file snapshot.
+func TestGoldenPlateServes(t *testing.T) {
+	plate := filepath.Join("..", "..", "..", "protocol", "golden", "plates", "cli-authored", "plate")
+	if _, err := os.Stat(plate); err != nil {
+		t.Fatal(err)
+	}
+	api, err := newAPIServer(plate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(api.handler())
+	defer ts.Close()
+	var p apiPlate
+	getJSON(t, ts.URL+"/api/plate", &p)
+	if len(p.Nibbles) != 3 {
+		t.Fatalf("nibbles = %d", len(p.Nibbles))
+	}
+	for _, nb := range p.Nibbles {
+		for _, r := range nb.Refs {
+			if r.Trust.Level != "exact" {
+				t.Errorf("golden ref %q trust = %q, want exact", r.Ref, r.Trust.Level)
+			}
+		}
+	}
+}

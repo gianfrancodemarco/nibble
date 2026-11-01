@@ -18,14 +18,14 @@
   <a class="lk" href="../PRD.html">PRD</a>
   <a class="lk" href="../roadmap.html">Roadmap</a>
   <a class="lk" href="../design/mockups.html">Mockups</a>
-  <a class="lk" href="index.html" aria-current="page">Guide</a>
+  <a class="lk" href="index.html" aria-current="page">Docs</a>
   <button class="chipbtn" id="themeBtn" type="button">Theme</button>
   <a class="gh" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
 </nav>
 
 <div class="layout">
 <aside class="toc" aria-label="Guide chapters">
-  <p class="head">Guide</p>
+  <p class="head">Docs</p>
   <a href="index.html">Getting started</a>
   <a href="receiving.html">A plate arrives</a>
   <a href="reading.html" aria-current="page">Reading a plate</a>
@@ -44,7 +44,7 @@
   <thead><tr><th>key</th><th>does</th></tr></thead>
   <tbody>
     <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>previous / next nibble (camera move, not a page swap)</td></tr>
-    <tr><td><kbd>space</kbd></td><td>play / step the active visual</td></tr>
+    <tr><td><kbd>space</kbd></td><td>play / step the active visual <span class="soon">visual kinds</span></td></tr>
     <tr><td><kbd>e</kbd></td><td>open the evidence drawer (the code behind the selection)</td></tr>
     <tr><td><kbd>c</kbd></td><td>comment on the selected thing</td></tr>
     <tr><td><kbd>v</kbd></td><td>request a missing visual from the selected thing <span class="soon">v0.2</span></td></tr>
@@ -53,8 +53,10 @@
     <tr><td><kbd>q</kbd></td><td>close without answering</td></tr>
   </tbody>
 </table>
+<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 shell, <kbd>←</kbd> <kbd>→</kbd>, <kbd>⏎</kbd> (pin comment), <kbd>s</kbd> (send, once a verdict is chosen), <kbd>esc</kbd> and <kbd>?</kbd> (the in-reader legend) are live; clicking does the rest — any ref opens the drawer. The remaining keys land with the visual kinds.</p>
 
 <h4 id="visuals">What each visual lets you do</h4>
+<p>Today each visual shows as a typed summary card with its anchors; these interactions ship with the <a href="../roadmap.html">visual kinds</a> item:</p>
 <div class="cards">
   <div class="card"><b>map</b><p>Click a node → its code in the drawer. Highlight a path. Collapse a group.</p></div>
   <div class="card"><b>sequence</b><p>Step message by message; branches (<i>alt</i>) show where it could have gone.</p></div>
@@ -67,10 +69,12 @@
 
 <h4 id="trust">Trust badges</h4>
 <p>Code moves while plates sit. Every ref re-checks against the file as it is now:</p>
+<p>Checking <b>degrades per ref</b>, by what this machine has. A plain ref needs only its file; a <span class="mono">@worktree</span> ref likewise; a <span class="mono">base..head</span> ref needs git. With the plate’s repo present you get everything; with just a folder of files, only <span class="mono">base..head</span> refs fall back to <b>unverified</b>; with nothing, the plate still opens — captions and visuals — and every ref is unverified. The review loop works in all three.</p>
 <div class="cards">
   <div class="card"><b><span class="trust ok">exact</span></b><p>The lines are exactly where the agent said.</p></div>
   <div class="card"><b><span class="trust shift">shifted +3</span></b><p>Same lines, found whole at one new position; the offset is shown.</p></div>
   <div class="card"><b><span class="trust stale">stale</span></b><p>Rewritten, gone, or ambiguous. nibble never guesses — stale means go look.</p></div>
+  <div class="card"><b><span class="trust" style="color:var(--muted);background:color-mix(in srgb,var(--muted) 14%, transparent)">unverified</span></b><p>Couldn’t check: the plate’s repo isn’t on this machine, or a <span class="mono">base..head</span> ref has no git. Different from stale — nothing is known either way.</p></div>
 </div>
 <nav class="pager">
   <a href="receiving.html"><small>← previous</small><b>A plate arrives</b></a>

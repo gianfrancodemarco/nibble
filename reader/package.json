@@ -1,0 +1,11 @@
+{
+  "name": "nibble-reader",
+  "private": true,
+  "description": "The nibble reader shell: TypeScript, no framework, no runtime deps. `npm run build` emits the single app.js the Go binary embeds.",
+  "scripts": {
+    "build": "tsc -p ."
+  },
+  "devDependencies": {
+    "typescript": "5.6.2"
+  }
+}

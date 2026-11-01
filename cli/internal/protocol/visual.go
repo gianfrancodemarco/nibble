@@ -45,7 +45,7 @@ func loadSchemas() (map[string]*jsonschema.Schema, error) {
 				schemasErr = fmt.Errorf("%s: %w", name, err)
 				return
 			}
-			url := "https://nibble.dev/schemas/v1/" + kind + ".schema.json"
+			url := "https://raw.githubusercontent.com/gianfrancodemarco/nibble/main/protocol/schemas/" + kind + ".schema.json"
 			if err := c.AddResource(url, doc); err != nil {
 				schemasErr = err
 				return

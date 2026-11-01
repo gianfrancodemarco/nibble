@@ -32,7 +32,7 @@ Fixtures: [`golden/plates/`](golden/plates/).
 | --- | --- | --- |
 | `version` | int | protocol version; this document is 1 |
 | `title` | string | non-empty |
-| `repo` | string | absolute path of the repository root the plate is about |
+| `repo` | string | path of the root refs resolve against: absolute, or relative to the plate directory (a portable plate bundles a snapshot of its files) |
 | `head_sha` | string | commit the working tree was at |
 | `about` | see below | what code the plate is about |
 | `created_at` | string | RFC 3339 |
@@ -109,6 +109,10 @@ Computed against the file as it is now
   when several positions match, the stored context must single one out.
 - **stale** — everything else: rewritten, gone, or ambiguous. Never a guess.
 
+These three are the protocol: comparisons against code you have. A reader
+that cannot check at all (the root or git is not at hand) reports a
+presentation-level **unverified** instead of guessing; it is never stored.
+
 ## Visuals
 
 A visual declares *what things are*, never how they look: no colours,
@@ -165,6 +169,7 @@ can return:
 | `nibble.file` | nibble file unreadable |
 | `nibble.visual.missing` | nibble has no visual |
 | `review.verdict.unknown` | verdict not in the allowed set |
+| `review.exists` | a plate takes one review; this one already has it |
 
 The CLI adds codes of its own, same contract:
 

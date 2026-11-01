@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,14 +44,22 @@ func TestEndToEnd(t *testing.T) {
 		}
 	}
 
-	go func() {
-		time.Sleep(300 * time.Millisecond)
-		os.WriteFile(filepath.Join(plate, "review.json"),
-			[]byte(review("changes")), 0o644)
-	}()
-	code, out, _ := run(t, ctx, "serve", plate)
-	if code != 2 || !strings.Contains(out, "verdict: changes") {
-		t.Fatalf("serve: exit %d out %q", code, out)
+	// The review arrives the way it will in real life: through the reader.
+	url, stdout, codeCh := startServe(t, ctx, plate)
+	resp, err := http.Post(url+"/api/review", "application/json",
+		strings.NewReader(review("changes")))
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatalf("POST review: %v %v", err, resp)
+	}
+	resp.Body.Close()
+	var code int
+	select {
+	case code = <-codeCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("serve did not exit after the posted review")
+	}
+	if code != 2 || !strings.Contains(stdout.String(), "verdict: changes") {
+		t.Fatalf("serve: exit %d out %q", code, stdout.String())
 	}
 
 	p, err := protocol.ParsePlate(plate)
@@ -77,6 +86,7 @@ func exportGolden(t *testing.T, plate, dest string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var realRepo string
 	for _, e := range entries {
 		raw, err := os.ReadFile(filepath.Join(plate, e.Name()))
 		if err != nil {
@@ -87,7 +97,10 @@ func exportGolden(t *testing.T, plate, dest string) {
 			if err := json.Unmarshal(raw, &h); err != nil {
 				t.Fatal(err)
 			}
-			h["repo"] = "/work/shop"
+			realRepo, _ = h["repo"].(string)
+			// Relative root: the fixture bundles a snapshot of its files,
+			// so it serves (and computes trust) straight from the checkout.
+			h["repo"] = "../repo"
 			h["head_sha"] = "4f2a91c"
 			h["created_at"] = "2026-11-01T12:00:00Z"
 			raw, _ = json.MarshalIndent(h, "", "  ")
@@ -97,6 +110,10 @@ func exportGolden(t *testing.T, plate, dest string) {
 			t.Fatal(err)
 		}
 	}
+	if realRepo == "" {
+		t.Fatal("plate.json had no repo to snapshot")
+	}
+	copyTree(t, realRepo, filepath.Join(dest, "repo"))
 	expected := []byte("{ \"valid\": true, \"nibbles\": 3, \"open\": false }\n")
 	if err := os.WriteFile(filepath.Join(dest, "expected.json"), expected, 0o644); err != nil {
 		t.Fatal(err)
