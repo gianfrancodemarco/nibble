@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="340" viewBox="0 0 900 340" role="img" aria-label="Component diagram: agent and skill talk to the Go CLI, which owns the plate folders and serves the reader; the reader is hosted in a browser tab, the Tauri pill, or later an editor panel; everything shares the protocol">
+  <style>
+    .n-box { fill: #fffdf9; stroke: #e6dfd4; stroke-width: 1.5; }
+    .n-hot { fill: #fbe9e2; stroke: #d9480f; stroke-width: 2; }
+    .n-new { fill: #fffdf9; stroke: #2f9e44; stroke-width: 2; }
+    .n-txt { fill: #2a2622; font: 600 13px ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif; }
+    .n-sub { fill: #7a7166; font: 400 10.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+    .n-edge { stroke: #7a7166; stroke-width: 1.5; fill: none; }
+    .n-lab { fill: #7a7166; font: 500 10.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+    .arr { fill: #7a7166; }
+  </style>
+  <rect x=".75" y=".75" width="898.5" height="338.5" rx="16" fill="#f4f1ec" stroke="#e6dfd4" stroke-width="1.5"/>
+  <!-- agent -->
+  <rect class="n-box" x="30" y="50" width="160" height="66" rx="10"/>
+  <text class="n-txt" x="50" y="78">your agent</text><text class="n-sub" x="50" y="98">Claude Code · Codex · …</text>
+  <!-- skill -->
+  <rect class="n-box" x="30" y="156" width="160" height="50" rx="10" stroke-dasharray="4 4"/>
+  <text class="n-txt" x="50" y="178">skill</text><text class="n-sub" x="50" y="196">installed by nibble setup</text>
+  <path class="n-edge" d="M110 156V116" stroke-dasharray="3 4"/>
+  <!-- cli -->
+  <rect class="n-hot" x="300" y="50" width="180" height="66" rx="10"/>
+  <text class="n-txt" x="320" y="78">nibble CLI</text><text class="n-sub" x="320" y="98">Go · validate · serve</text>
+  <!-- plates -->
+  <rect class="n-box" x="300" y="156" width="180" height="50" rx="10"/>
+  <text class="n-txt" x="320" y="178">plate folders</text><text class="n-sub" x="320" y="196">~/.nibble · JSON</text>
+  <path class="n-edge" d="M390 122V150"/>
+  <polygon class="arr" points="386,126 394,126 390,118"/>
+  <polygon class="arr" points="386,146 394,146 390,154"/>
+  <text class="n-lab" x="402" y="140">plates · review.json</text>
+  <!-- agent <-> cli -->
+  <path class="n-edge" d="M190 68H292"/><polygon class="arr" points="292,64 292,72 299,68"/>
+  <text class="n-lab" x="245" y="58" text-anchor="middle">new · add · serve</text>
+  <path class="n-edge" d="M300 98H198"/><polygon class="arr" points="198,94 198,102 191,98"/>
+  <text class="n-lab" x="245" y="116" text-anchor="middle">verdict + review</text>
+  <!-- cli <-> reader -->
+  <path class="n-edge" d="M480 68H602"/><polygon class="arr" points="602,64 602,72 609,68"/>
+  <text class="n-lab" x="545" y="58" text-anchor="middle">SSE · lines · trust</text>
+  <path class="n-edge" d="M610 98H488"/><polygon class="arr" points="488,94 488,102 481,98"/>
+  <text class="n-lab" x="545" y="116" text-anchor="middle">comments · verdict</text>
+  <!-- reader -->
+  <rect class="n-new" x="610" y="50" width="180" height="66" rx="10"/>
+  <text class="n-txt" x="630" y="78">reader</text><text class="n-sub" x="630" y="98">TypeScript SPA · pure view</text>
+  <!-- hosts -->
+  <text class="n-lab" x="700" y="144" text-anchor="middle">hosted in</text>
+  <path class="n-edge" d="M660 116L580 170M700 116V170M740 116L820 170" stroke-dasharray="3 4"/>
+  <rect class="n-box" x="525" y="170" width="110" height="40" rx="8"/><text class="n-sub" x="580" y="194" text-anchor="middle">browser tab</text>
+  <rect class="n-box" x="645" y="170" width="110" height="40" rx="8"/><text class="n-sub" x="700" y="194" text-anchor="middle">Tauri pill</text>
+  <rect class="n-box" x="765" y="170" width="110" height="40" rx="8" stroke-dasharray="4 4"/><text class="n-sub" x="820" y="194" text-anchor="middle">editor · later</text>
+  <!-- protocol band -->
+  <rect class="n-box" x="30" y="262" width="845" height="42" rx="10" stroke-dasharray="4 4"/>
+  <text class="n-sub" x="452" y="288" text-anchor="middle">PROTOCOL — plate format · visual JSON Schemas · fingerprint &amp; trust rules · golden files (TS types generated)</text>
+  <path class="n-edge" d="M110 206V262M390 206V262M700 210V262" stroke-dasharray="2 5" opacity=".6"/>
+</svg>

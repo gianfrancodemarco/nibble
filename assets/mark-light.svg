@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="272" height="72" viewBox="0 0 272 72" role="img" aria-label="nibble">
+  <defs>
+    <mask id="bite">
+      <rect width="72" height="72" fill="#fff"/>
+      <circle cx="57" cy="13" r="17" fill="#000"/>
+    </mask>
+  </defs>
+  <circle cx="36" cy="36" r="30" fill="#e8590c" mask="url(#bite)"/>
+  <text x="84" y="50" font-family="ui-sans-serif,-apple-system,'Segoe UI',Helvetica,Arial,sans-serif" font-size="42" font-weight="700" letter-spacing="-1.5" fill="#2a2622">nibble</text>
+</svg>
