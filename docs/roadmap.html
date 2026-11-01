@@ -83,12 +83,12 @@ footer a { color: var(--muted); }
 </nav>
 
 <h1>Roadmap</h1>
-<p class="lede">Stages, not promises — dates are intentionally absent. Scope and decisions live in the <a href="PRD.html">PRD</a>; what's listed here follows its decision log.</p>
+<p class="lede">Stages, not promises — dates are intentionally absent. Scope and decisions live in the <a href="PRD.html">PRD</a>; what's listed here follows its decision log. (A <b>plate</b> is the interactive walkthrough nibble builds for a change; a <b>nibble</b> is one step of it.)</p>
 
 <div class="stage done">
   <span class="tag">done · 2026-11</span>
   <h2>Design</h2>
-  <p class="goal">The PRD, the design mockups with a live reader demo, and every initial open question settled: Go CLI, Tauri pill for v1, semantic layout hints, what-ifs as precomputed states, plates in <span class="mono">~/.nibble</span>, no deck interop.</p>
+  <p class="goal">The PRD, the design mockups with a live reader demo, and every initial open question settled — among them: the CLI is written in Go, v1 gets the Tauri pill, agents describe layout by meaning rather than pixels, and plates live in <span class="mono">~/.nibble</span>.</p>
 </div>
 
 <div class="stage now">
@@ -96,30 +96,30 @@ footer a { color: var(--muted); }
   <h2>The MVP: PR review, worktree review, explain</h2>
   <p class="goal">The full loop working end to end in a browser tab, dogfooded on real PRs.</p>
   <div class="items">
-    <div class="it done"><b>Protocol v1</b> <span>— <a href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">specified</a>, with schemas, golden fixtures and a tested Go package</span></div>
-    <div class="it done"><b>Go CLI</b> <span>— new · add · done · lint, plus headless serve (blocks, verdict exit codes); fix-it validation; budgets with <a href="https://github.com/gianfrancodemarco/nibble/blob/main/cli/README.md">--because</a></span></div>
-    <div class="it done"><b>Diff refs</b> <span>— --about worktree and base..head, sides resolved through git (pr:N sugar comes with PR mode)</span></div>
-    <div class="it"><b>Reader</b> <span>— local HTTP server + one canvas, camera moves, code drawer, comments, live SSE</span></div>
-    <div class="it"><b>Visual kinds</b> <span>— map, sequence, timeline, compare, with built-in interactions</span></div>
-    <div class="it"><b>Detail dial</b> <span>— overview and standard ship with every plate</span></div>
-    <div class="it"><b>Blast radius</b> <span>— three-ring PR map; unvisited dependents badged</span></div>
-    <div class="it"><b>Not-shown ledger</b> <span>— every plate ends with the hunks no nibble referenced</span></div>
-    <div class="it"><b>Claude Code skill</b> <span>— when to reach for nibble, with worked examples</span></div>
+    <div class="it done"><b>Protocol v1</b> <span>— the plate file format, <a href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">fully specified</a> and backed by a tested Go package</span></div>
+    <div class="it done"><b>Go CLI</b> <span>— the <a href="https://github.com/gianfrancodemarco/nibble/blob/main/cli/README.md">commands</a> an agent uses to build and serve a plate, with validation errors that say how to fix the mistake</span></div>
+    <div class="it done"><b>Diff refs</b> <span>— point a plate at a diff (your working tree, or any two commits) and it pulls the real code from git</span></div>
+    <div class="it"><b>Reader</b> <span>— the page where you read a plate: one canvas the view glides across, the code alongside, comments, live updates</span></div>
+    <div class="it"><b>Claude Code skill</b> <span>— teaches the agent when a plate is worth building, with worked examples</span></div>
+    <div class="it"><b>Visual kinds</b> <span>— the four visual types: map, sequence, timeline and side-by-side compare</span></div>
+    <div class="it"><b>Detail dial</b> <span>— every plate readable at two levels: a quick overview, or the full standard view</span></div>
+    <div class="it"><b>Blast radius</b> <span>— a map of the PR in three rings: files that changed, files that depend on them, everything else — marking what you haven't looked at yet</span></div>
+    <div class="it"><b>Not-shown ledger</b> <span>— each plate ends with a list of the diff changes the walkthrough never covered, so nothing slips by unreviewed</span></div>
   </div>
 </div>
 
 <div class="stage">
   <span class="tag">v0.2</span>
   <h2>Depth and breadth</h2>
-  <p class="goal">The plate grows in place, and the agent can be asked for more.</p>
+  <p class="goal">You can ask for more without leaving the plate, and bigger reviews get structure.</p>
   <div class="items">
-    <div class="it"><b>Deep layer + visuals on demand</b> <span>— press v on anything; answers thread in place</span></div>
-    <div class="it"><b>Chapter flow</b> <span>— big PRs proposed as chapters, agreed before the first plate</span></div>
-    <div class="it"><b>Voice walk</b> <span>— captions read aloud, highlight and camera in sync</span></div>
-    <div class="it"><b>state · data · chart</b> <span>— the remaining visual kinds</span></div>
-    <div class="it"><b>What-if toggles</b> <span>— between agent-precomputed states</span></div>
-    <div class="it"><b>More agents</b> <span>— Codex and Cursor skills via nibble setup</span></div>
-    <div class="it"><b>nibble lint &amp; export</b> <span>— validate visuals standalone; share a plate into a repo</span></div>
+    <div class="it"><b>Deep layer + visuals on demand</b> <span>— select anything and ask the agent for more; the answer appears right there as a new visual</span></div>
+    <div class="it"><b>Chapter flow</b> <span>— big PRs split into chapters you approve before the walkthrough starts</span></div>
+    <div class="it"><b>Voice walk</b> <span>— the plate reads itself aloud, highlighting what it's talking about as it goes</span></div>
+    <div class="it"><b>state · data · chart</b> <span>— three more visual types: state machines, data structures and charts</span></div>
+    <div class="it"><b>What-if toggles</b> <span>— flip a switch to see the same picture under a different scenario, precomputed by the agent</span></div>
+    <div class="it"><b>More agents</b> <span>— Codex and Cursor learn to build plates too, via <span class="mono">nibble setup</span></span></div>
+    <div class="it"><b>nibble lint &amp; export</b> <span>— check a plate's visuals without opening it, and save a plate into a repo to share</span></div>
   </div>
 </div>
 
@@ -128,9 +128,9 @@ footer a { color: var(--muted); }
   <h2>The pill, and polish</h2>
   <p class="goal">Calm by default, installable in one line, documented.</p>
   <div class="items">
-    <div class="it"><b>Tauri pill</b> <span>— menu-bar icon + floating pill for waiting plates (decided 2026-11-01)</span></div>
-    <div class="it"><b>Auto-open</b> <span>— plates you asked for open themselves; volunteered ones wait</span></div>
-    <div class="it"><b>Install</b> <span>— one-line script + Homebrew tap; signed builds</span></div>
+    <div class="it"><b>Tauri pill</b> <span>— a small menu-bar app whose floating pill tells you a plate is waiting (decided 2026-11-01)</span></div>
+    <div class="it"><b>Auto-open</b> <span>— plates you asked for open themselves; ones the agent volunteers wait quietly in the pill</span></div>
+    <div class="it"><b>Install</b> <span>— one-line install script and a Homebrew tap, with signed builds</span></div>
     <div class="it done"><b>User guide</b> <span>— <a href="guide/index.html">live on this site</a>, tracking the design; final with v1</span></div>
   </div>
 </div>
@@ -139,9 +139,9 @@ footer a { color: var(--muted); }
   <span class="tag">later</span>
   <h2>Where the code already lives</h2>
   <div class="items">
-    <div class="it"><b>Editor panel</b> <span>— the same reader inside VS Code / Cursor, status-bar tray</span></div>
-    <div class="it"><b>Continuous what-ifs</b> <span>— sliders, and the DSL-vs-sandboxed-JS decision, only if dogfooding demands them</span></div>
-    <div class="it"><b>Export storyboard</b> <span>— a plate as SVG/markdown for PR descriptions</span></div>
+    <div class="it"><b>Editor panel</b> <span>— read plates inside VS Code or Cursor instead of a browser tab</span></div>
+    <div class="it"><b>Continuous what-ifs</b> <span>— what-if sliders with live values, only if real use shows they're worth the complexity</span></div>
+    <div class="it"><b>Export storyboard</b> <span>— turn a plate into images and text you can paste into a PR description</span></div>
   </div>
   <p class="note">Explicitly not planned: themes and layout knobs for agents, hosting plates on a server, telemetry before there's something worth measuring.</p>
 </div>
