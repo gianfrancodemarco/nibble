@@ -38,6 +38,7 @@ button { font: inherit; color: inherit; }
 @media (max-width: 700px) { nav.site .lk { display: none; } }
 
 .layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 44px; align-items: start; }
+.layout > .content { min-width: 0; }
 aside.toc { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 .toc .head { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin: 0 0 8px 12px; }
 .toc a { display: block; color: var(--muted); text-decoration: none; padding: 5px 12px; border-left: 2px solid var(--border); }
@@ -45,7 +46,7 @@ aside.toc { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 .toc a[aria-current="page"] { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
 .toc a.sub { padding-left: 26px; font-size: 12.5px; border-left-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
 @media (max-width: 880px) {
-  .layout { grid-template-columns: 1fr; gap: 0; }
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
   aside.toc { position: static; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 28px; padding-top: 0; }
   .toc .head { display: none; }
   .toc a { border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; background: var(--surface); }
