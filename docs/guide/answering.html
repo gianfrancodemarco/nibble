@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nibble guide · Answering</title>
+<meta name="description" content="nibble user guide: Answering.">
+<link rel="icon" href="../assets/mark-light.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+
+<nav class="site">
+  <a class="brand" href="../"><span class="mark" aria-hidden="true"></span>nibble</a>
+  <a class="lk" href="../PRD.html">PRD</a>
+  <a class="lk" href="../roadmap.html">Roadmap</a>
+  <a class="lk" href="../design/mockups.html">Mockups</a>
+  <a class="lk" href="./" aria-current="page">Guide</a>
+  <button class="chipbtn" id="themeBtn" type="button">Theme</button>
+  <a class="gh" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
+</nav>
+
+<div class="layout">
+<aside class="toc" aria-label="Guide chapters">
+  <p class="head">Guide</p>
+  <a href="./">Getting started</a>
+  <a href="receiving.html">A plate arrives</a>
+  <a href="reading.html">Reading a plate</a>
+  <a href="answering.html" aria-current="page">Answering</a>
+  <a href="agents.html">For agents</a>
+</aside>
+<div class="content">
+<h1>Answering</h1>
+<p class="lede">Disagree on the thing itself: select a node, an edge, a moment on the timeline or lines in the drawer, and press <kbd>c</kbd>.</p>
+<p>Two ways to send a comment:</p>
+<div class="cards">
+  <div class="card"><b>Ask now</b><p>Ends the agent's wait immediately with your question. The answer comes back threaded into the same plate.</p></div>
+  <div class="card"><b>Hold for review</b><p>Keeps the comment until you press <kbd>s</kbd> and choose a verdict: <b>approve</b>, <b>changes</b>, or <b>discuss</b>.</p></div>
+</div>
+<p>In a PR review, check the end of the plate before approving: the <b>not-shown ledger</b> lists every hunk of the diff no nibble referenced, and the map badges <b>dependents the plate never visited</b> — callers, tests, configs of changed code. That's where agent-written PRs go wrong, and both are open to comments like anything else.</p>
+<p>Comments travel back pinned to what you selected, each carrying its trust level, so the agent knows exactly what you meant even if the code moved.</p>
+<nav class="pager">
+  <a href="reading.html"><small>← previous</small><b>Reading a plate</b></a>
+  <a class="next" href="agents.html"><small>next →</small><b>For agents</b></a>
+</nav>
+</div>
+</div>
+
+<footer>
+  <span>Apache-2.0</span>
+  <a href="https://github.com/gianfrancodemarco/nibble">github.com/gianfrancodemarco/nibble</a>
+  <a href="../">nibble home</a>
+</footer>
+
+</div>
+<script src="guide.js"></script>
+</body>
+</html>

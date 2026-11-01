@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nibble guide · For agents</title>
+<meta name="description" content="nibble user guide: For agents.">
+<link rel="icon" href="../assets/mark-light.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+
+<nav class="site">
+  <a class="brand" href="../"><span class="mark" aria-hidden="true"></span>nibble</a>
+  <a class="lk" href="../PRD.html">PRD</a>
+  <a class="lk" href="../roadmap.html">Roadmap</a>
+  <a class="lk" href="../design/mockups.html">Mockups</a>
+  <a class="lk" href="./" aria-current="page">Guide</a>
+  <button class="chipbtn" id="themeBtn" type="button">Theme</button>
+  <a class="gh" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
+</nav>
+
+<div class="layout">
+<aside class="toc" aria-label="Guide chapters">
+  <p class="head">Guide</p>
+  <a href="./">Getting started</a>
+  <a href="receiving.html">A plate arrives</a>
+  <a href="reading.html">Reading a plate</a>
+  <a href="answering.html">Answering</a>
+  <a href="agents.html" aria-current="page">For agents</a>
+  <a class="sub" href="#cli">The CLI</a>
+  <a class="sub" href="#rules">The rules</a>
+</aside>
+<div class="content">
+<h1>For agents</h1>
+<p class="lede">Everything in this guide rides on four commands and a folder of plain JSON.</p>
+<h4 id="cli">The CLI</h4>
+<p>The full contract — formats, the ref grammar, fingerprint and trust rules, every error code — is <a href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">PROTOCOL.md</a>, with golden fixtures as its executable conformance suite.</p>
+<pre class="cli"><span class="p">$</span> nibble new   --title "PR 1247 · ch 1: payments" --about pr:1247   <span class="d"># prints the plate path</span>
+<span class="p">$</span> nibble add   &lt;plate&gt; --caption "…" --visual timeline.json \
+               --ref "src/cache/prices.ts:43-45 @cache"
+<span class="y">✗ rejected: src/cache/prices.ts has 41 lines, ref ends at 45</span>      <span class="d"># validation is strict, errors are fix-its</span>
+<span class="p">$</span> nibble done  &lt;plate&gt;                                              <span class="d"># seals it; coverage gaps reported</span>
+<span class="p">$</span> nibble serve &lt;plate&gt;                                              <span class="d"># blocks; exits with your review</span></pre>
+
+<h4 id="rules">The rules</h4>
+<div class="cards">
+  <div class="card"><b>Plates live in <span class="mono">~/.nibble/plates</span></b><p>Keyed by repo and commit; your repos stay clean. <span class="mono">nibble export</span> copies one into a repo to share it.</p></div>
+  <div class="card"><b>Budgets, not walls</b><p>~5 nibbles for a bug, maybe 12 for a PR chapter. Going over needs <span class="mono">--because</span>, and the reason is printed on the plate for you to judge.</p></div>
+  <div class="card"><b>No pixels</b><p>Agents declare what things are — plus semantic hints (group, tier, focus). nibble draws everything, so the same idea always looks the same.</p></div>
+</div>
+<nav class="pager">
+  <a href="answering.html"><small>← previous</small><b>Answering</b></a>
+</nav>
+</div>
+</div>
+
+<footer>
+  <span>Apache-2.0</span>
+  <a href="https://github.com/gianfrancodemarco/nibble">github.com/gianfrancodemarco/nibble</a>
+  <a href="../">nibble home</a>
+</footer>
+
+</div>
+<script src="guide.js"></script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nibble guide · Reading a plate</title>
+<meta name="description" content="nibble user guide: Reading a plate.">
+<link rel="icon" href="../assets/mark-light.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+
+<nav class="site">
+  <a class="brand" href="../"><span class="mark" aria-hidden="true"></span>nibble</a>
+  <a class="lk" href="../PRD.html">PRD</a>
+  <a class="lk" href="../roadmap.html">Roadmap</a>
+  <a class="lk" href="../design/mockups.html">Mockups</a>
+  <a class="lk" href="./" aria-current="page">Guide</a>
+  <button class="chipbtn" id="themeBtn" type="button">Theme</button>
+  <a class="gh" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
+</nav>
+
+<div class="layout">
+<aside class="toc" aria-label="Guide chapters">
+  <p class="head">Guide</p>
+  <a href="./">Getting started</a>
+  <a href="receiving.html">A plate arrives</a>
+  <a href="reading.html" aria-current="page">Reading a plate</a>
+  <a class="sub" href="#keys">Keys</a>
+  <a class="sub" href="#visuals">The visuals</a>
+  <a class="sub" href="#dial">The detail dial</a>
+  <a class="sub" href="#trust">Trust badges</a>
+  <a href="answering.html">Answering</a>
+  <a href="agents.html">For agents</a>
+</aside>
+<div class="content">
+<h1>Reading a plate</h1>
+<p class="lede">The canvas takes most of the window; the caption sits below it; code lives in a drawer. Moving between nibbles glides the camera across <b>one shared map</b>. Try the <a href="../design/mockups.html">live mockup</a>.</p>
+<h4 id="keys">Keys</h4>
+<table class="keys">
+  <thead><tr><th>key</th><th>does</th></tr></thead>
+  <tbody>
+    <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>previous / next nibble (camera move, not a page swap)</td></tr>
+    <tr><td><kbd>space</kbd></td><td>play / step the active visual</td></tr>
+    <tr><td><kbd>e</kbd></td><td>open the evidence drawer (the code behind the selection)</td></tr>
+    <tr><td><kbd>c</kbd></td><td>comment on the selected thing</td></tr>
+    <tr><td><kbd>v</kbd></td><td>request a missing visual from the selected thing <span class="soon">v0.2</span></td></tr>
+    <tr><td><kbd>w</kbd></td><td>voice walk: captions read aloud, highlight in sync <span class="soon">v0.2</span></td></tr>
+    <tr><td><kbd>s</kbd></td><td>submit your review</td></tr>
+    <tr><td><kbd>q</kbd></td><td>close without answering</td></tr>
+  </tbody>
+</table>
+
+<h4 id="visuals">What each visual lets you do</h4>
+<div class="cards">
+  <div class="card"><b>map</b><p>Click a node → its code in the drawer. Highlight a path. Collapse a group.</p></div>
+  <div class="card"><b>sequence</b><p>Step message by message; branches (<i>alt</i>) show where it could have gone.</p></div>
+  <div class="card"><b>timeline</b><p>Scrub time. Toggle precomputed states — "jitter off / on" — and compare.</p></div>
+  <div class="card"><b>compare</b><p>Flip or slide between before and after: code, a map, or metrics.</p></div>
+</div>
+
+<h4 id="dial">The detail dial</h4>
+<p>Every plate reads at three depths on the same canvas: <b>overview</b> (the shape, one sentence — enough to decide whether to care), <b>standard</b> (what a plate opens at), <b>deep</b> (per-element numbers and edge cases, generated on demand <span class="soon">v0.2</span>). A ninety-second review and a ten-minute one are the same plate.</p>
+
+<h4 id="trust">Trust badges</h4>
+<p>Code moves while plates sit. Every ref re-checks against the file as it is now:</p>
+<div class="cards">
+  <div class="card"><b><span class="trust ok">exact</span></b><p>The lines are exactly where the agent said.</p></div>
+  <div class="card"><b><span class="trust shift">shifted +3</span></b><p>Same lines, found whole at one new position; the offset is shown.</p></div>
+  <div class="card"><b><span class="trust stale">stale</span></b><p>Rewritten, gone, or ambiguous. nibble never guesses — stale means go look.</p></div>
+</div>
+<nav class="pager">
+  <a href="receiving.html"><small>← previous</small><b>A plate arrives</b></a>
+  <a class="next" href="answering.html"><small>next →</small><b>Answering</b></a>
+</nav>
+</div>
+</div>
+
+<footer>
+  <span>Apache-2.0</span>
+  <a href="https://github.com/gianfrancodemarco/nibble">github.com/gianfrancodemarco/nibble</a>
+  <a href="../">nibble home</a>
+</footer>
+
+</div>
+<script src="guide.js"></script>
+</body>
+</html>
