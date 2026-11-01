@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nibble PRD</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f1ec; --surface: #fffdf9; --surface-2: #f7f3ed; --border: #e6dfd4;
+  --text: #2a2622; --muted: #7a7166; --accent: #e8590c; --accent-soft: #fde6d6;
+  --lit: #fff1c2; --lit-edge: #f0b429; --ok: #2f9e44; --warn: #d9480f; --sel: #1c6fb0;
+  --code-bg: #fbf8f3; --grid: #ece6dc;
+  --shadow: 0 1px 2px rgba(40,30,20,.06), 0 8px 24px rgba(40,30,20,.08);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15130f; --surface: #1e1b17; --surface-2: #25211c; --border: #36302a;
+    --text: #ece6dd; --muted: #a0968a; --accent: #ff8a3d; --accent-soft: #3a2416;
+    --lit: #3a3015; --lit-edge: #f0b429; --ok: #51cf66; --warn: #ff6b3d; --sel: #7cb8f0;
+    --code-bg: #1a1814; --grid: #2b2722;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15130f; --surface: #1e1b17; --surface-2: #25211c; --border: #36302a;
+  --text: #ece6dd; --muted: #a0968a; --accent: #ff8a3d; --accent-soft: #3a2416;
+  --lit: #3a3015; --lit-edge: #f0b429; --ok: #51cf66; --warn: #ff6b3d; --sel: #7cb8f0;
+  --code-bg: #1a1814; --grid: #2b2722;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 Inter, system-ui, sans-serif; }
+.page { max-width: 1060px; margin: 0 auto; padding: 40px 16px 80px; }
+header.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 22px; letter-spacing: -.02em; }
+.mark { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); position: relative; overflow: hidden; }
+.mark::after { content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); top: -5px; right: -5px; }
+button { font: inherit; color: inherit; }
+.chipbtn { font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.statusline { display: flex; gap: 8px; flex-wrap: wrap; margin: 18px 0 10px; }
+.chip { font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 3px 11px; color: var(--muted); }
+.chip b { color: var(--text); font-weight: 600; }
+h1 { font-size: 34px; letter-spacing: -.02em; margin: 10px 0 8px; line-height: 1.15; }
+.lede { color: var(--muted); max-width: 720px; margin: 0 0 22px; font-size: 16.5px; }
+nav.toc { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 56px; }
+nav.toc a { font-size: 13px; color: var(--text); text-decoration: none; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 5px 13px; }
+nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+section { margin-bottom: 70px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin: 0 0 6px; font-weight: 700; }
+h3 { font-size: 24px; margin: 0 0 8px; letter-spacing: -.01em; }
+.note { color: var(--muted); margin: 0 0 20px; max-width: 760px; }
+.mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: var(--surface-2); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; }
+a.inline { color: var(--accent); }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.card b { display: block; margin-bottom: 4px; }
+.card b span { color: var(--accent); margin-right: 6px; font-family: "JetBrains Mono", monospace; font-size: 13px; }
+.card p { margin: 0; color: var(--muted); font-size: 14px; }
+
+.panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.tabs { display: flex; gap: 6px; padding: 12px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2); flex-wrap: wrap; }
+.tabs button { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-weight: 600; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tabbody { padding: 20px; display: none; }
+.tabbody.on { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 20px; align-items: center; }
+.tabbody .say { font-size: 17px; margin: 0 0 10px; }
+.tabbody .say b { background: var(--lit); box-shadow: inset 0 -2px 0 var(--lit-edge); border-radius: 3px; padding: 0 3px; font-weight: 500; }
+.tabbody ul { margin: 0 0 12px; padding-left: 18px; color: var(--muted); font-size: 14px; }
+.tabbody li { margin-bottom: 4px; }
+.refk { font-family: "JetBrains Mono", monospace; font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px; }
+.minicanvas { background: radial-gradient(circle, var(--grid) 1px, transparent 1.2px) 0 0 / 20px 20px, var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.minicanvas svg { display: block; width: 100%; height: auto; }
+.n-box { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+.n-hot { fill: color-mix(in srgb, var(--warn) 10%, var(--surface)); stroke: var(--warn); stroke-width: 2; }
+.n-new { stroke: var(--ok); stroke-width: 2; }
+.n-txt { fill: var(--text); font: 600 13px Inter, sans-serif; }
+.n-sub { fill: var(--muted); font: 400 10.5px "JetBrains Mono", monospace; }
+.n-edge { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.n-lab { fill: var(--muted); font: 500 10.5px "JetBrains Mono", monospace; }
+
+.loopwrap { padding: 18px; }
+.loopctl { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.b { font-size: 13px; font-weight: 600; border-radius: 8px; padding: 7px 14px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; white-space: nowrap; }
+.b.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.loopmsg { font-size: 14px; color: var(--muted); min-height: 1.5em; }
+.loopmsg b { color: var(--text); }
+#loopSvg .lane { stroke: var(--border); stroke-dasharray: 3 5; }
+#loopSvg .lanehead rect { fill: var(--surface-2); stroke: var(--border); }
+#loopSvg .lanehead text { fill: var(--text); font: 600 13px Inter, sans-serif; }
+#loopSvg .step { opacity: .13; transition: opacity .25s; }
+#loopSvg .step.on { opacity: 1; }
+#loopSvg .step.now line, #loopSvg .step.now path { stroke: var(--accent); }
+#loopSvg .step.now text { fill: var(--accent); }
+#loopSvg .step line, #loopSvg .step path { stroke: var(--text); stroke-width: 1.8; fill: none; }
+#loopSvg .step text { fill: var(--muted); font: 500 11.5px "JetBrains Mono", monospace; }
+#loopSvg .step .arr { fill: var(--text); stroke: none; }
+#loopSvg .step.now .arr { fill: var(--accent); }
+
+.dialwrap { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 20px; padding: 20px; align-items: start; }
+.dial-side h4 { margin: 0 0 6px; font-size: 16px; }
+.dial-side p { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+.dialex { margin: 0 0 14px; padding-left: 16px; color: var(--muted); font-size: 13px; }
+.dialex li { margin-bottom: 4px; }
+.dialex b { color: var(--text); font-weight: 600; }
+.dialrange { width: 100%; accent-color: var(--accent); }
+.diallabels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 4px; }
+.diallabels span.on { color: var(--accent); font-weight: 700; }
+#dialSvg .l2, #dialSvg .l3 { opacity: 0; transition: opacity .3s; }
+#dialSvg[data-level="1"] .l2, #dialSvg[data-level="2"] .l2 { opacity: 1; }
+#dialSvg[data-level="2"] .l3 { opacity: 1; }
+.annot { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; }
+.annot-t { fill: var(--text); font: 500 10.5px "JetBrains Mono", monospace; }
+
+.filterbar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+.filterbar span { font-size: 13px; color: var(--muted); }
+.fchip { font-size: 12.5px; font-weight: 600; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 4px 13px; cursor: pointer; }
+.fchip[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: var(--text); }
+table.req { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 14px; margin-bottom: 18px; }
+table.req caption { text-align: left; font-weight: 700; font-size: 15px; padding: 0 2px 8px; }
+table.req th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--surface-2); padding: 9px 14px; border-bottom: 1px solid var(--border); }
+table.req td { padding: 9px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.req tr:last-child td { border-bottom: 0; }
+table.req tr.hide { display: none; }
+.pri { font-family: "JetBrains Mono", monospace; font-size: 11.5px; font-weight: 700; border-radius: 5px; padding: 1px 7px; white-space: nowrap; }
+.pri.p0 { color: var(--accent); background: var(--accent-soft); }
+.pri.p1 { color: var(--sel); background: color-mix(in srgb, var(--sel) 14%, transparent); }
+.pri.p2 { color: var(--muted); background: var(--surface-2); }
+td .id { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--muted); }
+
+.vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.vk { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; font-size: 13.5px; }
+.vk b { font-family: "JetBrains Mono", monospace; color: var(--accent); }
+.vk .pri { float: right; }
+.vk p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+
+.deckgrid { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 14px; }
+.deckgrid th, .deckgrid td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.deckgrid th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); background: var(--surface-2); }
+.deckgrid tr:last-child td { border-bottom: 0; }
+.deckgrid td:first-child { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.verdict { margin-top: 14px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); border-radius: 12px; padding: 14px 16px; font-size: 14.5px; }
+
+.oq { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+.oq p { margin: 0 0 10px; font-weight: 600; }
+.oq .opts { display: flex; gap: 8px; flex-wrap: wrap; }
+.oq .opts button { font-size: 13px; border: 1.5px solid var(--border); background: var(--surface-2); border-radius: 999px; padding: 5px 13px; cursor: pointer; color: var(--muted); }
+.oq .opts button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--text); font-weight: 600; }
+.oq-note { font-size: 12.5px; color: var(--muted); margin: 10px 2px 0; }
+
+pre.cli { background: #171512; color: #e7e1d8; border-radius: var(--radius); padding: 16px 18px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; line-height: 1.7; overflow-x: auto; margin: 14px 0 0; }
+pre.cli .p { color: #ff8a3d; } pre.cli .d { color: #8f877c; } pre.cli .g { color: #8fd19e; } pre.cli .y { color: #f0c674; }
+
+@media (max-width: 760px) {
+  .tabbody.on, .dialwrap { grid-template-columns: 1fr; }
+  h1 { font-size: 28px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="top">
+  <div class="brand"><div class="mark" aria-hidden="true"></div>nibble</div>
+  <button class="chipbtn" id="themeBtn" type="button">Toggle theme</button>
+</header>
+
+<div class="statusline">
+  <span class="chip">PRD · <b>v0.2 draft</b> · single source</span>
+  <span class="chip">mockups: <a class="inline" href="design/mockups.html">design/mockups.html</a></span>
+</div>
+
+<h1>An agent's explanation you can poke.</h1>
+<p class="lede"><b>nibble</b> turns what an agent wants to tell you — a bug, a plan, a PR — into an interactive visual model of your code, served in small nibbles. This PRD is interactive too: step the loop, turn the detail dial, filter the requirements, read the decision log.</p>
+
+<nav class="toc" aria-label="Sections">
+  <a href="#opinions">Opinions</a>
+  <a href="#modes">Three ways in</a>
+  <a href="#visuals">Visual vocabulary</a>
+  <a href="#loop">The loop</a>
+  <a href="#dial">Detail dial</a>
+  <a href="#components">Components</a>
+  <a href="#reqs">Requirements</a>
+  <a href="#protocol">On disk & CLI</a>
+  <a href="#mvp">MVP</a>
+  <a href="#metrics">Metrics</a>
+  <a href="#deck">vs deck</a>
+  <a href="#oq">Decision log</a>
+</nav>
+
+<section id="opinions">
+  <h2>§3</h2>
+  <h3>Opinionated on purpose</h3>
+  <p class="note">These are product decisions, not settings. The CLI enforces them with fix-it messages.</p>
+  <div class="cards">
+    <div class="card"><b><span>01</span>Picture first, prose last</b><p>Every nibble leads with a visual. The caption is one or two sentences, never a paragraph. No visual, no nibble.</p></div>
+    <div class="card"><b><span>02</span>Interactive, not animated</b><p>A visual you can only watch is a video. Every visual has something to do: scrub, toggle, click, step, compare.</p></div>
+    <div class="card"><b><span>03</span>One canvas per plate</b><p>Nibbles move a camera across one shared map. You build a spatial picture, not a slideshow.</p></div>
+    <div class="card"><b><span>04</span>Code is evidence, on demand</b><p>Click any node, edge or moment to open the validated lines behind it in a drawer.</p></div>
+    <div class="card"><b><span>05</span>Small by default</b><p>Budgets that scale with the task, not walls: ~5 nibbles for a bug, maybe 12 for a big PR chapter. Going over needs a stated reason, printed on the plate for you to judge.</p></div>
+    <div class="card"><b><span>06</span>The human holds the pen</b><p>A plate you asked for opens itself — you were waiting for it. A plate the agent volunteered waits in the tray until you open it. The agent can never advance or close one.</p></div>
+    <div class="card"><b><span>07</span>Disagree on the thing itself</b><p>Comments pin to a node, an edge, a moment or a line — never to "the explanation".</p></div>
+    <div class="card"><b><span>08</span>No themes, no knobs</b><p>Agents say what things are — including semantic hints: groups, tiers, a focus node. Never colours or pixels: nibble computes every position, so the same idea always looks the same.</p></div>
+    <div class="card"><b><span>09</span>Detail is a dial</b><p>Overview, standard, deep — layers on the same canvas, never a different document. This is how plates stay small without hiding anything. Try it <a class="inline" href="#dial">below</a>.</p></div>
+    <div class="card"><b><span>10</span>Visuals are cheap, so ask</b><p>Maps and compares are auto-generated. Missing a picture? Press <kbd>v</kbd> on the thing itself and the agent draws it in place.</p></div>
+  </div>
+</section>
+
+<section id="modes">
+  <h2>§7.1</h2>
+  <h3>Three ways in</h3>
+  <p class="note">Same loop, three sources — in priority order: PR review first, explaining system parts and request flows just below it, local changes after.</p>
+  <div class="panel">
+    <div class="tabs" role="tablist" aria-label="Entry modes">
+      <button role="tab" aria-selected="true" data-tab="t-pr">1 · Review a PR</button>
+      <button role="tab" aria-selected="false" data-tab="t-explain">2 · Explain a system / flow</button>
+      <button role="tab" aria-selected="false" data-tab="t-local">3 · Review local changes</button>
+    </div>
+
+    <div class="tabbody" id="t-explain" role="tabpanel">
+      <div>
+        <p class="say">"<b>walk me through one checkout request, end to end</b>"</p>
+        <ul>
+          <li>System parts, request flows, flows in general — on the shared canvas</li>
+          <li>Auto-generated <b>map</b> from the import graph, a <b>sequence</b> stepping the request, a <b>timeline</b> for behaviour over time</li>
+          <li>Refs: <span class="refk">path:start-end</span>, validated and fingerprinted</li>
+        </ul>
+        <pre class="cli"><span class="p">$</span> nibble new --title "One checkout request, end to end"</pre>
+      </div>
+      <div class="minicanvas"><svg viewBox="0 0 420 170" role="img" aria-label="Map of checkout-api, cache and postgres with a spike timeline">
+        <rect class="n-box" x="20" y="30" width="105" height="44" rx="9"/><text class="n-txt" x="34" y="56">checkout</text>
+        <rect class="n-box" x="160" y="30" width="105" height="44" rx="9"/><text class="n-txt" x="186" y="56">cache</text>
+        <rect class="n-hot" x="300" y="30" width="100" height="44" rx="9"/><text class="n-txt" x="318" y="56">postgres</text>
+        <path class="n-edge" d="M125 52H160M265 52H300"/>
+        <path class="n-edge" d="M30 140H400" />
+        <rect x="200" y="95" width="7" height="45" fill="var(--warn)"/>
+        <rect x="120" y="128" width="7" height="12" fill="var(--accent)" opacity=".5"/>
+        <rect x="290" y="128" width="7" height="12" fill="var(--accent)" opacity=".5"/>
+        <text class="n-lab" x="190" y="160">12:00:00</text>
+      </svg></div>
+    </div>
+
+    <div class="tabbody" id="t-local" role="tabpanel">
+      <div>
+        <p class="say">"<b>walk me through what you just changed</b>"</p>
+        <ul>
+          <li>A plate about the uncommitted diff</li>
+          <li>Map of touched files coloured by churn, one <b>compare</b> per claim</li>
+          <li>Refs: <span class="refk">diff:path@worktree</span>, validated against both sides</li>
+        </ul>
+        <pre class="cli"><span class="p">$</span> nibble new --title "What I changed and why" --about worktree</pre>
+      </div>
+      <div class="minicanvas"><svg viewBox="0 0 420 170" role="img" aria-label="Before and after panes with a slider between them">
+        <rect class="n-box" x="25" y="25" width="165" height="120" rx="9"/>
+        <rect class="n-box n-new" x="230" y="25" width="165" height="120" rx="9"/>
+        <text class="n-sub" x="40" y="47">before</text><text class="n-sub" x="245" y="47">after</text>
+        <path class="n-edge" d="M42 65h120M42 85h95M42 105h110" opacity=".6"/>
+        <path class="n-edge" d="M247 65h120M247 85h130M247 105h70M247 125h100" opacity=".6" style="stroke:var(--ok)"/>
+        <rect x="206" y="25" width="8" height="120" rx="4" fill="var(--accent)"/>
+      </svg></div>
+    </div>
+
+    <div class="tabbody on" id="t-pr" role="tabpanel">
+      <div>
+        <p class="say">"<b>review PR #1247</b>"</p>
+        <ul>
+          <li>Agent fetches <span class="refk">base..head</span>, proposes <b>chapters</b> if it is big, you agree first</li>
+          <li>Map with three rings: <b>changed</b> · <b>dependents that did not change</b> (callers, importers, tests, configs) · the rest; unvisited dependents are badged</li>
+          <li>Every plate ends with a <b>not-shown ledger</b>: the hunks no nibble referenced, open to comments</li>
+          <li>Refs: <span class="refk">diff:path@base..head:start-end</span>; comments name the side and line</li>
+        </ul>
+        <pre class="cli"><span class="p">$</span> nibble new --title "PR 1247 · ch 1: payments" --about pr:1247</pre>
+      </div>
+      <div class="minicanvas"><svg viewBox="0 0 420 170" role="img" aria-label="Three chapter plates fanned over a map of changed files">
+        <rect class="n-box" x="60" y="52" width="120" height="78" rx="9" opacity=".55"/>
+        <rect class="n-box" x="48" y="42" width="120" height="78" rx="9" opacity=".75"/>
+        <rect class="n-box" x="36" y="32" width="120" height="78" rx="9"/>
+        <text class="n-sub" x="50" y="54">ch 1 · payments</text>
+        <path class="n-edge" d="M52 72h90M52 90h70" opacity=".6"/>
+        <rect class="n-hot" x="250" y="35" width="130" height="36" rx="8"/><text class="n-sub" x="262" y="57">ledger.ts · +812</text>
+        <rect class="n-box" x="250" y="82" width="130" height="36" rx="8"/><text class="n-sub" x="262" y="104">retry.ts · +94</text>
+        <path class="n-edge" d="M156 70C200 60 210 55 250 53M156 92C200 98 210 98 250 100"/>
+      </svg></div>
+    </div>
+  </div>
+</section>
+
+<section id="visuals">
+  <h2>§6</h2>
+  <h3>Visual vocabulary</h3>
+  <p class="note">Seven typed kinds; the agent writes structure, nibble draws it and wires the controls. The <a class="inline" href="design/mockups.html">mockups page</a> has a live timeline you can scrub. Visuals are <b>auto-generated by default</b> — a map from the import graph, a compare from the diff — and you can request new ones on demand with <kbd>v</kbd>.</p>
+  <div class="vgrid">
+    <div class="vk"><span class="pri p0">P0</span><b>map</b><p>Services and modules. Click a node for code, highlight a path.</p></div>
+    <div class="vk"><span class="pri p0">P0</span><b>sequence</b><p>Messages between actors. Step one by one, branch.</p></div>
+    <div class="vk"><span class="pri p0">P0</span><b>timeline</b><p>Events on one clock. Scrub time, toggle the fix.</p></div>
+    <div class="vk"><span class="pri p0">P0</span><b>compare</b><p>Before vs after. Drag the slider, flip.</p></div>
+    <div class="vk"><span class="pri p1">P1</span><b>state</b><p>A state machine. Fire events, spot unreachable states.</p></div>
+    <div class="vk"><span class="pri p1">P1</span><b>data</b><p>The shape of data as it moves. Follow one value.</p></div>
+    <div class="vk"><span class="pri p1">P1</span><b>chart</b><p>Numbers. Hover values; toggle what-if states the agent precomputed.</p></div>
+  </div>
+</section>
+
+<section id="loop">
+  <h2>§7.2</h2>
+  <h3>The loop, step by step</h3>
+  <p class="note">The agent writes through a shell CLI and blocks on <span class="mono">nibble serve</span> until you answer. Press <b>Step</b>.</p>
+  <div class="panel loopwrap">
+    <div class="loopctl">
+      <button class="b primary" id="loopStep" type="button">Step →</button>
+      <button class="b" id="loopReset" type="button">Reset</button>
+      <span class="loopmsg" id="loopMsg">8 steps, from your question to the agent's answer.</span>
+    </div>
+    <svg id="loopSvg" viewBox="0 0 880 430" role="img" aria-label="Sequence diagram: You, Agent, CLI, Reader">
+      <g class="lanehead">
+        <rect x="40" y="10" width="110" height="34" rx="9"/><text x="78" y="32">You</text>
+        <rect x="260" y="10" width="110" height="34" rx="9"/><text x="288" y="32">Agent</text>
+        <rect x="480" y="10" width="110" height="34" rx="9"/><text x="518" y="32">CLI</text>
+        <rect x="700" y="10" width="110" height="34" rx="9"/><text x="726" y="32">Reader</text>
+      </g>
+      <line class="lane" x1="95" y1="44" x2="95" y2="420"/>
+      <line class="lane" x1="315" y1="44" x2="315" y2="420"/>
+      <line class="lane" x1="535" y1="44" x2="535" y2="420"/>
+      <line class="lane" x1="755" y1="44" x2="755" y2="420"/>
+      <g class="step" id="s1"><line x1="95" y1="75" x2="307" y2="75"/><path class="arr" d="M315 75l-10-5v10z"/><text x="110" y="66">"why does checkout slow down every hour?"</text></g>
+      <g class="step" id="s2"><line x1="315" y1="118" x2="527" y2="118"/><path class="arr" d="M535 118l-10-5v10z"/><text x="330" y="109">nibble new --title …</text></g>
+      <g class="step" id="s3"><line x1="315" y1="161" x2="527" y2="161"/><path class="arr" d="M535 161l-10-5v10z"/><text x="330" y="152">nibble serve  (blocks, waiting for you)</text></g>
+      <g class="step" id="s4"><line x1="535" y1="204" x2="103" y2="204"/><path class="arr" d="M95 204l10-5v10z"/><text x="110" y="195">tray: "plate ready · 1 of 4"</text></g>
+      <g class="step" id="s5"><line x1="315" y1="247" x2="527" y2="247"/><path class="arr" d="M535 247l-10-5v10z"/><text x="330" y="238">nibble add ×4  — refs + opinions validated</text></g>
+      <g class="step" id="s6"><line x1="535" y1="290" x2="747" y2="290"/><path class="arr" d="M755 290l-10-5v10z"/><text x="550" y="281">nibbles appear live</text></g>
+      <g class="step" id="s7"><line x1="95" y1="333" x2="747" y2="333"/><path class="arr" d="M755 333l-10-5v10z"/><text x="110" y="324">open · explore · comment on a node · press v for a missing visual</text></g>
+      <g class="step" id="s8"><line x1="755" y1="386" x2="323" y2="386"/><path class="arr" d="M315 386l10-5v10z"/><text x="330" y="377">serve exits: verdict + pinned comments + visual requests</text></g>
+    </svg>
+  </div>
+</section>
+
+<section id="dial">
+  <h2>§6.2</h2>
+  <h3>Detail is a dial</h3>
+  <p class="note">nibble's central mechanism: it resolves the tension between small plates and real tasks, because depth grows <b>in place</b> instead of in a longer document. Same canvas, same camera — the dial only changes how much is drawn. <b>Overview</b> and <b>standard</b> ship with the plate; <b>deep</b> can be generated on demand through the same loop as a comment. Skim to decide whether to care, read at standard, interrogate at deep — a ninety-second review and a ten-minute one are the same plate.</p>
+  <div class="panel dialwrap">
+    <div class="minicanvas">
+      <svg id="dialSvg" data-level="1" viewBox="0 0 560 250" role="img" aria-label="The same map at three detail levels">
+        <!-- L1: overview -->
+        <rect class="n-box" x="30" y="40" width="130" height="48" rx="10"/><text class="n-txt" x="48" y="68">checkout</text>
+        <rect class="n-box" x="215" y="40" width="130" height="48" rx="10"/><text class="n-txt" x="248" y="68">cache</text>
+        <rect class="n-hot" x="400" y="40" width="130" height="48" rx="10"/><text class="n-txt" x="424" y="68">postgres</text>
+        <path class="n-edge" d="M160 64H215M345 64H400"/>
+        <!-- L2: standard -->
+        <g class="l2">
+          <text class="n-lab" x="170" y="56">getPrice</text>
+          <text class="n-lab" x="356" y="56">miss</text>
+          <path class="n-edge" d="M40 200H520"/>
+          <rect x="265" y="140" width="8" height="60" fill="var(--warn)"/>
+          <rect x="130" y="188" width="8" height="12" fill="var(--accent)" opacity=".5"/>
+          <rect x="400" y="188" width="8" height="12" fill="var(--accent)" opacity=".5"/>
+          <line x1="300" y1="130" x2="300" y2="206" stroke="var(--text)" stroke-width="1.5"/>
+          <circle cx="300" cy="206" r="5" fill="var(--text)"/>
+          <text class="n-lab" x="250" y="226">scrub · 12:00:00</text>
+        </g>
+        <!-- L3: deep -->
+        <g class="l3">
+          <rect class="annot" x="206" y="98" width="148" height="22" rx="6"/><text class="annot-t" x="214" y="113">ttl 3600s · no jitter · 41 keys</text>
+          <rect class="annot" x="396" y="98" width="138" height="22" rx="6"/><text class="annot-t" x="404" y="113">pool 20 · p99 4.2s</text>
+          <rect class="annot" x="30" y="98" width="130" height="22" rx="6"/><text class="annot-t" x="38" y="113">prices.ts:43-45</text>
+        </g>
+      </svg>
+    </div>
+    <div class="dial-side">
+      <h4 id="dialTitle">standard</h4>
+      <p id="dialDesc">The visual with its controls and refs. This is what a plate opens at.</p>
+      <ul class="dialex" id="dialEx"></ul>
+      <input class="dialrange" id="dialRange" type="range" min="0" max="2" value="1" step="1" aria-label="Detail level">
+      <div class="diallabels"><span data-l="0">overview</span><span data-l="1" class="on">standard</span><span data-l="2">deep</span></div>
+    </div>
+  </div>
+</section>
+
+<section id="components">
+  <h2>§9</h2>
+  <h3>The components</h3>
+  <p class="note">Five pieces plus one future one. The CLI is the centre: agents talk to it, plates live under it, the reader renders only what it computed.</p>
+
+  <div class="minicanvas" style="margin-bottom:16px">
+    <svg viewBox="0 0 900 340" role="img" aria-label="Component diagram: agent and skill talk to the Go CLI, which owns the plate folders and serves the reader; the reader is hosted in a browser tab, the Tauri pill, or later an editor panel; everything shares the protocol">
+      <!-- agent -->
+      <rect class="n-box" x="30" y="50" width="160" height="66" rx="10"/>
+      <text class="n-txt" x="50" y="78">your agent</text><text class="n-sub" x="50" y="98">Claude Code · Codex · …</text>
+      <!-- skill -->
+      <rect class="n-box" x="30" y="156" width="160" height="50" rx="10" stroke-dasharray="4 4"/>
+      <text class="n-txt" x="50" y="178">skill</text><text class="n-sub" x="50" y="196">installed by nibble setup</text>
+      <path class="n-edge" d="M110 156V116" stroke-dasharray="3 4"/>
+      <!-- cli -->
+      <rect class="n-hot" x="300" y="50" width="180" height="66" rx="10"/>
+      <text class="n-txt" x="320" y="78">nibble CLI</text><text class="n-sub" x="320" y="98">Go · validate · serve</text>
+      <!-- plates -->
+      <rect class="n-box" x="300" y="156" width="180" height="50" rx="10"/>
+      <text class="n-txt" x="320" y="178">plate folders</text><text class="n-sub" x="320" y="196">~/.nibble · JSON</text>
+      <path class="n-edge" d="M390 122V150"/>
+      <polygon points="386,126 394,126 390,118" fill="var(--muted)"/>
+      <polygon points="386,146 394,146 390,154" fill="var(--muted)"/>
+      <text class="n-lab" x="402" y="140">plates · review.json</text>
+      <!-- agent <-> cli -->
+      <path class="n-edge" d="M190 68H292"/><polygon points="292,64 292,72 299,68" fill="var(--muted)"/>
+      <text class="n-lab" x="245" y="58" style="text-anchor:middle">new · add · serve</text>
+      <path class="n-edge" d="M300 98H198"/><polygon points="198,94 198,102 191,98" fill="var(--muted)"/>
+      <text class="n-lab" x="245" y="116" style="text-anchor:middle">verdict + review</text>
+      <!-- cli <-> reader -->
+      <path class="n-edge" d="M480 68H602"/><polygon points="602,64 602,72 609,68" fill="var(--muted)"/>
+      <text class="n-lab" x="545" y="58" style="text-anchor:middle">SSE · lines · trust</text>
+      <path class="n-edge" d="M610 98H488"/><polygon points="488,94 488,102 481,98" fill="var(--muted)"/>
+      <text class="n-lab" x="545" y="116" style="text-anchor:middle">comments · verdict</text>
+      <!-- reader -->
+      <rect class="n-box n-new" x="610" y="50" width="180" height="66" rx="10"/>
+      <text class="n-txt" x="630" y="78">reader</text><text class="n-sub" x="630" y="98">TypeScript SPA · pure view</text>
+      <!-- hosts -->
+      <text class="n-lab" x="700" y="144" style="text-anchor:middle">hosted in</text>
+      <path class="n-edge" d="M660 116L580 170M700 116V170M740 116L820 170" stroke-dasharray="3 4"/>
+      <rect class="n-box" x="525" y="170" width="110" height="40" rx="8"/><text class="n-sub" x="580" y="194" style="text-anchor:middle">browser tab</text>
+      <rect class="n-box" x="645" y="170" width="110" height="40" rx="8"/><text class="n-sub" x="700" y="194" style="text-anchor:middle">Tauri pill</text>
+      <rect class="n-box" x="765" y="170" width="110" height="40" rx="8" stroke-dasharray="4 4"/><text class="n-sub" x="820" y="194" style="text-anchor:middle">editor · later</text>
+      <!-- protocol band -->
+      <rect class="n-box" x="30" y="262" width="845" height="42" rx="10" stroke-dasharray="4 4"/>
+      <text class="n-sub" x="452" y="288" style="text-anchor:middle">PROTOCOL — plate format · visual JSON Schemas · fingerprint &amp; trust rules · golden files (TS types generated)</text>
+      <path class="n-edge" d="M110 206V262M390 206V262M700 210V262" stroke-dasharray="2 5" opacity=".6"/>
+    </svg>
+  </div>
+
+  <div class="cards">
+    <div class="card"><b>nibble CLI <span style="float:right" class="pri p0">v0.1</span></b><p>The single Go binary agents shell out to: <span class="mono">new · add · done · serve · lint · export · setup</span>. Owns <i>all</i> protocol logic — ref validation, fingerprints, budgets, schema checks, trust — and <span class="mono">serve</span> hosts the loopback server and blocks until your answer.</p></div>
+    <div class="card"><b>Agent skill <span style="float:right" class="pri p0">v0.1</span></b><p>What <span class="mono">setup</span> installs into Claude Code / Codex / Cursor: when to reach for nibble, how to write captions and visuals (worked examples), the budgets, how to answer visual requests. Prompt content, not code — the CLI enforces what the skill teaches.</p></div>
+    <div class="card"><b>Reader <span style="float:right" class="pri p0">v0.1</span></b><p>The TypeScript SPA: canvas and camera, the visual kinds, detail dial, code drawer, comments. Pure presentation — it never touches files, it renders what the CLI computed. Embedded into the CLI binary at build time.</p></div>
+    <div class="card"><b>Pill <span style="float:right" class="pri p1">v1</span></b><p>The thin Tauri shell: a menu-bar icon and a floating pill listing waiting plates, opening the same reader in its own window. The only component that is a desktop app.</p></div>
+    <div class="card"><b>Protocol <span style="float:right" class="pri p0">v0.1</span></b><p>The contract everything shares: plate folder format, visual JSON Schemas, the fingerprint and trust rules, golden files. Components can be rewritten against it without breaking a single plate.</p></div>
+    <div class="card"><b>Editor panel <span style="float:right" class="pri p2">later</span></b><p>A VS Code / Cursor webview wrapping the same reader, talking to the same CLI server, with a status-bar item as a second tray. Where the #1 use case (PR review) already lives.</p></div>
+  </div>
+
+<pre class="cli"><span class="d"># repo layout (monorepo)</span>
+nibble/
+  cli/        <span class="d">Go — commands, validation, server; embeds reader/dist</span>
+  reader/     <span class="d">TypeScript — the SPA</span>
+  pill/       <span class="d">Tauri — menu-bar + pill shell (v1)</span>
+  skill/      <span class="d">the agent skill + worked examples</span>
+  protocol/   <span class="d">PROTOCOL.md · schemas/ · golden/</span>
+  docs/       <span class="d">this PRD · design mockups</span></pre>
+</section>
+
+<section id="reqs">
+  <h2>§8</h2>
+  <h3>Requirements</h3>
+  <div class="filterbar">
+    <span>Filter:</span>
+    <button class="fchip" aria-pressed="true" data-f="all" type="button">All</button>
+    <button class="fchip" aria-pressed="false" data-f="p0" type="button">P0 · MVP</button>
+    <button class="fchip" aria-pressed="false" data-f="p1" type="button">P1</button>
+    <button class="fchip" aria-pressed="false" data-f="p2" type="button">P2</button>
+  </div>
+
+  <table class="req">
+    <caption>Reader</caption>
+    <thead><tr><th style="width:52px">ID</th><th>Requirement</th><th style="width:60px">Pri</th></tr></thead>
+    <tbody>
+      <tr class="p0"><td class="id">R1</td><td>Canvas-first layout: visual ≥ 60% of the window; caption below; code in a drawer</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">R2</td><td>One shared canvas per plate; moving between nibbles animates the camera, not a page swap</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">R3</td><td>Visual kinds map, sequence, timeline, compare with built-in interactions</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">R4</td><td>Clicking any anchored element opens the code drawer at the validated lines</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">R5</td><td>Comment on node / edge / moment / line / caption; Ask now or Hold for review</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">R6</td><td>Live: nibbles appear while the agent is still writing</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">R7</td><td>Keyboard: ← → nibbles, space play/step, e evidence, c comment, v request visual, s submit, q close</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p1"><td class="id">R8</td><td>Visual kinds state, data, chart</td><td><span class="pri p1">P1</span></td></tr>
+      <tr class="p1"><td class="id">R9</td><td>What-ifs as toggles between agent-precomputed states (decided 2026-11-01; continuous sliders + DSL-vs-JS only if dogfooding demands them)</td><td><span class="pri p1">P1</span></td></tr>
+      <tr class="p1"><td class="id">R10</td><td>Trust badges and dimming for shifted / stale refs</td><td><span class="pri p1">P1</span></td></tr>
+      <tr class="p2"><td class="id">R11</td><td>Export a plate as a static SVG/PNG storyboard + markdown, for PR descriptions</td><td><span class="pri p2">P2</span></td></tr>
+      <tr class="p0"><td class="id">R12</td><td>Detail dial: overview and standard ship with every plate; deep may arrive on demand</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p1"><td class="id">R13</td><td>Request a visual from any element with v; answers appear threaded in place</td><td><span class="pri p1">P1</span></td></tr>
+      <tr class="p0"><td class="id">R14</td><td>PR mode: diff-aware map (files coloured by churn), side-by-side compare for diff refs</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p1"><td class="id">R15</td><td>Voice walk (w): captions read aloud, highlight and camera in sync; answers read too</td><td><span class="pri p1">P1</span></td></tr>
+      <tr class="p0"><td class="id">R16</td><td>PR map rings: changed / dependent-but-unchanged (callers, importers, tests, configs) / rest; unvisited dependents badged</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">R17</td><td>Not-shown ledger: every plate ends with the diff hunks no nibble referenced, open to comments</td><td><span class="pri p0">P0</span></td></tr>
+    </tbody>
+  </table>
+
+  <table class="req">
+    <caption>CLI (agent-facing)</caption>
+    <thead><tr><th style="width:52px">ID</th><th>Requirement</th><th style="width:60px">Pri</th></tr></thead>
+    <tbody>
+      <tr class="p0"><td class="id">C1</td><td>add rejects refs to missing files / out-of-range lines, and anchors to unknown nodes</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">C2</td><td>add enforces the opinions: visual required, per-task budgets; over budget needs --because, printed on the plate</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">C3</td><td>serve blocks; exits with the review on stdout; exit code encodes verdict</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">C4</td><td>Idempotent, retry-safe commands; --json everywhere</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p1"><td class="id">C5</td><td>lint validates a visual against its schema without touching a plate</td><td><span class="pri p1">P1</span></td></tr>
+      <tr class="p1"><td class="id">C6</td><td>setup installs a skill for Claude Code / Codex / Cursor, with worked visual examples</td><td><span class="pri p1">P1</span></td></tr>
+      <tr class="p0"><td class="id">C7</td><td>--about pins a plate to a diff (worktree, pr:N, base..head); diff: refs validate against both sides</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p1"><td class="id">C8</td><td>visual_request round-trip: serve exits with the request, add --answers &lt;id&gt; threads the reply</td><td><span class="pri p1">P1</span></td></tr>
+      <tr class="p1"><td class="id">C9</td><td>done computes diff + dependent coverage and tells the agent what is missing while it is still running</td><td><span class="pri p1">P1</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="protocol">
+  <h2>§8.3 · §9</h2>
+  <h3>On disk, and the CLI</h3>
+  <p class="note">A plate is a folder of small JSON files, append-only while open, readable by anything, versioned from day one. Refs store a fingerprint of the lines they point at; when a file changes underneath a plate, elements come back as <b>exact</b>, <b>shifted</b> or <b>stale</b> instead of silently wrong.</p>
+  <p class="note"><b>Decided (2026-11-01):</b> the CLI is a single static <b>Go</b> binary (small, instant start, easy installs); the reader stays TypeScript but is <b>pure presentation</b>. All protocol logic — fingerprints, ref parsing, budgets, validation, trust — lives once, in Go: the reader talks only to the Go server and receives trust badges already computed, never files to check. TS types are generated from the JSON Schema files, so nothing protocol-shaped is hand-written twice.</p>
+<pre class="cli"><span class="d"># what the agent runs — most of the time the skill does, not you</span>
+<span class="p">$</span> nibble new   --title "PR 1247 · ch 1: payments" --about pr:1247    <span class="d"># prints the plate path</span>
+<span class="p">$</span> nibble add   &lt;plate&gt; --caption "…" --visual timeline.json \
+               --ref "src/cache/prices.ts:43-45 @cache"               <span class="d"># validated, or bounced with a fix-it</span>
+<span class="p">$</span> nibble done  &lt;plate&gt;                                               <span class="d"># coverage check, seals the plate</span>
+<span class="p">$</span> nibble serve &lt;plate&gt;                                               <span class="d"># tray + block until you answer</span>
+
+<span class="d"># a plate on disk</span>
+~/.nibble/plates/p-20261101-0915-a3f2/
+  plate.json     <span class="d">version · title · repo · head_sha · canvas</span>
+  n1.json        <span class="d">caption · view · visual · controls · refs (fingerprinted)</span>
+  n2.json
+  done           <span class="d">written last</span>
+  review.json    <span class="d">written by the reader; serve prints it and exits</span></pre>
+</section>
+
+<section id="mvp">
+  <h2>§11</h2>
+  <h3>MVP (v0.1)</h3>
+  <p class="note"><b>In:</b> CLI (new, add, done, serve) with validation C1–C4 + C7, plate format v1, <b>PR review</b> (<span class="mono">--about pr:N</span>) and <span class="mono">--about worktree</span> with diff refs, reader R1–R7 + R12 (dial at overview/standard), R14, R16–R17 (blast-radius rings, not-shown ledger) with map, sequence, timeline and compare, browser-tab reader, Claude Code skill.</p>
+  <p class="note"><b>Out, queued for v0.2:</b> chapter flow for huge PRs, voice walk, the deep layer and visuals on demand, what-ifs, state/data/chart, export, editor panel, telemetry.</p>
+  <p class="note"><b>Why a browser tab and not a native window:</b> the product is interactive SVG, and the browser is its best runtime — <span class="mono">nibble serve</span> starts a loopback server (ephemeral port, token URL), serves the reader SPA from the binary, streams nibbles over SSE, takes comments back over POST, then writes <span class="mono">review.json</span> and exits with the verdict code, which is what wakes the agent. Same bundle embeds in a VS Code/Cursor panel later. <b>Decided (2026-11-01):</b> v1 ships a thin Tauri shell around that same web app — a menu-bar icon and a floating pill for waiting plates — so volunteered plates get a deck-calm tray while the reader stays pure web.</p>
+</section>
+
+<section id="metrics">
+  <h2>§12</h2>
+  <h3>Success metrics</h3>
+  <div class="cards">
+    <div class="card"><b>Interaction rate ≥ 60%</b><p>Share of nibbles where a control was used (scrub, toggle, click). If people only press next, the visuals aren't earning their place.</p></div>
+    <div class="card"><b>Comments on visuals</b><p>Share of plates with ≥ 1 comment pinned to a node, edge or moment — not just to code lines.</p></div>
+    <div class="card"><b>Agents can follow the rules</b><p>Share of add calls rejected, and share fixed on retry.</p></div>
+    <div class="card"><b>The whiteboard test</b><p>"I could redraw this system afterwards." Plus median open-to-submit time by plate size.</p></div>
+  </div>
+</section>
+
+<section id="deck">
+  <h2>§10</h2>
+  <h3>nibble vs deck</h3>
+  <p class="note"><a class="inline" href="https://github.com/henit-chobisa/deck">deck</a> is the closest prior art and a good product. We share its plumbing on purpose and bet differently on the medium.</p>
+  <table class="deckgrid">
+    <thead><tr><th></th><th>deck</th><th>nibble</th></tr></thead>
+    <tbody>
+      <tr><td>Primary medium</td><td><b>Code</b>, narration lighting it line by line</td><td><b>Visual model</b>, code as evidence on demand</td></tr>
+      <tr><td>Reader's role</td><td>Follow a guided walk</td><td>Explore and manipulate: scrub, toggle, what-if</td></tr>
+      <tr><td>Structure</td><td>Sequence of groups</td><td>Camera across one canvas; ≤ 7 nibbles</td></tr>
+      <tr><td>Detail</td><td>One telling</td><td>A dial: overview / standard / deep</td></tr>
+      <tr><td>Scope</td><td>Explain, plan, review via the walk</td><td>Explain · review the worktree · review a PR, with diff refs first-class</td></tr>
+      <tr><td>Narration</td><td>Prose band, read aloud</td><td>Caption ≤ 40 words; voice walk planned (R15)</td></tr>
+      <tr><td>Runtime</td><td>Native Rust window</td><td>Web reader in a thin Tauri shell (native pill); editor panel later</td></tr>
+      <tr><td>Protocol</td><td>.deck folders, frozen v1</td><td>Own format only — no deck interop (decided)</td></tr>
+    </tbody>
+  </table>
+  <div class="verdict"><b>Kept from deck, with credit:</b> the agent writes through a shell CLI, refs are validated at write time, the human opens the plate, and a blocking command returns the review. Those are the right mechanics for the category; the bet we change is the medium.</div>
+</section>
+
+<section id="oq">
+  <h2>§13</h2>
+  <h3>Decision log</h3>
+  <p class="note">Every open question from the draft is settled. All decided 2026-11-01 unless noted.</p>
+  <div class="cards">
+    <div class="card"><b>Auto-open</b><p>A plate you asked for opens itself; a volunteered one waits in the pill. The agent never advances or closes one.</p></div>
+    <div class="card"><b>Tray: Tauri pill</b><p>v1 ships a thin Tauri shell — menu-bar icon + floating pill — around the same web reader.</p></div>
+    <div class="card"><b>Map layout: hints</b><p>Agents give semantic hints (groups, tiers, a focus node); nibble computes every pixel.</p></div>
+    <div class="card"><b>What-ifs: precomputed states</b><p>Toggles between agent-precomputed curves. Continuous sliders (and DSL vs sandboxed JS) only if dogfooding demands them.</p></div>
+    <div class="card"><b>CLI: Go</b><p>Single static binary holding all protocol logic; the reader is pure presentation, its types generated from the schemas.</p></div>
+    <div class="card"><b>Plates: ~/.nibble</b><p>Global, keyed by repo + commit; repos stay clean. <span class="mono">nibble export</span> writes a chosen plate into a repo to share it.</p></div>
+    <div class="card"><b>No deck interop</b><p>Own format only (2026-10-31); deck credited for the mechanics we keep.</p></div>
+    <div class="card"><b>Still open: the name's homes</b><p>npm and crates.io are taken, but a Go binary doesn't need either (brew tap + install script). Left to pick: GitHub repo and domain.</p></div>
+  </div>
+
+</section>
+
+<section>
+  <h2>§naming</h2>
+  <h3>Why "nibble"</h3>
+  <p class="note">A small bite, and in computing half a byte. It describes how the product works — take something big in small pieces — and reads naturally as a verb: <i>nibble through the PR</i>. Tagline: <b>"nibble: so you can ruminate."</b> Also considered: ruminate, bitesize, bites, crumbs, chew, morsels, dose, capsule.</p>
+</section>
+
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { var t = localStorage.getItem('nibble-theme'); if (t) root.setAttribute('data-theme', t); } catch (e) {}
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = cur === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('nibble-theme', next); } catch (e) {}
+  });
+
+  // tabs
+  var tabs = document.querySelectorAll('.tabs [role=tab]');
+  tabs.forEach(function (b) {
+    b.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.setAttribute('aria-selected', x === b); });
+      document.querySelectorAll('.tabbody').forEach(function (p) { p.classList.toggle('on', p.id === b.getAttribute('data-tab')); });
+    });
+  });
+
+  // loop stepper
+  var MSGS = [
+    '<b>1.</b> You ask the agent about some code — a bug, a plan, a PR.',
+    '<b>2.</b> The agent creates a plate. Only a shell is needed.',
+    '<b>3.</b> <b>nibble serve</b> blocks. This waiting command is what ends with your answer.',
+    '<b>4.</b> The tray appears. It invites; it never steals focus.',
+    '<b>5.</b> Each <b>add</b> is validated: refs, caption length, node caps. Bad nibbles bounce with a fix-it.',
+    '<b>6.</b> Nibbles stream into the open reader live.',
+    '<b>7.</b> You explore, scrub, comment on a node — or press <b>v</b> to request a missing visual.',
+    '<b>8.</b> serve exits: verdict, comments pinned to things, visual requests. The agent continues.'
+  ];
+  var li = 0, steps = [];
+  for (var i = 1; i <= 8; i++) steps.push(document.getElementById('s' + i));
+  var msg = document.getElementById('loopMsg');
+  function loopDraw() {
+    steps.forEach(function (s, i) {
+      s.classList.toggle('on', i < li);
+      s.classList.toggle('now', i === li - 1);
+    });
+    msg.innerHTML = li ? MSGS[li - 1] : '8 steps, from your question to the agent’s answer.';
+  }
+  document.getElementById('loopStep').addEventListener('click', function () { li = li >= 8 ? 1 : li + 1; loopDraw(); });
+  document.getElementById('loopReset').addEventListener('click', function () { li = 0; loopDraw(); });
+
+  // detail dial
+  var DIAL = [
+    ['overview', 'The shape and one sentence. Enough to decide whether to go deeper.', [
+      '<b>PR chapter:</b> three rings; “retry middleware; 9 files, 2 unvisited callers”',
+      '<b>Flow walk:</b> the five boxes one request crosses',
+      '<b>Debugging:</b> the map and the claim']],
+    ['standard', 'The visual with its controls and refs. This is what a plate opens at.', [
+      '<b>PR chapter:</b> middleware map, one retried payment on a timeline, a compare per claim',
+      '<b>Flow walk:</b> a sequence stepping hop by hop, code on click',
+      '<b>Debugging:</b> the scrubbable timeline and the TTL code']],
+    ['deep', 'Per-element annotations, numbers, edge cases — generated on demand through the same loop as a comment.', [
+      '<b>PR chapter:</b> test coverage per ring, p99 before/after',
+      '<b>Flow walk:</b> payload shape per hop, timeouts and retries',
+      '<b>Debugging:</b> pool stats per moment, a what-if chart for jitter']]
+  ];
+  var range = document.getElementById('dialRange'), dsvg = document.getElementById('dialSvg');
+  var dlabels = document.querySelectorAll('.diallabels span');
+  function dial() {
+    var v = +range.value;
+    dsvg.setAttribute('data-level', v);
+    document.getElementById('dialTitle').textContent = DIAL[v][0];
+    document.getElementById('dialDesc').textContent = DIAL[v][1];
+    document.getElementById('dialEx').innerHTML = DIAL[v][2].map(function (x) { return '<li>' + x + '</li>'; }).join('');
+    dlabels.forEach(function (l) { l.classList.toggle('on', +l.getAttribute('data-l') === v); });
+  }
+  range.addEventListener('input', dial);
+  dial();
+
+  // priority filter
+  var chips = document.querySelectorAll('.fchip');
+  chips.forEach(function (c) {
+    c.addEventListener('click', function () {
+      chips.forEach(function (x) { x.setAttribute('aria-pressed', x === c); });
+      var f = c.getAttribute('data-f');
+      document.querySelectorAll('table.req tbody tr').forEach(function (r) {
+        r.classList.toggle('hide', f !== 'all' && !r.classList.contains(f));
+      });
+    });
+  });
+
+})();
+</script>
+</body>
+</html>

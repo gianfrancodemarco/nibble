@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nibble mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f1ec; --surface: #fffdf9; --surface-2: #f7f3ed; --border: #e6dfd4;
+  --text: #2a2622; --muted: #7a7166; --accent: #e8590c; --accent-soft: #fde6d6;
+  --lit: #fff1c2; --lit-edge: #f0b429; --ok: #2f9e44; --warn: #d9480f; --sel: #1c6fb0;
+  --code-bg: #fbf8f3; --grid: #ece6dc;
+  --kw: #b5317a; --fn: #1c6fb0; --str: #2f8a4c; --num: #b35c00; --cm: #9a9086;
+  --shadow: 0 1px 2px rgba(40,30,20,.06), 0 8px 24px rgba(40,30,20,.08);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15130f; --surface: #1e1b17; --surface-2: #25211c; --border: #36302a;
+    --text: #ece6dd; --muted: #a0968a; --accent: #ff8a3d; --accent-soft: #3a2416;
+    --lit: #3a3015; --lit-edge: #f0b429; --ok: #51cf66; --warn: #ff6b3d; --sel: #7cb8f0;
+    --code-bg: #1a1814; --grid: #2b2722;
+    --kw: #f28fc0; --fn: #7cb8f0; --str: #8fd19e; --num: #ffb36b; --cm: #7d7468;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15130f; --surface: #1e1b17; --surface-2: #25211c; --border: #36302a;
+  --text: #ece6dd; --muted: #a0968a; --accent: #ff8a3d; --accent-soft: #3a2416;
+  --lit: #3a3015; --lit-edge: #f0b429; --ok: #51cf66; --warn: #ff6b3d; --sel: #7cb8f0;
+  --code-bg: #1a1814; --grid: #2b2722;
+  --kw: #f28fc0; --fn: #7cb8f0; --str: #8fd19e; --num: #ffb36b; --cm: #7d7468;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 Inter, system-ui, sans-serif; }
+.page { max-width: 1180px; margin: 0 auto; padding: 40px 16px 80px; }
+header.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 22px; letter-spacing: -.02em; }
+.mark { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); position: relative; overflow: hidden; }
+.mark::after { content: ""; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); top: -5px; right: -5px; }
+.lede { color: var(--muted); max-width: 680px; margin: 4px 0 40px; }
+button { font: inherit; color: inherit; }
+.chipbtn { font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+section { margin-bottom: 64px; }
+h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 6px; font-weight: 600; }
+h3 { font-size: 22px; margin: 0 0 6px; letter-spacing: -.01em; }
+.note { color: var(--muted); margin: 0 0 20px; max-width: 760px; }
+.mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: var(--surface-2); border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; }
+
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.pr { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+.pr b { display: block; margin-bottom: 4px; }
+.pr b span { color: var(--accent); margin-right: 6px; font-family: "JetBrains Mono", monospace; font-size: 13px; }
+.pr p { margin: 0; color: var(--muted); font-size: 14px; }
+
+.desk { background: linear-gradient(135deg, var(--surface-2), var(--bg)); border: 1px solid var(--border); border-radius: 18px; padding: 24px; position: relative; overflow: hidden; }
+.tray-stage { min-height: 200px; display: flex; align-items: flex-end; justify-content: center; }
+.ghost { position: absolute; inset: 24px 24px 90px; border-radius: 10px; background: var(--surface); opacity: .55; border: 1px solid var(--border); }
+.ghost i { display: block; height: 8px; border-radius: 4px; background: var(--border); margin: 14px 18px; }
+.tray { position: relative; display: flex; align-items: center; gap: 14px; background: var(--text); color: var(--bg); border-radius: 999px; padding: 8px 8px 8px 16px; box-shadow: var(--shadow); max-width: 100%; }
+.tray .thumb { width: 44px; height: 28px; flex: none; }
+.tray .t { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tray .sub { font-size: 12px; opacity: .65; white-space: nowrap; }
+.tray .go { background: var(--accent); color: #fff; border-radius: 999px; padding: 6px 14px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+.tray .later { opacity: .6; font-size: 13px; padding: 0 6px; white-space: nowrap; }
+
+/* reader */
+.win { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.chrome { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--border); background: var(--surface-2); flex-wrap: wrap; }
+.lights { display: flex; gap: 6px; }
+.lights span { width: 11px; height: 11px; border-radius: 50%; background: var(--border); }
+.chrome .title { font-weight: 600; font-size: 13.5px; flex: 1; min-width: 160px; }
+.rail { display: flex; gap: 5px; align-items: center; }
+.rail i { width: 26px; height: 7px; border-radius: 999px; background: var(--border); }
+.rail i.read { background: var(--accent); opacity: .45; }
+.rail i.on { background: var(--accent); width: 40px; }
+.chrome .meta { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+.stage { position: relative; background:
+  radial-gradient(circle, var(--grid) 1px, transparent 1.2px) 0 0 / 22px 22px, var(--surface); }
+.stage svg { display: block; width: 100%; height: auto; }
+.node rect { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; transition: stroke .2s, fill .2s; }
+.node text { fill: var(--text); font: 600 14px Inter, sans-serif; }
+.node .sub { fill: var(--muted); font: 400 11.5px "JetBrains Mono", monospace; }
+.node { cursor: pointer; }
+.node:hover rect, .node:focus rect { stroke: var(--sel); }
+.node:focus { outline: none; }
+.node.hot rect { stroke: var(--warn); stroke-width: 2.5; fill: color-mix(in srgb, var(--warn) 10%, var(--surface)); }
+.node.open rect { stroke: var(--sel); stroke-width: 2.5; }
+.edge { stroke: var(--muted); fill: none; stroke-linecap: round; transition: stroke-width .15s; }
+.edge.miss { stroke: var(--warn); stroke-dasharray: 6 6; animation: flow 1s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -12; } }
+@media (prefers-reduced-motion: reduce) { .edge.miss { animation: none; } }
+.elabel { fill: var(--muted); font: 500 11px "JetBrains Mono", monospace; }
+.dim { opacity: .35; }
+.badge { position: absolute; top: 14px; left: 16px; font-size: 12px; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+.badge b { color: var(--accent); }
+
+.controls { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.controls input[type=range] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+.clock { font-family: "JetBrains Mono", monospace; font-size: 13px; min-width: 72px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; font-size: 12.5px; }
+.seg button { border: 0; background: transparent; padding: 5px 12px; cursor: pointer; }
+.seg button[aria-pressed=true] { background: var(--accent); color: #fff; }
+.play { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; width: 32px; height: 32px; cursor: pointer; }
+
+.caption { padding: 14px 18px; border-top: 1px solid var(--border); font-size: 17px; line-height: 1.45; display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.caption .k { font-size: 11.5px; color: var(--accent); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.caption mark { background: var(--lit); box-shadow: inset 0 -2px 0 var(--lit-edge); color: inherit; border-radius: 3px; padding: 0 2px; }
+
+.drawer { border-top: 1px solid var(--border); background: var(--code-bg); }
+.drawer-head { display: flex; align-items: center; gap: 10px; padding: 10px 18px; font-size: 12.5px; color: var(--muted); font-family: "JetBrains Mono", monospace; flex-wrap: wrap; }
+.drawer-head b { color: var(--text); font-weight: 500; }
+.drawer-head .sp { flex: 1; }
+.trust { font-family: Inter, sans-serif; font-size: 10.5px; font-weight: 600; border-radius: 4px; padding: 0 5px; }
+.trust.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.trust.shift { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.code { font-family: "JetBrains Mono", monospace; font-size: 13px; line-height: 1.7; overflow-x: auto; padding-bottom: 10px; }
+.ln { display: flex; white-space: pre; border-left: 3px solid transparent; padding-right: 16px; }
+.ln .n { width: 46px; text-align: right; padding-right: 14px; color: var(--muted); opacity: .6; flex: none; }
+.ln.lit { background: var(--lit); border-left-color: var(--lit-edge); }
+.kw { color: var(--kw); } .fn { color: var(--fn); } .str { color: var(--str); } .num { color: var(--num); } .cm { color: var(--cm); font-style: italic; }
+.mini { font-size: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 7px; padding: 3px 9px; cursor: pointer; font-family: Inter, sans-serif; }
+
+.foot { display: flex; gap: 18px; padding: 10px 18px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.foot span { white-space: nowrap; }
+
+/* gallery */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.card svg { display: block; width: 100%; height: 130px; background: var(--surface-2); }
+.card .body { padding: 12px 14px; }
+.card b { font-family: "JetBrains Mono", monospace; font-size: 13px; color: var(--accent); }
+.card p { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); }
+.card .act { font-size: 12px; color: var(--text); margin-top: 6px; }
+.g-line { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.g-box { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+.g-acc { fill: var(--accent); }
+.g-accs { stroke: var(--accent); stroke-width: 2; fill: none; }
+.g-warn { fill: var(--warn); }
+.g-txt { fill: var(--muted); font: 10px "JetBrains Mono", monospace; }
+
+/* comment */
+.comment-stage { position: relative; }
+.pop { position: absolute; right: 24px; top: 40px; width: 330px; max-width: calc(100% - 32px); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); padding: 14px; }
+.pop .on { font-size: 12px; color: var(--muted); margin-bottom: 8px; font-family: "JetBrains Mono", monospace; }
+.pop .box { border: 1px solid var(--border); border-radius: 8px; padding: 10px; min-height: 64px; font-size: 14px; background: var(--surface-2); }
+.pop .acts { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; flex-wrap: wrap; }
+.b { font-size: 13px; font-weight: 600; border-radius: 8px; padding: 7px 12px; border: 1px solid var(--border); background: var(--surface); white-space: nowrap; }
+.b.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.b small { font-weight: 400; opacity: .7; margin-left: 4px; }
+
+.sheet { max-width: 560px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; }
+.sheet h4 { margin: 0 0 4px; font-size: 18px; }
+.sheet .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+.cm-item { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; display: flex; gap: 12px; align-items: flex-start; }
+.cm-item svg { flex: none; width: 54px; height: 38px; border-radius: 6px; background: var(--surface-2); }
+.cm-item .where { font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cm-item p { margin: 4px 0 0; font-size: 14px; }
+.verdicts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+.v { border: 1.5px solid var(--border); border-radius: 10px; padding: 10px; font-size: 13px; text-align: center; font-weight: 600; }
+.v small { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+.v.on { border-color: var(--accent); background: var(--accent-soft); }
+
+.term { background: #171512; color: #e7e1d8; border-radius: var(--radius); padding: 18px 20px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; line-height: 1.7; overflow-x: auto; box-shadow: var(--shadow); margin: 0; }
+.term .p { color: #ff8a3d; } .term .d { color: #8f877c; } .term .g { color: #8fd19e; } .term .y { color: #f0c674; }
+
+.tokens { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.tok { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 12.5px; }
+.tok .sw { height: 54px; }
+.tok div:last-child { padding: 8px 10px; }
+.tok code { color: var(--muted); font-size: 11.5px; }
+
+@media (max-width: 760px) {
+  .pop { position: static; width: auto; max-width: none; margin: 12px; }
+  .tray .sub, .tray .later { display: none; }
+  .verdicts { grid-template-columns: 1fr; }
+  .caption { font-size: 15.5px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="top">
+  <div class="brand"><div class="mark" aria-hidden="true"></div>nibble</div>
+  <button class="chipbtn" id="themeBtn" type="button">Toggle theme</button>
+</header>
+<p class="lede">Design mockups v0.2. Picture first, prose last: the agent's explanation becomes an interactive model of your code, served in small nibbles. Section 02 is live, so try it.</p>
+
+<section>
+  <h2>Opinions</h2>
+  <div class="principles">
+    <div class="pr"><b><span>01</span>Picture first, prose last</b><p>Every nibble leads with a visual. The caption is one or two sentences, never a paragraph.</p></div>
+    <div class="pr"><b><span>02</span>Interactive, not animated</b><p>Every visual has something to do: scrub, toggle, click, step, compare.</p></div>
+    <div class="pr"><b><span>03</span>One canvas per plate</b><p>Nibbles move a camera across one shared map. You build a spatial picture, not a slideshow.</p></div>
+    <div class="pr"><b><span>04</span>Code is evidence, on demand</b><p>Click any node, edge or moment to open the validated lines behind it.</p></div>
+    <div class="pr"><b><span>05</span>Small or nothing</b><p>≤ 7 nibbles, ≤ 40 words, ≤ 12 nodes. Bigger means chapters.</p></div>
+    <div class="pr"><b><span>06</span>No knobs</b><p>Agents describe what things are. nibble owns every pixel, so the same idea always looks the same.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>01 · Tray</h2>
+  <h3>A plate is ready</h3>
+  <p class="note">The pill previews the plate's map as a thumbnail, so you see the shape of the answer before you open it. It never steals focus.</p>
+  <div class="desk tray-stage">
+    <div class="ghost" aria-hidden="true"><i style="width:40%"></i><i style="width:70%"></i><i style="width:55%"></i><i style="width:62%"></i><i style="width:30%"></i></div>
+    <div class="tray">
+      <svg class="thumb" viewBox="0 0 44 28" aria-hidden="true">
+        <rect x="1" y="10" width="10" height="8" rx="2" fill="none" stroke="currentColor" opacity=".7"/>
+        <rect x="17" y="10" width="10" height="8" rx="2" fill="none" stroke="currentColor" opacity=".7"/>
+        <rect x="33" y="10" width="10" height="8" rx="2" fill="var(--accent)"/>
+        <path d="M11 14h6M27 14h6" stroke="currentColor" opacity=".7"/>
+      </svg>
+      <div style="min-width:0">
+        <div class="t">Why checkout slows down every hour</div>
+        <div class="sub">Claude Code · 2 of 4 nibbles ready</div>
+      </div>
+      <span class="later">Later</span>
+      <span class="go">Open</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>02 · Reader (live)</h2>
+  <h3>Explore the model, pull up the evidence</h3>
+  <p class="note">The canvas takes most of the window. <b>Drag the time scrubber</b> to watch the misses hit Postgres on the hour, <b>flip jitter on</b> to see the agent's fix, and <b>click any box</b> to open its code in the drawer.</p>
+
+  <div class="win" id="reader">
+    <div class="chrome">
+      <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="title">Why checkout slows down every hour</div>
+      <div class="rail" aria-label="nibble 2 of 4"><i class="read"></i><i class="on"></i><i></i><i></i></div>
+      <div class="meta">2 / 4 · main@4f2a91c</div>
+    </div>
+
+    <div class="stage">
+      <div class="badge">timeline · <b id="qps">20</b> db queries/s</div>
+      <svg viewBox="0 0 900 360" role="img" aria-label="Service map with a load chart: checkout API calls the price cache, cache misses go to Postgres">
+        <!-- edges -->
+        <path id="e1" class="edge" d="M250 95 H 370" stroke-width="2"/>
+        <text class="elabel" x="276" y="84">getPrice</text>
+        <path id="e2" class="edge" d="M530 95 H 650" stroke-width="2"/>
+        <text class="elabel" x="566" y="84">miss</text>
+        <!-- nodes -->
+        <g class="node" data-k="api" tabindex="0" role="button" aria-label="checkout-api, open code">
+          <rect x="90" y="60" width="160" height="70" rx="12"/>
+          <text x="110" y="92">checkout-api</text><text class="sub" x="110" y="113">src/api/checkout.ts</text>
+        </g>
+        <g class="node" data-k="cache" tabindex="0" role="button" aria-label="price cache, open code">
+          <rect x="370" y="60" width="160" height="70" rx="12"/>
+          <text x="390" y="92">price cache</text><text class="sub" x="390" y="113">ttl 3600s</text>
+        </g>
+        <g class="node" data-k="db" tabindex="0" role="button" aria-label="postgres, open code">
+          <rect x="650" y="60" width="160" height="70" rx="12"/>
+          <text x="670" y="92">postgres</text><text class="sub" x="670" y="113" id="dbsub">pool 20 · ok</text>
+        </g>
+        <!-- chart -->
+        <g transform="translate(90,170)">
+          <line x1="0" y1="140" x2="720" y2="140" stroke="var(--border)"/>
+          <line id="cap" x1="0" x2="720" y1="0" y2="0" stroke="var(--warn)" stroke-dasharray="4 4" opacity=".7"/>
+          <text id="capT" class="elabel" x="724" y="0" dy="4" style="fill:var(--warn)">pool limit</text>
+          <g id="bars"></g>
+          <line id="cursor" x1="0" x2="0" y1="-6" y2="146" stroke="var(--text)" stroke-width="1.5"/>
+          <text class="elabel" x="0" y="160">11:58</text>
+          <text class="elabel" x="276" y="160">12:00</text>
+          <text class="elabel" x="680" y="160">12:03</text>
+        </g>
+      </svg>
+    </div>
+
+    <div class="controls">
+      <button class="play" id="play" type="button" aria-label="Play">▶</button>
+      <input id="scrub" type="range" min="0" max="179" value="66" aria-label="Time">
+      <span class="clock" id="clock">11:59:06</span>
+      <span class="seg" role="group" aria-label="TTL jitter">
+        <button type="button" id="jOff" aria-pressed="true">jitter off</button>
+        <button type="button" id="jOn" aria-pressed="false">jitter on</button>
+      </span>
+    </div>
+
+    <div class="caption">
+      <span class="k">Nibble 2</span>
+      <span>Every cached price expires <mark>on the hour</mark>, so every miss hits Postgres in the same second.</span>
+    </div>
+
+    <div class="drawer" id="drawer">
+      <div class="drawer-head">
+        <span>▾</span><b id="dfile">src/cache/prices.ts</b><span id="drange">43–45</span><span class="trust ok" id="dtrust">exact</span>
+        <span class="sp"></span><button class="mini" type="button">Comment <kbd>c</kbd></button>
+      </div>
+      <div class="code" id="dcode"></div>
+    </div>
+
+    <div class="foot">
+      <span><kbd>←</kbd> <kbd>→</kbd> nibbles</span>
+      <span><kbd>space</kbd> play / step</span>
+      <span><kbd>e</kbd> evidence drawer</span>
+      <span><kbd>c</kbd> comment</span>
+      <span><kbd>s</kbd> submit</span>
+      <span><kbd>q</kbd> close</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>03 · Visual vocabulary</h2>
+  <h3>Seven kinds, each with built-in interactions</h3>
+  <p class="note">The agent writes structure as JSON, and nibble draws it and wires up the controls. P0 kinds ship in the MVP.</p>
+  <div class="gallery">
+    <div class="card">
+      <svg viewBox="0 0 250 130" aria-hidden="true">
+        <rect class="g-box" x="20" y="20" width="60" height="30" rx="6"/><rect class="g-box" x="170" y="20" width="60" height="30" rx="6"/>
+        <rect class="g-box" x="95" y="80" width="60" height="30" rx="6" style="stroke:var(--accent);stroke-width:2"/>
+        <path class="g-line" d="M80 35H170M50 50L110 80M200 50L140 80"/>
+      </svg>
+      <div class="body"><b>map</b> · P0<p>Services, modules and how they connect.</p><div class="act">Click a node for code · highlight a path</div></div>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 250 130" aria-hidden="true">
+        <path class="g-line" d="M50 15V120M125 15V120M200 15V120" stroke-dasharray="3 4"/>
+        <path class="g-accs" d="M50 35H125M125 60H200"/><path class="g-line" d="M200 85H125M125 105H50"/>
+        <circle class="g-acc" cx="125" cy="60" r="4"/>
+      </svg>
+      <div class="body"><b>sequence</b> · P0<p>Messages between actors, in order.</p><div class="act">Step message by message · branch</div></div>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 250 130" aria-hidden="true">
+        <path class="g-line" d="M20 110H230"/>
+        <rect x="30" y="95" width="10" height="15" class="g-acc" opacity=".5"/><rect x="50" y="95" width="10" height="15" class="g-acc" opacity=".5"/>
+        <rect x="110" y="25" width="10" height="85" class="g-warn"/><rect x="170" y="95" width="10" height="15" class="g-acc" opacity=".5"/>
+        <path d="M140 15V118" stroke="var(--text)" stroke-width="1.5"/><circle cx="140" cy="118" r="5" fill="var(--text)"/>
+      </svg>
+      <div class="body"><b>timeline</b> · P0<p>Events from several actors on one clock.</p><div class="act">Scrub time · toggle the fix and compare</div></div>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 250 130" aria-hidden="true">
+        <rect class="g-box" x="15" y="50" width="60" height="30" rx="6"/><rect class="g-box" x="175" y="50" width="60" height="30" rx="6"/>
+        <rect x="125" y="50" width="2" height="30" fill="var(--accent)"/>
+        <path class="g-line" d="M75 65H120"/><path class="g-accs" d="M130 65H175"/>
+        <text class="g-txt" x="22" y="100">before</text><text class="g-txt" x="185" y="100">after</text>
+      </svg>
+      <div class="body"><b>compare</b> · P0<p>Before vs after: code, a map or a metric.</p><div class="act">Drag the slider · flip</div></div>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 250 130" aria-hidden="true">
+        <circle class="g-box" cx="50" cy="65" r="22"/><circle cx="125" cy="40" r="22" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/><circle class="g-box" cx="200" cy="65" r="22"/>
+        <path class="g-line" d="M70 55L104 45M146 45L180 55M180 75Q125 110 70 75"/>
+      </svg>
+      <div class="body"><b>state</b> · P1<p>A state machine and where you are in it.</p><div class="act">Fire events · spot unreachable states</div></div>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 250 130" aria-hidden="true">
+        <rect class="g-box" x="20" y="25" width="70" height="80" rx="6"/><rect class="g-box" x="160" y="25" width="70" height="80" rx="6"/>
+        <path class="g-line" d="M30 45H80M30 60H70M30 75H80M170 45H220M170 60H210"/>
+        <path class="g-accs" d="M80 60C120 60 120 60 170 60"/>
+      </svg>
+      <div class="body"><b>data</b> · P1<p>The shape of data as it moves through code.</p><div class="act">Expand fields · follow one value</div></div>
+    </div>
+    <div class="card">
+      <svg viewBox="0 0 250 130" aria-hidden="true">
+        <path class="g-line" d="M25 110H230M25 15V110"/>
+        <path class="g-accs" d="M25 100C80 98 110 90 140 60S200 20 230 18"/>
+        <circle cx="140" cy="60" r="5" class="g-acc"/>
+      </svg>
+      <div class="body"><b>chart</b> · P1<p>Latency, counts, sizes.</p><div class="act">Hover values · drag a what-if parameter</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>04 · Comment</h2>
+  <h3>Disagree on the thing itself</h3>
+  <p class="note">Select a node, an edge, a moment on the timeline or a line of code, and press <kbd>c</kbd>. <b>Ask now</b> ends the agent's wait with a question; <b>Hold for review</b> keeps it until you submit.</p>
+  <div class="win comment-stage">
+    <div class="stage">
+      <svg viewBox="0 0 900 220" aria-hidden="true">
+        <path class="edge" d="M250 95 H 370" stroke-width="2"/>
+        <path class="edge miss" d="M530 95 H 650" stroke-width="6"/>
+        <g class="node"><rect x="90" y="60" width="160" height="70" rx="12"/><text x="110" y="100">checkout-api</text></g>
+        <g class="node open"><rect x="370" y="60" width="160" height="70" rx="12"/><text x="390" y="100">price cache</text></g>
+        <g class="node hot"><rect x="650" y="60" width="160" height="70" rx="12"/><text x="670" y="100">postgres</text></g>
+        <circle cx="530" cy="60" r="11" fill="var(--sel)"/><text x="526" y="64" style="fill:#fff;font:700 11px Inter">1</text>
+      </svg>
+    </div>
+    <div class="pop" role="dialog" aria-label="Comment">
+      <div class="on">node: price cache · @ 12:00:00</div>
+      <div class="box">Wouldn't jitter just smear the spike over a few minutes? Why not refresh-ahead?</div>
+      <div class="acts">
+        <span class="b">Hold for review <small>⌘↵</small></span>
+        <span class="b primary">Ask now <small>⇧⌘↵</small></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>05 · Submit</h2>
+  <h3>The review, with thumbnails</h3>
+  <p class="note">Every comment shows a crop of what it is pinned to, so you and the agent are looking at the same thing.</p>
+  <div class="desk">
+    <div class="sheet">
+      <h4>Send review to Claude Code</h4>
+      <div class="sub">4 nibbles explored · 9 interactions · 2 comments</div>
+      <div class="cm-item">
+        <svg viewBox="0 0 54 38" aria-hidden="true"><rect x="10" y="10" width="34" height="18" rx="4" fill="none" stroke="var(--sel)" stroke-width="2"/></svg>
+        <div><div class="where">nibble 2 · node price cache @ 12:00:00 <span class="trust ok">exact</span></div>
+        <p>Wouldn't jitter just smear the spike over a few minutes? Why not refresh-ahead?</p></div>
+      </div>
+      <div class="cm-item">
+        <svg viewBox="0 0 54 38" aria-hidden="true"><path d="M6 30H48" stroke="var(--muted)"/><rect x="24" y="8" width="6" height="22" fill="var(--warn)"/></svg>
+        <div><div class="where">nibble 3 · src/db/pool.ts:12 <span class="trust shift">shifted +3</span></div>
+        <p>Pool size is 40 since last week, so this chart's limit line is wrong.</p></div>
+      </div>
+      <div class="verdicts">
+        <div class="v">Approve<small>go ahead</small></div>
+        <div class="v on">Changes<small>address comments</small></div>
+        <div class="v">Discuss<small>answer first</small></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <span class="b">Cancel</span><span class="b primary">Send <small>⌘↵</small></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>06 · Agent side</h2>
+  <h3>Strict in, structured out</h3>
+  <p class="note">The CLI enforces the opinions with fix-it messages. The blocked <span class="mono">nibble serve</span> exits with the review.</p>
+<pre class="term"><span class="p">$</span> nibble add $P --caption "…" --ref "src/cache/prices.ts:43-45 @cache"
+<span class="y">✗ rejected: nibble has no visual. Add --visual (map|sequence|timeline|compare).</span>
+<span class="p">$</span> nibble add $P --caption "… 61 words …" --visual stampede.json --ref "…"
+<span class="y">✗ rejected: caption is 61 words (max 40). Move detail into the visual or split the nibble.</span>
+<span class="p">$</span> nibble add $P --caption "Every cached price expires on the hour…" \
+    --visual stampede.json --ref "src/cache/prices.ts:43-45 @cache"
+<span class="g">✓ nibble 2 added (timeline, 3 nodes, 1 control)</span>
+<span class="p">$</span> nibble serve $P      <span class="d"># blocked until you answer</span>
+
+<span class="g">verdict: changes</span>   <span class="d">(exit 2)</span>
+
+## nibble 2 · node `cache` @ 12:00:00 · src/cache/prices.ts:43-45 (exact)
+&gt; Wouldn't jitter just smear the spike over a few minutes? Why not refresh-ahead?
+
+## nibble 3 · src/db/pool.ts:12 (shifted +3)
+&gt; Pool size is 40 since last week, so this chart's limit line is wrong.</pre>
+</section>
+
+<section>
+  <h2>Tokens</h2>
+  <h3>Colour and type</h3>
+  <p class="note">Warm paper neutrals and a dotted canvas. Tangerine is the one accent, used for anything you can act on. Amber is the reading light, blue is your selection, and red means overloaded. Type is Inter for UI and captions, JetBrains Mono for code, refs and keys.</p>
+  <div class="tokens">
+    <div class="tok"><div class="sw" style="background:var(--bg)"></div><div>Background<br><code>--bg</code></div></div>
+    <div class="tok"><div class="sw" style="background:var(--surface)"></div><div>Surface<br><code>--surface</code></div></div>
+    <div class="tok"><div class="sw" style="background:var(--accent)"></div><div>Accent<br><code>--accent</code></div></div>
+    <div class="tok"><div class="sw" style="background:var(--lit);border-bottom:3px solid var(--lit-edge)"></div><div>Reading light<br><code>--lit</code></div></div>
+    <div class="tok"><div class="sw" style="background:var(--sel)"></div><div>Selection<br><code>--sel</code></div></div>
+    <div class="tok"><div class="sw" style="background:var(--ok)"></div><div>Trust: exact<br><code>--ok</code></div></div>
+    <div class="tok"><div class="sw" style="background:var(--warn)"></div><div>Hot / shifted<br><code>--warn</code></div></div>
+  </div>
+</section>
+
+</div>
+<script>
+(function () {
+  var root = document.documentElement;
+  try { var t = localStorage.getItem('nibble-theme'); if (t) root.setAttribute('data-theme', t); } catch (e) {}
+  document.getElementById('themeBtn').addEventListener('click', function () {
+    var cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = cur === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    try { localStorage.setItem('nibble-theme', next); } catch (e) {}
+  });
+
+  // --- live reader: 180 one-second buckets from 11:58:00 to 11:58:00+180s ---
+  var N = 180, W = 720, H = 140, MAX = 900, CAP = 400, ON_HOUR = 120;
+  var jitter = false;
+  function load(i) {
+    var base = 20 + 6 * Math.sin(i / 7);
+    if (!jitter) return base + 860 * Math.exp(-Math.pow(i - ON_HOUR, 2) / 10);
+    return i >= ON_HOUR ? base + 75 : base; // expiries spread over 10 min
+  }
+  var bars = document.getElementById('bars');
+  var NS = 'http://www.w3.org/2000/svg', bw = W / N;
+  var rects = [];
+  for (var i = 0; i < N; i++) {
+    var r = document.createElementNS(NS, 'rect');
+    r.setAttribute('x', (i * bw).toFixed(2)); r.setAttribute('width', (bw * .7).toFixed(2));
+    bars.appendChild(r); rects.push(r);
+  }
+  var capY = H - CAP / MAX * H;
+  ['cap'].forEach(function (id) { var l = document.getElementById(id); l.setAttribute('y1', capY); l.setAttribute('y2', capY); });
+  document.getElementById('capT').setAttribute('y', capY);
+
+  var scrub = document.getElementById('scrub'), clock = document.getElementById('clock');
+  var cursor = document.getElementById('cursor'), qps = document.getElementById('qps');
+  var e2 = document.getElementById('e2'), e1 = document.getElementById('e1');
+  var dbNode = document.querySelector('.node[data-k=db]'), dbsub = document.getElementById('dbsub');
+
+  function drawBars() {
+    for (var i = 0; i < N; i++) {
+      var v = load(i), h = Math.max(2, v / MAX * H);
+      rects[i].setAttribute('y', (H - h).toFixed(1)); rects[i].setAttribute('height', h.toFixed(1));
+      rects[i].setAttribute('fill', v > CAP ? 'var(--warn)' : 'var(--accent)');
+      rects[i].setAttribute('opacity', v > CAP ? '1' : '.45');
+    }
+  }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function update() {
+    var i = +scrub.value, v = load(i), s = 58 * 60 + i;
+    var hh = s >= 3600 ? 12 : 11, mm = Math.floor(s / 60) % 60, ss = s % 60;
+    clock.textContent = hh + ':' + pad(mm) + ':' + pad(ss);
+    cursor.setAttribute('x1', i * bw + bw * .35); cursor.setAttribute('x2', i * bw + bw * .35);
+    qps.textContent = Math.round(v);
+    var hot = v > CAP;
+    e2.setAttribute('stroke-width', Math.min(14, 2 + v / 60).toFixed(1));
+    e2.classList.toggle('miss', v > 60);
+    e1.setAttribute('stroke-width', '3');
+    dbNode.classList.toggle('hot', hot);
+    dbsub.textContent = hot ? 'pool 20 · saturated' : 'pool 20 · ok';
+  }
+  function setJitter(on) {
+    jitter = on;
+    document.getElementById('jOn').setAttribute('aria-pressed', on);
+    document.getElementById('jOff').setAttribute('aria-pressed', !on);
+    drawBars(); update();
+  }
+  document.getElementById('jOn').onclick = function () { setJitter(true); };
+  document.getElementById('jOff').onclick = function () { setJitter(false); };
+  scrub.addEventListener('input', update);
+
+  var timer = null, play = document.getElementById('play');
+  play.onclick = function () {
+    if (timer) { clearInterval(timer); timer = null; play.textContent = '▶'; return; }
+    play.textContent = '❚❚';
+    timer = setInterval(function () {
+      scrub.value = (+scrub.value + 1) % N; update();
+    }, 60);
+  };
+
+  // --- code drawer ---
+  var CODE = {
+    api: { file: 'src/api/checkout.ts', range: '18–22', trust: ['ok', 'exact'], lit: [19, 20], lines: [
+      [17, '<span class="kw">export</span> <span class="kw">async</span> <span class="kw">function</span> <span class="fn">checkout</span>(cart: Cart) {'],
+      [18, '  <span class="kw">const</span> lines = <span class="kw">await</span> Promise.<span class="fn">all</span>('],
+      [19, '    cart.items.<span class="fn">map</span>((i) =&gt; <span class="fn">getPrice</span>(i.sku)), <span class="cm">// one lookup per item</span>'],
+      [20, '  )'],
+      [21, '  <span class="kw">return</span> <span class="fn">total</span>(lines)'],
+      [22, '}']] },
+    cache: { file: 'src/cache/prices.ts', range: '43–45', trust: ['ok', 'exact'], lit: [43, 44, 45], lines: [
+      [42, '  <span class="kw">const</span> price = <span class="kw">await</span> db.<span class="fn">price</span>(sku)'],
+      [43, '  <span class="kw">await</span> cache.<span class="fn">set</span>(<span class="str">`price:${sku}`</span>, price, {'],
+      [44, '    ttl: <span class="num">3600</span>, <span class="cm">// same for every key, no jitter</span>'],
+      [45, '  })'],
+      [46, '  <span class="kw">return</span> price']] },
+    db: { file: 'src/db/pool.ts', range: '12–15', trust: ['shift', 'shifted +3'], lit: [12], lines: [
+      [11, '<span class="kw">export</span> <span class="kw">const</span> pool = <span class="kw">new</span> <span class="fn">Pool</span>({'],
+      [12, '  max: <span class="num">20</span>,'],
+      [13, '  idleTimeoutMillis: <span class="num">30_000</span>,'],
+      [14, '  connectionTimeoutMillis: <span class="num">2_000</span>,'],
+      [15, '})']] }
+  };
+  var nodes = document.querySelectorAll('#reader .node');
+  function openCode(k) {
+    var c = CODE[k];
+    document.getElementById('dfile').textContent = c.file;
+    document.getElementById('drange').textContent = c.range;
+    var tr = document.getElementById('dtrust'); tr.className = 'trust ' + c.trust[0]; tr.textContent = c.trust[1];
+    document.getElementById('dcode').innerHTML = c.lines.map(function (l) {
+      return '<div class="ln' + (c.lit.indexOf(l[0]) >= 0 ? ' lit' : '') + '"><span class="n">' + l[0] + '</span>' + l[1] + '</div>';
+    }).join('');
+    nodes.forEach(function (n) { n.classList.toggle('open', n.getAttribute('data-k') === k); });
+  }
+  nodes.forEach(function (n) {
+    n.addEventListener('click', function () { openCode(n.getAttribute('data-k')); });
+    n.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCode(n.getAttribute('data-k')); } });
+  });
+
+  drawBars(); update(); openCode('cache');
+})();
+</script>
+</body>
+</html>
