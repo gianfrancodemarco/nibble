@@ -3,9 +3,12 @@
   "private": true,
   "description": "The nibble reader shell: TypeScript, no framework, no runtime deps. `npm run build` emits the single app.js the Go binary embeds.",
   "scripts": {
-    "build": "tsc -p ."
+    "build": "tsc -p .",
+    "gen": "node scripts/gen-types.mjs",
+    "test": "tsc -p test && node test/build.js"
   },
   "devDependencies": {
+    "json-schema-to-typescript": "15.0.2",
     "typescript": "5.6.2"
   }
 }

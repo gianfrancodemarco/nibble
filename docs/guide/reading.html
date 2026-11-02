@@ -44,7 +44,7 @@
   <thead><tr><th>key</th><th>does</th></tr></thead>
   <tbody>
     <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>previous / next nibble (camera move, not a page swap)</td></tr>
-    <tr><td><kbd>space</kbd></td><td>play / step the active visual <span class="soon">visual kinds</span></td></tr>
+    <tr><td><kbd>space</kbd></td><td>play / step the active visual (step a sequence, jump the timeline cursor, flip a compare; <kbd>shift</kbd> reverses)</td></tr>
     <tr><td><kbd>e</kbd></td><td>open the evidence drawer (the code behind the selection)</td></tr>
     <tr><td><kbd>c</kbd></td><td>comment on the selected thing</td></tr>
     <tr><td><kbd>v</kbd></td><td>request a missing visual from the selected thing <span class="soon">v0.2</span></td></tr>
@@ -53,15 +53,15 @@
     <tr><td><kbd>q</kbd></td><td>close without answering</td></tr>
   </tbody>
 </table>
-<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 shell, <kbd>←</kbd> <kbd>→</kbd>, <kbd>⏎</kbd> (pin comment), <kbd>s</kbd> (send, once a verdict is chosen), <kbd>esc</kbd> and <kbd>?</kbd> (the in-reader legend) are live; clicking does the rest — any ref opens the drawer. The remaining keys land with the visual kinds.</p>
+<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd>, <kbd>space</kbd>, <kbd>⏎</kbd> (pin comment), <kbd>s</kbd> (send, once a verdict is chosen), <kbd>esc</kbd> (drawer, then selection) and <kbd>?</kbd> (the in-reader legend) are live; clicking does the rest — selecting an element pins comments to it (<span class="mono">n2:cache</span>), its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer.</p>
 
 <h4 id="visuals">What each visual lets you do</h4>
-<p>Today each visual shows as a typed summary card with its anchors; these interactions ship with the <a href="../roadmap.html">visual kinds</a> item:</p>
+<p>Each visual renders as interactive SVG, laid out by the reader from what the agent declared — meaning in, pixels out:</p>
 <div class="cards">
-  <div class="card"><b>map</b><p>Click a node → its code in the drawer. Highlight a path. Collapse a group.</p></div>
-  <div class="card"><b>sequence</b><p>Step message by message; branches (<i>alt</i>) show where it could have gone.</p></div>
-  <div class="card"><b>timeline</b><p>Scrub time. Toggle precomputed states — "jitter off / on" — and compare.</p></div>
-  <div class="card"><b>compare</b><p>Flip or slide between before and after: code, a map, or metrics.</p></div>
+  <div class="card"><b>map</b><p>Click a node → it and its edges highlight, the rest dims; its <span class="mono">&lt;/&gt;</span> chip opens the code in the drawer.</p></div>
+  <div class="card"><b>sequence</b><p>Step message by message (<kbd>space</kbd> or click a step); branches (<i>alt</i>) show where it could have gone.</p></div>
+  <div class="card"><b>timeline</b><p>Scrub time — events ahead of the cursor fade to pending. Toggle precomputed states: "jitter off / on".</p></div>
+  <div class="card"><b>compare</b><p>Flip between before and after: code (with its trust badge), a map, or metrics aligned to read across.</p></div>
 </div>
 
 <h4 id="dial">The detail dial</h4>

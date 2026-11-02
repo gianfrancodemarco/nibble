@@ -1,8 +1,8 @@
 // nibble reader shell — pure presentation over the Go server's JSON API.
 // Protocol logic (refs, trust, validation) never happens here: the server
-// hands us computed trust and resolved code. Hand-written API types below
-// cover plate/review only; schema-generated visual types arrive with the
-// visual-kinds change.
+// hands us computed trust and resolved code. Hand-written types below cover
+// the server's response shapes only; the visual types are generated from
+// the protocol JSON Schemas (src/visual/types.gen.d.ts, `npm run gen`).
 
 interface Trust { level: "exact" | "shifted" | "stale" | "unverified"; line: number; shift: number; }
 interface Ref {
@@ -11,7 +11,7 @@ interface Ref {
 }
 interface NibbleData {
   n: number; caption: string; because?: string;
-  visual: Record<string, unknown>; refs: Ref[];
+  visual: Visual; refs: Ref[];
 }
 interface ReviewComment { target?: string; text: string; }
 interface Review { verdict: string; comments?: ReviewComment[]; }
@@ -57,33 +57,24 @@ function mdLite(s: string): string {
 
 // --- visual summary: typed card standing in for per-kind rendering ---
 
-function visualSummary(v: Record<string, unknown>): { kind: string; title: string; detail: string; anchors: string[] } {
-  const kind = String(v.kind ?? "?");
-  const title = String(v.title ?? "");
-  const ids = (xs: unknown, key = "id"): string[] =>
-    Array.isArray(xs) ? xs.map((x) => String((x as Record<string, unknown>)[key] ?? "")).filter(Boolean) : [];
+function visualSummary(v: Visual): { kind: string; title: string; detail: string; anchors: string[] } {
   let detail = "";
   let anchors: string[] = [];
-  if (kind === "map") {
-    const nodes = ids(v.nodes);
-    const edges = Array.isArray(v.edges) ? v.edges.length : 0;
-    detail = `${nodes.length} nodes · ${edges} edges`;
-    anchors = nodes;
-  } else if (kind === "sequence") {
-    const actors = ids(v.actors);
-    const steps = Array.isArray(v.steps) ? v.steps.length : 0;
-    detail = `${actors.length} actors · ${steps} steps`;
-    anchors = actors;
-  } else if (kind === "timeline") {
-    const lanes = ids(v.lanes);
-    const states = ids(v.states, "name");
-    detail = `${lanes.length} lanes` + (states.length ? ` · states: ${states.join(", ")}` : "");
-    anchors = lanes;
-  } else if (kind === "compare") {
+  if (v.kind === "map") {
+    detail = `${v.nodes.length} nodes · ${v.edges?.length ?? 0} edges`;
+    anchors = v.nodes.map((n) => n.id);
+  } else if (v.kind === "sequence") {
+    detail = `${v.actors.length} actors · ${v.steps.length} steps`;
+    anchors = v.actors.map((a) => a.id);
+  } else if (v.kind === "timeline") {
+    const states = v.states?.map((s) => s.name) ?? [];
+    detail = `${v.lanes.length} lanes` + (states.length ? ` · states: ${states.join(", ")}` : "");
+    anchors = v.lanes.map((l) => l.id);
+  } else {
     detail = "before / after";
     anchors = ["before", "after"];
   }
-  return { kind, title, detail, anchors };
+  return { kind: v.kind, title: v.title, detail, anchors };
 }
 
 // --- render ---
@@ -132,20 +123,33 @@ function render(): void {
         .join("");
       return `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
         <h2>nibble ${nb.n}</h2>
-        <p class="caption">${mdLite(nb.caption)}</p>
-        ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
         <div class="visual">
-          <span class="kind">${esc(vs.kind)}</span><span class="vtitle">${esc(vs.title)}</span>
-          <span class="soon">${esc(vs.detail)} — interactive ${esc(vs.kind)} rendering ships with the visual-kinds change</span>
+          <div class="vhead"><span class="kind">${esc(vs.kind)}</span><span class="vtitle">${esc(vs.title)}</span></div>
+          <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
           ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
         </div>
+        <p class="caption">${mdLite(nb.caption)}</p>
+        ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
         <div class="refs">${refs}</div>
       </article>`;
     })
     .join("");
 
+  // Per-kind rendering: swap each card's fallback summary for the rendered
+  // visual when a renderer for its kind is registered.
+  hostSelection = null;
   strip.querySelectorAll<HTMLElement>(".nibble").forEach((card) => {
     card.addEventListener("click", () => setActive(Number(card.dataset.i)));
+    const nb = plate!.nibbles[Number(card.dataset.i)];
+    const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs });
+    if (!body) return;
+    const slot = card.querySelector(".visual");
+    if (!slot) return;
+    slot.classList.add("rendered");
+    slot.querySelector(".soon")?.remove();
+    slot.querySelector(".anchors")?.remove();
+    body.classList.add("visual-body");
+    slot.appendChild(body);
   });
   strip.querySelectorAll<HTMLButtonElement>(".ref").forEach((btn) => {
     btn.addEventListener("click", (e) => {
@@ -160,13 +164,18 @@ function render(): void {
 
 // --- camera: an animated transform, never a navigation ---
 
+function updateCommentTarget(): void {
+  if (!plate || plate.nibbles.length === 0) return;
+  $("#comment-target").textContent = commentTarget(plate.nibbles[active].n, hostSelection, active);
+}
+
 function setActive(i: number): void {
   if (!plate) return;
   active = Math.max(0, Math.min(plate.nibbles.length - 1, i));
   document.querySelectorAll<HTMLElement>(".nibble").forEach((card, idx) => {
     card.classList.toggle("active", idx === active);
   });
-  $("#comment-target").textContent = `n${active + 1}`;
+  updateCommentTarget();
   $("#pos").textContent = `${active + 1} / ${plate.nibbles.length}`;
   camera();
 }
@@ -255,7 +264,7 @@ function addComment(): void {
     input.focus();
     return;
   }
-  pending.push({ target: `n${active + 1}`, text });
+  pending.push({ target: plate ? commentTarget(plate.nibbles[active].n, hostSelection, active) : `n${active + 1}`, text });
   input.value = "";
   renderReviewBar();
 }
@@ -330,15 +339,30 @@ document.addEventListener("keydown", (e) => {
   if (e.target instanceof HTMLInputElement) return;
   if (e.key === "ArrowLeft") setActive(active - 1);
   if (e.key === "ArrowRight") setActive(active + 1);
+  if (e.key === " ") {
+    // space steps the active visual (sequence steps, etc.), shift reverses
+    const body = document.querySelector(".nibble.active .visual-body");
+    if (body) {
+      e.preventDefault();
+      body.dispatchEvent(new CustomEvent("stepvisual", { detail: { delta: e.shiftKey ? -1 : 1 } }));
+    }
+  }
   if (e.key === "?") legend.classList.toggle("pinned");
   if (e.key === "s" && chosen && plate && !plate.review) void submit(chosen);
   if (e.key === "Escape") {
     if (legend.classList.contains("pinned")) legend.classList.remove("pinned");
-    else ($("#drawer") as HTMLElement).hidden = true;
+    else if (!($("#drawer") as HTMLElement).hidden) ($("#drawer") as HTMLElement).hidden = true;
+    else clearVisualSelection($("#strip"), hostWiring);
   }
 });
 window.addEventListener("resize", camera);
 legend.addEventListener("transitionend", camera);
+
+const hostWiring: HostWiring = {
+  openRef: (n, ref) => void openDrawer(n, ref),
+  onTarget: updateCommentTarget,
+};
+wireVisualHost($("#strip"), hostWiring);
 
 void loadPlate();
 listen();

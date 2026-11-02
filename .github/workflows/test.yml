@@ -20,7 +20,8 @@ jobs:
       - run: go vet ./...
       - run: go test ./... -count=1
 
-  # The committed reader bundle must match its TypeScript source.
+  # The committed reader bundle and generated visual types must match their
+  # sources (TypeScript and protocol/schemas).
   reader-drift:
     runs-on: ubuntu-latest
     defaults:
@@ -34,5 +35,7 @@ jobs:
           cache: npm
           cache-dependency-path: reader/package-lock.json
       - run: npm ci
+      - run: npm run gen
+      - run: npm test
       - run: npm run build
-      - run: git diff --exit-code ../cli/internal/cmd/ui/app.js
+      - run: git diff --exit-code ../cli/internal/cmd/ui/app.js src/visual/types.gen.d.ts

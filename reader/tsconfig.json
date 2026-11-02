@@ -8,5 +8,13 @@
     "newLine": "lf",
     "outFile": "../cli/internal/cmd/ui/app.js"
   },
-  "include": ["src/app.ts"]
+  "files": [
+    "src/visual/types.gen.d.ts",
+    "src/visual/host.ts",
+    "src/visual/map.ts",
+    "src/visual/sequence.ts",
+    "src/visual/timeline.ts",
+    "src/visual/compare.ts",
+    "src/app.ts"
+  ]
 }

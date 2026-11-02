@@ -36,7 +36,12 @@ nibble serve <plate> [--timeout <dur>] [--addr <host:port>] [--no-ui] [--json]
 
 `serve` embeds the reader UI (a single static bundle built from
 [`reader/`](../reader/)) and a JSON API that keeps every protocol decision
-server-side — the UI receives computed trust, never hashes:
+server-side — the UI receives computed trust, never hashes. The reader
+renders the four v1 visual kinds (map · sequence · timeline · compare) as
+interactive SVG; its visual types are generated from
+`protocol/schemas/*.schema.json` by `npm run gen` in `reader/` (committed as
+`src/visual/types.gen.d.ts`; CI regenerates and fails on drift, like it does
+for `app.js`):
 
 | endpoint | does |
 | --- | --- |
