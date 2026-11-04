@@ -1,6 +1,6 @@
 ---
 name: nibble
-description: Build an interactive walkthrough (a plate) instead of a wall of text when the shape of a change matters — reviewing a PR or a worktree diff, explaining an architecture, walking through an incident. Also use when the user asks for a plate or mentions nibble. Not for one-line fixes, renames, or questions a paragraph answers.
+description: Build an interactive walkthrough (a plate) instead of a wall of text when the shape of a change matters — explaining, reviewing, or summarizing a PR, branch, or diff; explaining an architecture; walking through an incident. Also use when the user asks for a plate or mentions nibble. Not for one-line fixes, renames, or questions a true paragraph answers — a PR touching several files is not one of those, even when the ask is just "explain this PR".
 ---
 
 # nibble: build a plate
