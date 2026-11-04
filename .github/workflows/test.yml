@@ -39,3 +39,5 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: git diff --exit-code ../cli/internal/cmd/ui/app.js src/visual/types.gen.d.ts
+      # the docs live demo embeds copies of the reader bundle (docs/demo/make.sh)
+      - run: cmp ../cli/internal/cmd/ui/app.js ../docs/visuals/app.js && cmp ../cli/internal/cmd/ui/style.css ../docs/visuals/style.css

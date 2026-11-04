@@ -38,7 +38,7 @@
 </aside>
 <div class="content">
 <h1>Reading a plate</h1>
-<p class="lede">The canvas takes most of the window; the caption sits below it; code lives in a drawer. Moving between nibbles glides the camera across <b>one shared map</b>. Try the <a href="../design/mockups.html">live mockup</a>.</p>
+<p class="lede">The canvas takes most of the window. The caption sits below it, and the code lives in a drawer. Moving between nibbles moves the camera across <b>one shared map</b>. You can try the <a href="#visuals">live demo below</a>: it is the real reader on a real plate.</p>
 <h4 id="keys">Keys</h4>
 <table class="keys">
   <thead><tr><th>key</th><th>does</th></tr></thead>
@@ -53,28 +53,36 @@
     <tr><td><kbd>q</kbd></td><td>close without answering</td></tr>
   </tbody>
 </table>
-<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd>, <kbd>space</kbd>, <kbd>⏎</kbd> (pin comment), <kbd>s</kbd> (send, once a verdict is chosen), <kbd>esc</kbd> (drawer, then selection) and <kbd>?</kbd> (the in-reader legend) are live; clicking does the rest — selecting an element pins comments to it (<span class="mono">n2:cache</span>), its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer.</p>
+<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd>, <kbd>space</kbd>, <kbd>⏎</kbd> (pin comment), <kbd>s</kbd> (send, once a verdict is chosen), <kbd>esc</kbd> (drawer, then selection) and <kbd>?</kbd> (the in-reader legend) are live. Clicking does the rest: selecting an element pins comments to it (<span class="mono">n2:cache</span>), and its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer.</p>
 
-<h4 id="visuals">What each visual lets you do</h4>
-<p>Each visual renders as interactive SVG, laid out by the reader from what the agent declared — meaning in, pixels out:</p>
+<h4 id="visuals">The visuals</h4>
+<p>Each visual renders as interactive SVG. The reader lays it out from what the agent declared: the agent sends the meaning, the reader draws the pixels.</p>
 <div class="cards">
-  <div class="card"><b>map</b><p>Click a node → it and its edges highlight, the rest dims; its <span class="mono">&lt;/&gt;</span> chip opens the code in the drawer.</p></div>
-  <div class="card"><b>sequence</b><p>Step message by message (<kbd>space</kbd> or click a step); branches (<i>alt</i>) show where it could have gone.</p></div>
-  <div class="card"><b>timeline</b><p>Scrub time — events ahead of the cursor fade to pending. Toggle precomputed states: "jitter off / on".</p></div>
+  <div class="card"><b>map</b><p>Click a node: it and its edges highlight, the rest dims. Its <span class="mono">&lt;/&gt;</span> chip opens the code in the drawer.</p></div>
+  <div class="card"><b>sequence</b><p>Step message by message (<kbd>space</kbd> or click a step). Branches (<i>alt</i>) show where it could have gone.</p></div>
+  <div class="card"><b>timeline</b><p>Scrub time: events ahead of the cursor fade to pending. You can toggle precomputed states, for example "jitter off / on".</p></div>
   <div class="card"><b>compare</b><p>Flip between before and after: code (with its trust badge), a map, or metrics aligned to read across.</p></div>
+</div>
+<div class="demo">
+  <div class="demobar">
+    <b>Live demo: the real reader, on a real plate.</b>
+    <span><kbd>←</kbd> <kbd>→</kbd> nibbles · <kbd>space</kbd> step / scrub / flip · click a node to comment on it · verdicts stay local to this page</span>
+    <span style="margin-left:auto"><a href="../visuals/reader.html" target="_blank">open full screen ↗</a></span>
+  </div>
+  <iframe src="../visuals/reader.html" title="nibble reader demo: a four-nibble plate using every visual kind" loading="lazy"></iframe>
 </div>
 
 <h4 id="dial">The detail dial</h4>
-<p>Every plate reads at three depths on the same canvas: <b>overview</b> (the shape, one sentence — enough to decide whether to care), <b>standard</b> (what a plate opens at), <b>deep</b> (per-element numbers and edge cases, generated on demand <span class="soon">v0.2</span>). A ninety-second review and a ten-minute one are the same plate.</p>
+<p>Every plate reads at three depths on the same canvas: <b>overview</b> (the shape in one sentence, enough to decide whether to care), <b>standard</b> (what a plate opens at), <b>deep</b> (per-element numbers and edge cases, generated on demand <span class="soon">v0.2</span>). You can spend ninety seconds or ten minutes on the same plate.</p>
 
 <h4 id="trust">Trust badges</h4>
-<p>Code moves while plates sit. Every ref re-checks against the file as it is now:</p>
-<p>Checking <b>degrades per ref</b>, by what this machine has. A plain ref needs only its file; a <span class="mono">@worktree</span> ref likewise; a <span class="mono">base..head</span> ref needs git. With the plate’s repo present you get everything; with just a folder of files, only <span class="mono">base..head</span> refs fall back to <b>unverified</b>; with nothing, the plate still opens — captions and visuals — and every ref is unverified. The review loop works in all three.</p>
+<p>The code keeps changing after a plate is written. For this reason, every ref is re-checked against the file as it is now.</p>
+<p>Checking <b>degrades per ref</b>, depending on what this machine has. A plain ref and a <span class="mono">@worktree</span> ref only need their file. A <span class="mono">base..head</span> ref needs git. With the plate’s repo present, everything is verified. With just a folder of files, only <span class="mono">base..head</span> refs fall back to <b>unverified</b>. With nothing, the plate still opens with captions and visuals, but every ref is unverified. The review loop works in all three cases.</p>
 <div class="cards">
   <div class="card"><b><span class="trust ok">exact</span></b><p>The lines are exactly where the agent said.</p></div>
-  <div class="card"><b><span class="trust shift">shifted +3</span></b><p>Same lines, found whole at one new position; the offset is shown.</p></div>
-  <div class="card"><b><span class="trust stale">stale</span></b><p>Rewritten, gone, or ambiguous. nibble never guesses — stale means go look.</p></div>
-  <div class="card"><b><span class="trust" style="color:var(--muted);background:color-mix(in srgb,var(--muted) 14%, transparent)">unverified</span></b><p>Couldn’t check: the plate’s repo isn’t on this machine, or a <span class="mono">base..head</span> ref has no git. Different from stale — nothing is known either way.</p></div>
+  <div class="card"><b><span class="trust shift">shifted +3</span></b><p>The same lines were found whole at one new position. The offset is shown.</p></div>
+  <div class="card"><b><span class="trust stale">stale</span></b><p>The lines were rewritten, are gone, or are ambiguous. nibble never guesses: stale means you should go look.</p></div>
+  <div class="card"><b><span class="trust" style="color:var(--muted);background:color-mix(in srgb,var(--muted) 14%, transparent)">unverified</span></b><p>nibble couldn’t check: the plate’s repo isn’t on this machine, or a <span class="mono">base..head</span> ref has no git. This is different from stale, because nothing is known either way.</p></div>
 </div>
 <nav class="pager">
   <a href="receiving.html"><small>← previous</small><b>A plate arrives</b></a>

@@ -1,0 +1,15 @@
+{
+  "kind": "map",
+  "title": "What a checkout touches",
+  "nodes": [
+    { "id": "web", "label": "web", "tier": "edge" },
+    { "id": "checkout", "label": "checkout-api", "tier": "service", "focus": true, "detail": "the endpoint under review" },
+    { "id": "cache", "label": "price cache", "tier": "service", "group": "pricing" },
+    { "id": "db", "label": "postgres pool", "tier": "data" }
+  ],
+  "edges": [
+    { "from": "web", "to": "checkout", "label": "POST /checkout", "style": "flow" },
+    { "from": "checkout", "to": "cache", "label": "getPrice(sku)", "style": "flow" },
+    { "from": "cache", "to": "db", "label": "SELECT on miss", "style": "miss" }
+  ]
+}

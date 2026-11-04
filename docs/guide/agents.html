@@ -32,14 +32,14 @@
   <a href="answering.html">Answering</a>
   <a href="agents.html" aria-current="page">For agents</a>
   <a class="sub" href="#cli">The CLI</a>
-  <a class="sub" href="#serve">serve, fully</a>
+  <a class="sub" href="#serve">The serve command</a>
   <a class="sub" href="#rules">The rules</a>
 </aside>
 <div class="content">
 <h1>For agents</h1>
-<p class="lede">Everything in this guide rides on four commands and a folder of plain JSON.</p>
+<p class="lede">Everything in this guide is built on four commands and a folder of plain JSON.</p>
 <h4 id="cli">The CLI</h4>
-<p>The full contract — formats, the ref grammar, fingerprint and trust rules, every error code — is <a href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">PROTOCOL.md</a>, with golden fixtures as its executable conformance suite.</p>
+<p>The full contract (formats, the ref grammar, fingerprint and trust rules, every error code) is in <a href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">PROTOCOL.md</a>. The golden fixtures are its executable conformance suite.</p>
 <pre class="cli"><span class="p">$</span> nibble new   --title "PR 1247 · ch 1: payments" --about pr:1247   <span class="d"># prints the plate path</span>
 <span class="p">$</span> nibble add   &lt;plate&gt; --caption "…" --visual timeline.json \
                --ref "src/cache/prices.ts:43-45 @cache"
@@ -47,33 +47,33 @@
 <span class="p">$</span> nibble done  &lt;plate&gt;                                              <span class="d"># seals it; coverage gaps reported</span>
 <span class="p">$</span> nibble lint  &lt;visual.json&gt;                                        <span class="d"># validate a visual standalone</span>
 <span class="p">$</span> nibble serve &lt;plate&gt;                                              <span class="d"># blocks; exits with your review</span></pre>
-<p><span class="mono">serve</span> prints one <span class="mono">reader: http://127.0.0.1:…</span> line to stderr — the agent relays that link to the human and then sleeps until the verdict comes back as its exit code.</p>
-<p><b>Exit codes are the contract:</b> 0 ok · 1 validation error · 2 usage — and <span class="mono">serve</span> encodes the verdict: 0 approve · 2 changes · 3 question · 4 closed · 5 timeout. Full reference in <a href="https://github.com/gianfrancodemarco/nibble/blob/main/cli/README.md">cli/README.md</a>.</p>
+<p><span class="mono">serve</span> prints one <span class="mono">reader: http://127.0.0.1:…</span> line to stderr. The agent relays that link to the human, then sleeps until the verdict comes back as its exit code.</p>
+<p><b>The CLI reports results through exit codes:</b> 0 ok · 1 validation error · 2 usage. <span class="mono">serve</span> encodes the verdict: 0 approve · 2 changes · 3 question · 4 closed · 5 timeout. The full reference is in <a href="https://github.com/gianfrancodemarco/nibble/blob/main/cli/README.md">cli/README.md</a>.</p>
 
-<h4 id="serve">serve, fully</h4>
+<h4 id="serve">The serve command</h4>
 <pre class="cli"><span class="p">$</span> nibble serve &lt;plate&gt; [--timeout 2h] [--addr 127.0.0.1:4000] [--no-ui] [--json]</pre>
-<p>While it blocks, <span class="mono">serve</span> hosts the reader on loopback (random port unless <span class="mono">--addr</span> pins one; <span class="mono">--no-ui</span> waits headless). The review can come from the reader or from any tool writing <span class="mono">review.json</span> — one code path either way. Behind the page sits a small JSON API; the reader is pure presentation and all protocol work stays server-side:</p>
+<p>While it blocks, <span class="mono">serve</span> hosts the reader on loopback. The port is random unless <span class="mono">--addr</span> pins one, and <span class="mono">--no-ui</span> waits headless. The review can come from the reader or from any tool that writes <span class="mono">review.json</span>; both go through the same code path. Behind the page there is a small JSON API. The reader is pure presentation, and all protocol work stays server-side:</p>
 <table class="keys">
   <thead><tr><th>endpoint</th><th>does</th></tr></thead>
   <tbody>
     <tr><td><span class="mono">GET /api/plate</span></td><td>header + nibbles, every ref with trust already computed against the code as it is now</td></tr>
     <tr><td><span class="mono">GET /api/code?n=2&amp;ref=0</span></td><td>the drawer: referenced lines ±3 context, diff sides resolved through git, at the trust-resolved position</td></tr>
     <tr><td><span class="mono">POST /api/review</span></td><td>writes <span class="mono">review.json</span> atomically; a plate takes one review (<span class="mono">409 review.exists</span>)</td></tr>
-    <tr><td><span class="mono">GET /api/events</span></td><td>SSE — <span class="mono">nibble</span>, <span class="mono">sealed</span>, <span class="mono">review</span> — so an open reader follows a plate still being written</td></tr>
+    <tr><td><span class="mono">GET /api/events</span></td><td>SSE (<span class="mono">nibble</span>, <span class="mono">sealed</span>, <span class="mono">review</span>), so an open reader follows a plate that is still being written</td></tr>
   </tbody>
 </table>
-<p><b>Serving degrades per ref</b>, by what the machine has. The plate’s <span class="mono">repo</span> may be absolute or relative to the plate folder:</p>
+<p><b>Serving degrades per ref</b>, depending on what the machine has. The plate’s <span class="mono">repo</span> may be absolute or relative to the plate folder:</p>
 <div class="cards">
-  <div class="card"><b>git repo</b><p>Everything: live trust and code for every ref kind.</p></div>
-  <div class="card"><b>just files</b><p>Plain and <span class="mono">@worktree</span> refs fully verified; <span class="mono">base..head</span> refs read <b>unverified</b> (they need git).</p></div>
-  <div class="card"><b>nothing</b><p>Captions and visuals still open, every ref unverified — and the review loop still works.</p></div>
+  <div class="card"><b>git repo</b><p>Everything works: live trust and code for every ref kind.</p></div>
+  <div class="card"><b>just files</b><p>Plain and <span class="mono">@worktree</span> refs are fully verified. <span class="mono">base..head</span> refs read <b>unverified</b>, because they need git.</p></div>
+  <div class="card"><b>nothing</b><p>Captions and visuals still open, every ref is unverified, and the review loop still works.</p></div>
 </div>
 
 <h4 id="rules">The rules</h4>
 <div class="cards">
-  <div class="card"><b>Plates live in <span class="mono">~/.nibble/plates</span></b><p>Keyed by repo and commit; your repos stay clean. <span class="mono">nibble export</span> copies one into a repo to share it.</p></div>
-  <div class="card"><b>Budgets, not walls</b><p>Captions ≤ 40 words; 7 nibbles per plate, 12 for a PR-range plate. Going over needs <span class="mono">--because</span>, and the reason is printed on the plate for you to judge.</p></div>
-  <div class="card"><b>No pixels</b><p>Agents declare what things are — plus semantic hints (group, tier, focus). nibble draws everything, so the same idea always looks the same.</p></div>
+  <div class="card"><b>Plates live in <span class="mono">~/.nibble/plates</span></b><p>They are keyed by repo and commit, so your repos stay clean. <span class="mono">nibble export</span> copies one into a repo to share it.</p></div>
+  <div class="card"><b>Budgets</b><p>Captions are limited to 40 words, and plates to 7 nibbles (12 for a PR-range plate). These are budgets, not hard walls: going over needs <span class="mono">--because</span>, and the reason is printed on the plate for you to judge.</p></div>
+  <div class="card"><b>No pixels</b><p>Agents declare what things are, plus semantic hints (group, tier, focus). nibble draws everything, so the same idea always looks the same.</p></div>
 </div>
 <nav class="pager">
   <a href="answering.html"><small>← previous</small><b>Answering</b></a>

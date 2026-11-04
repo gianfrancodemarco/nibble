@@ -1,0 +1,24 @@
+{
+  "kind": "compare",
+  "title": "What the jitter buys",
+  "before": {
+    "label": "today",
+    "content": {
+      "metrics": [
+        { "name": "p99 checkout", "value": 4.2, "unit": "s" },
+        { "name": "db queries at 12:00", "value": 847, "unit": "/s" },
+        { "name": "carts dropped", "value": 31, "unit": "/h" }
+      ]
+    }
+  },
+  "after": {
+    "label": "with jitter",
+    "content": {
+      "metrics": [
+        { "name": "p99 checkout", "value": 0.26, "unit": "s" },
+        { "name": "db queries at 12:00", "value": 75, "unit": "/s" },
+        { "name": "carts dropped", "value": 0, "unit": "/h" }
+      ]
+    }
+  }
+}
