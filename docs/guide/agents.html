@@ -31,6 +31,7 @@
   <a href="reading.html">Reading a plate</a>
   <a href="answering.html">Answering</a>
   <a href="agents.html" aria-current="page">For agents</a>
+  <a class="sub" href="#skill">The skill</a>
   <a class="sub" href="#cli">The CLI</a>
   <a class="sub" href="#serve">The serve command</a>
   <a class="sub" href="#rules">The rules</a>
@@ -38,6 +39,10 @@
 <div class="content">
 <h1>For agents</h1>
 <p class="lede">Everything in this guide is built on four commands and a folder of plain JSON.</p>
+<h4 id="skill">The skill</h4>
+<p>An agent learns nibble from a skill, not from this page. One command installs it into the current repo:</p>
+<pre class="cli"><span class="p">$</span> nibble setup                                                      <span class="d"># installs .claude/skills/nibble/</span></pre>
+<p>The skill ships inside the binary: a <span class="mono">SKILL.md</span> that teaches Claude Code when a plate is worth building, how to write captions, visuals and refs, the budgets, and how to answer the review — plus worked example visuals. The examples are real protocol JSON, linted by nibble's own test suite, and the skill's worked transcript is executed as a test, so the prose cannot drift from the commands. Re-running <span class="mono">setup</span> upgrades the installed copy; it owns only that one directory. Other agents (<span class="mono">--agent</span>) come with v0.2.</p>
 <h4 id="cli">The CLI</h4>
 <p>The full contract (formats, the ref grammar, fingerprint and trust rules, every error code) is in <a href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">PROTOCOL.md</a>. The golden fixtures are its executable conformance suite.</p>
 <pre class="cli"><span class="p">$</span> nibble new   --title "PR 1247 · ch 1: payments" --about pr:1247   <span class="d"># prints the plate path</span>

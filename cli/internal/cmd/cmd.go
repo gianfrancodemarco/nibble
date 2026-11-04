@@ -42,6 +42,7 @@ usage:
   nibble done  <plate> [--json]
   nibble lint  <visual.json> [--json]
   nibble serve <plate> [--timeout <dur>] [--json]
+  nibble setup [--agent claude-code] [--json]
 
 exit codes: 0 ok · 1 validation/protocol error · 2 usage
 serve: 0 approve · 2 changes · 3 question · 4 closed · 5 timeout
@@ -71,6 +72,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		return RunLint(ctx, rest)
 	case "serve":
 		return RunServe(ctx, rest)
+	case "setup":
+		return RunSetup(ctx, rest)
 	case "help", "-h", "--help":
 		fmt.Fprint(stdout, usage)
 		return 0

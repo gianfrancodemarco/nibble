@@ -19,6 +19,9 @@ jobs:
           cache-dependency-path: cli/go.sum
       - run: go vet ./...
       - run: go test ./... -count=1
+      # The embedded skill mirror must match its source in skill/
+      # (go:embed cannot reach above the module, so a copy is committed).
+      - run: diff -r ../skill/claude-code internal/cmd/skillfs/claude-code
 
   # The committed reader bundle and generated visual types must match their
   # sources (TypeScript and protocol/schemas).
