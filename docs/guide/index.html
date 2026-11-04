@@ -28,8 +28,8 @@
   <p class="head">Docs</p>
   <a href="index.html" aria-current="page">Getting started</a>
   <a class="sub" href="#install">Install</a>
-  <a class="sub" href="#try">Try it now</a>
-  <a class="sub" href="#ask">What you say</a>
+  <a class="sub" href="#try">Try it without an agent</a>
+  <a class="sub" href="#ask">What to ask</a>
   <a href="receiving.html">A plate arrives</a>
   <a href="reading.html">Reading a plate</a>
   <a href="answering.html">Answering</a>
@@ -37,32 +37,32 @@
 </aside>
 <div class="content">
 <h1>Getting started</h1>
-<p class="lede">Everything you do with nibble, from asking to answering. The short version: <b>your agent runs nibble; you just read, poke and reply.</b></p>
-<div class="banner">⚠ nibble is <b>pre-release</b> — v0.1 is in progress. This guide describes the designed behaviour and is kept current as pieces ship; anything not yet real is marked. There is no installer yet; follow the <a href="../roadmap.html">roadmap</a>.</div>
+<p class="lede">This guide covers everything you do with nibble. <b>Your agent runs the nibble commands. You just read, poke and reply.</b></p>
+<div class="banner">⚠ nibble is <b>pre-release</b>: v0.1 is in progress. This guide describes the designed behaviour and is updated as features are released. Anything not implemented yet is marked. There is no installer yet; follow the <a href="../roadmap.html">roadmap</a>.</div>
 
-<h4 id="install">Install <span class="soon">installer ships with v0.1</span></h4>
-<p>The CLI already works — today it builds from source:</p>
+<h4 id="install">Install <span class="soon">installer comes with v0.1</span></h4>
+<p>The CLI already works. For now, you have to build it from source:</p>
 <pre class="cli"><span class="p">$</span> go install github.com/gianfrancodemarco/nibble/cli/cmd/nibble@main</pre>
-<p>The brew tap and skill setup are coming:</p>
+<p>The brew tap and the skill setup are not published yet:</p>
 <pre class="cli"><span class="p">$</span> brew install gianfrancodemarco/tap/nibble      <span class="d"># tap not published yet</span>
 <span class="p">$</span> nibble setup                                   <span class="d"># installs the skill into Claude Code / Codex / Cursor</span></pre>
-<p><span class="mono">setup</span> teaches each agent it finds when to reach for nibble and how to write good plates. After that you never type nibble commands yourself.</p>
+<p><span class="mono">setup</span> installs the skill into each agent it finds. The skill tells the agent when to use nibble and how to write good plates. After that, you never type nibble commands yourself.</p>
 
-<h4 id="try">Try it now — no agent needed</h4>
-<p>The repo ships a real example plate (the one the test suite writes), bundled with a snapshot of the files it references. Serve it straight from the checkout:</p>
+<h4 id="try">Try it without an agent</h4>
+<p>The repository contains a real example plate (the one the test suite writes), together with a snapshot of the files it references. You can serve it directly from the checkout:</p>
 <pre class="cli"><span class="p">$</span> git clone https://github.com/gianfrancodemarco/nibble &amp;&amp; cd nibble
 <span class="p">$</span> go install -C cli ./cmd/nibble
-<span class="p">$</span> nibble serve protocol/golden/plates/cli-authored/plate   <span class="d"># prints reader: http://127.0.0.1:… — open it</span></pre>
-<p>That plate ships already reviewed, so it opens read-only with the verdict visible — reading after the fact. To answer it yourself, serve an unreviewed copy:</p>
+<span class="p">$</span> nibble serve protocol/golden/plates/cli-authored/plate   <span class="d"># prints reader: http://127.0.0.1:…; open it</span></pre>
+<p>That plate is already reviewed, so it opens read-only with the verdict visible. To answer it yourself, serve an unreviewed copy:</p>
 <pre class="cli"><span class="p">$</span> tmp=$(mktemp -d) &amp;&amp; cp -R protocol/golden/plates/cli-authored/* "$tmp" &amp;&amp; rm "$tmp/plate/review.json"
-<span class="p">$</span> nibble serve "$tmp/plate"      <span class="d"># comment, choose a verdict, send — serve exits with its code</span></pre>
+<span class="p">$</span> nibble serve "$tmp/plate"      <span class="d"># comment, choose a verdict, send; serve exits with its code</span></pre>
 
-<h4 id="ask">What you say</h4>
+<h4 id="ask">What to ask</h4>
 <p>You just talk to your agent:</p>
 <div class="cards">
-  <div class="card"><b>"review PR #1247"</b><p>The #1 use case. Big PRs are proposed as chapters first; you agree before the first plate.</p></div>
-  <div class="card"><b>"walk me through one checkout request, end to end"</b><p>System parts, request flows — a map and a sequence, the code at every stop.</p></div>
-  <div class="card"><b>"walk me through what you just changed"</b><p>The uncommitted diff as a map coloured by churn, one compare per claim.</p></div>
+  <div class="card"><b>"review PR #1247"</b><p>The main use case. Big PRs are split into chapters first, and you agree on them before the first plate.</p></div>
+  <div class="card"><b>"walk me through one checkout request, end to end"</b><p>You get a map of the system parts and a sequence of the request, with the code at each step.</p></div>
+  <div class="card"><b>"walk me through what you just changed"</b><p>You get the uncommitted diff as a map coloured by churn, with one compare for each claim.</p></div>
 </div>
 <nav class="pager">
   <a class="next" href="receiving.html"><small>next →</small><b>A plate arrives</b></a>

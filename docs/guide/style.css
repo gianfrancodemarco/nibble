@@ -84,3 +84,8 @@ nav.pager { display: flex; justify-content: space-between; gap: 12px; margin-top
 
 footer { border-top: 1px solid var(--border); margin-top: 40px; padding-top: 20px; font-size: 13px; color: var(--muted); display: flex; gap: 8px 22px; flex-wrap: wrap; }
 footer a { color: var(--muted); }
+
+.demo { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); background: var(--surface); margin-top: 16px; }
+.demo iframe { display: block; width: 100%; height: min(78vh, 820px); border: 0; }
+.demobar { display: flex; gap: 14px; align-items: baseline; font-size: 13px; color: var(--muted); padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); flex-wrap: wrap; }
+.demobar b { color: var(--text); }
