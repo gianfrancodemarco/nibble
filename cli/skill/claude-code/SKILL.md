@@ -39,18 +39,27 @@ switch output modes.
 
 ```
 nibble new   --title <t> [--about code|worktree|<base>..<head>]   # prints the plate path
+nibble serve <plate> [--timeout <dur>] &                          # start serving now, in the background
 nibble add   <plate> --caption <md> --visual <file.json> [--ref <ref>]...
-nibble done  <plate>                                              # seals it
-nibble serve <plate> [--timeout <dur>]                           # blocks until the review
+nibble done  <plate>                                              # seals it; serve keeps waiting for the verdict
 ```
 
 `--about` says what code the plate is about: `code` (the code as it is, the
 default), `worktree` (the uncommitted diff), or a range like `main..feat`.
 Every command takes `--json`. Exit codes: 0 ok, 1 validation error, 2 usage.
 
-`serve` opens the plate to the reader and blocks. Its exit code is the
-verdict: 0 approve, 2 changes, 3 question, 4 closed, 5 timeout. The review
-itself comes out on stdout.
+Serve early: start `serve` right after `new`, as a background task (in
+Claude Code, a Bash call with `run_in_background`). The reader does not wait
+for a finished plate — every `add` streams into the open page live, so the
+human reads nibble 1 while you build nibble 3. `serve` prints a
+`reader: http://…` line to stderr; pass that URL to the user as soon as you
+have it, then keep adding.
+
+`serve` blocks until the review is submitted, then exits. Its exit code is
+the verdict: 0 approve, 2 changes, 3 question, 4 closed, 5 timeout. The
+review itself comes out on stdout. The human can answer before you seal —
+if `serve` ends while you still have nibbles queued, stop adding and handle
+the verdict.
 
 ## A worked review
 
@@ -62,6 +71,9 @@ first, then `add` it.
 ```
 $ nibble new --title "Image resize moved off the upload request" --about worktree
 /Users/me/.nibble/plates/2026-11-04-image-resize-moved-off-the-upload-request
+
+$ nibble serve <plate> --timeout 45m &
+reader: http://127.0.0.1:52314
 
 $ nibble add <plate> \
     --caption "The upload handler no longer resizes anything. It stores the original, enqueues a job and returns. The new resize-worker drains the queue. The red edge is the window where a thumbnail GET can 404." \
@@ -87,8 +99,12 @@ $ nibble add <plate> \
 $ nibble done <plate>
 ✓ sealed at 4 nibbles
 
-$ nibble serve <plate> --timeout 45m
+$ wait %1   # serve is still running; it exits with the verdict
 ```
+
+Each `add` landed in the reader the moment it ran — by `done`, the human may
+already be two nibbles in. Sealing tells the reader nothing more is coming;
+the verdict ends the backgrounded `serve`.
 
 The visuals: [examples/map.json](examples/map.json),
 [examples/sequence.json](examples/sequence.json),
