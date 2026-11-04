@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gianfrancodemarco/nibble/cli/internal/cmd/skillfs"
+	"github.com/gianfrancodemarco/nibble/cli/skill"
 )
 
 // RunSetup installs the embedded agent skill into the current repository at
@@ -52,11 +52,11 @@ func RunSetup(ctx Ctx, args []string) int {
 // syncSkill makes dest an exact mirror of the embedded claude-code skill.
 func syncSkill(dest string) error {
 	want := map[string][]byte{}
-	err := fs.WalkDir(skillfs.FS, "claude-code", func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(skill.FS, "claude-code", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		raw, err := fs.ReadFile(skillfs.FS, p)
+		raw, err := fs.ReadFile(skill.FS, p)
 		if err != nil {
 			return err
 		}

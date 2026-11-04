@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gianfrancodemarco/nibble/cli/internal/cmd/skillfs"
+	"github.com/gianfrancodemarco/nibble/cli/skill"
 	"github.com/gianfrancodemarco/nibble/cli/internal/protocol"
 )
 
@@ -19,7 +19,7 @@ import (
 // and reality cannot drift apart: every command must exit 0 and the plate
 // must end sealed at 4 nibbles.
 func TestSkillTranscript(t *testing.T) {
-	raw, err := fs.ReadFile(skillfs.FS, "claude-code/SKILL.md")
+	raw, err := fs.ReadFile(skill.FS, "claude-code/SKILL.md")
 	if err != nil {
 		t.Fatalf("embedded SKILL.md: %v", err)
 	}
@@ -40,11 +40,11 @@ func TestSkillTranscript(t *testing.T) {
 
 	// The transcript says to write each visual to a file first.
 	visuals := t.TempDir()
-	err = fs.WalkDir(skillfs.FS, "claude-code/examples", func(p string, d fs.DirEntry, err error) error {
+	err = fs.WalkDir(skill.FS, "claude-code/examples", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		raw, err := fs.ReadFile(skillfs.FS, p)
+		raw, err := fs.ReadFile(skill.FS, p)
 		if err != nil {
 			return err
 		}

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gianfrancodemarco/nibble/cli/internal/cmd/skillfs"
+	"github.com/gianfrancodemarco/nibble/cli/skill"
 )
 
 // readTree returns path → content for every file under dir.
@@ -39,11 +39,11 @@ func readTree(t *testing.T, dir string) map[string]string {
 func embeddedTree(t *testing.T) map[string]string {
 	t.Helper()
 	want := map[string]string{}
-	err := fs.WalkDir(skillfs.FS, "claude-code", func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(skill.FS, "claude-code", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return err
 		}
-		raw, err := fs.ReadFile(skillfs.FS, p)
+		raw, err := fs.ReadFile(skill.FS, p)
 		if err != nil {
 			return err
 		}

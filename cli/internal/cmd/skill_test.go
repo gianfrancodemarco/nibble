@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gianfrancodemarco/nibble/cli/internal/cmd/skillfs"
+	"github.com/gianfrancodemarco/nibble/cli/skill"
 	"github.com/gianfrancodemarco/nibble/cli/internal/protocol"
 )
 
@@ -14,15 +14,15 @@ import (
 // least one worked example visual per v1 kind, every one of them valid
 // protocol JSON — the examples double as conformance fixtures.
 func TestSkillPackageComplete(t *testing.T) {
-	if _, err := fs.ReadFile(skillfs.FS, "claude-code/SKILL.md"); err != nil {
+	if _, err := fs.ReadFile(skill.FS, "claude-code/SKILL.md"); err != nil {
 		t.Fatalf("claude-code/SKILL.md missing from embedded skill: %v", err)
 	}
 	kinds := map[string]bool{"map": false, "sequence": false, "timeline": false, "compare": false}
-	err := fs.WalkDir(skillfs.FS, "claude-code", func(p string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(skill.FS, "claude-code", func(p string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || path.Ext(p) != ".json" {
 			return err
 		}
-		raw, err := fs.ReadFile(skillfs.FS, p)
+		raw, err := fs.ReadFile(skill.FS, p)
 		if err != nil {
 			return err
 		}

@@ -6,17 +6,17 @@
   (empty for now) and asserts it contains `claude-code/SKILL.md` plus at
   least one example visual per kind, and that every `*.json` visual passes
   the same validation `lint` uses (fails: nothing embedded yet).
-- [x] 1.2 Write the four example visuals under `skill/claude-code/examples/`
+- [x] 1.2 Write the four example visuals under `cli/skill/claude-code/examples/`
   — one map, sequence, timeline (with what-if `states`) and compare — fresh
   didactic examples around one coherent story, each passing `nibble lint`.
   Verify: `go run ./cmd/nibble lint` exits 0 on each.
-- [x] 1.3 Green: committed mirror `cli/internal/cmd/skillfs/claude-code/`
-  (copy of `skill/claude-code/`), `//go:embed` in a small `skillfs` package,
-  1.1's test passes. Verify: `go test ./...` green.
+- [x] 1.3 Green: single canonical copy at `cli/skill/claude-code/`,
+  `//go:embed` in a small exported `cli/skill` package, 1.1's test passes.
+  Verify: `go test ./...` green.
 
 ## 2. SKILL.md
 
-- [x] 2.1 Write `skill/claude-code/SKILL.md`: frontmatter (name `nibble`,
+- [x] 2.1 Write `cli/skill/claude-code/SKILL.md`: frontmatter (name `nibble`,
   trigger description), when a plate is worth building and when not, the
   authoring loop with a complete worked transcript (new → add with captions,
   the example visuals and `--ref` strings → done → serve), one section per
@@ -48,15 +48,13 @@
 
 ## 4. CI drift check and docs
 
-- [x] 4.1 CI: step in the `go` job (or a sibling) that fails when
-  `skill/claude-code/` and `cli/internal/cmd/skillfs/claude-code/` differ
-  (`diff -r`). Verify locally: `diff -r` exits 0 now, non-zero after a
-  scratch edit.
+- [x] 4.1 No drift surface: the skill has a single canonical copy at
+  `cli/skill/claude-code/`, embedded from where it lives — nothing for CI
+  to diff. Verify: `go test ./...` green covers the package tests.
 - [x] 4.2 Docs/site: roadmap flips "Claude Code skill" to done; PRD status
   note names the next item; user guide agents page documents `nibble setup`;
-  `cli/README.md` gains `setup` and the mirror-sync convention (edit
-  `skill/`, copy to `skillfs/`, CI enforces). Verify: pages render, wording
-  de-slopped.
+  `cli/README.md` gains `setup` and points at `cli/skill/claude-code/` as
+  the single copy. Verify: pages render, wording de-slopped.
 
 ## Workflow follow-up
 

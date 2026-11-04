@@ -76,12 +76,11 @@ nibble serve "$tmp/plate"
 
 ## The skill
 
-The Claude Code skill lives in [`skill/claude-code/`](../skill/claude-code/)
-— that is the file to edit. `go:embed` cannot reach above the module, so a
-copy is committed at `internal/cmd/skillfs/claude-code/`: after editing,
-sync it (`cp -R ../skill/claude-code/ internal/cmd/skillfs/claude-code/`).
-CI diffs the two and fails on drift, the example visuals are linted by the
-test suite, and the SKILL.md transcript is executed as a test.
+The Claude Code skill lives in [`skill/claude-code/`](skill/claude-code/)
+— the single copy, embedded into the binary from there and installed into a
+repo by `nibble setup`. The example visuals are linted by the test suite,
+and the SKILL.md transcript is executed as a test, so the prose cannot
+drift from the commands.
 
 ## Budgets
 

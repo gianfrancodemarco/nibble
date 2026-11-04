@@ -32,13 +32,15 @@ See proposal.md — Why. Constraints that shape the approach:
 
 ## Decisions
 
-**D1 — canonical source at `skill/claude-code/`, committed mirror embedded
-from `cli/internal/cmd/skillfs/claude-code/`.** `go:embed` forces a copy
-inside the module; the reader already set the pattern (source in `reader/`,
-committed `ui/app.js`, CI `git diff --exit-code`). A `cmp -r`-style CI step
-keeps mirror and source identical. Alternative — keeping the only copy inside
-`cli/internal/` — rejected: the PRD reserves top-level `skill/` and that is
-where a human (or an agent reading the repo) will look.
+**D1 — single canonical copy at `cli/skill/claude-code/`, embedded from
+there.** `go:embed` forces the content inside the module, and the skill has
+no standalone life — every sentence assumes the binary, and installed copies
+always come from `setup`, never from the source tree. So the copy lives where
+the embed needs it, in a small exported `cli/skill` package (not under
+`internal/`, so it stays findable and editable). Alternative — canonical
+source at top-level `skill/` with a committed mirror and a CI drift check —
+rejected: the mirror was pure duplication bought for a signpost; a README
+pointer covers discoverability at no sync cost.
 
 **D2 — install target is `.claude/skills/nibble/` at the git repo root.**
 Project-level skills travel with the repo, show up in PRs, and opt in one

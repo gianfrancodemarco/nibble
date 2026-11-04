@@ -12,14 +12,14 @@ examples are real protocol documents kept valid by CI.
 
 ### Requirement: Skill package shape
 
-The skill SHALL live in the monorepo's `skill/claude-code/` directory as a
+The skill SHALL live in the monorepo's `cli/skill/claude-code/` directory as a
 Claude Code skill package: a `SKILL.md` whose frontmatter carries the skill
 `name` and a `description` stating when to trigger, plus the worked-example
 files it references by relative path. The package SHALL be installable as-is
 (copying the directory yields a working skill) with no build step.
 
 #### Scenario: Package is self-contained
-- **WHEN** `skill/claude-code/` is copied to `.claude/skills/nibble/` in any
+- **WHEN** `cli/skill/claude-code/` is copied to `.claude/skills/nibble/` in any
   repository
 - **THEN** `SKILL.md` parses with name and description frontmatter and every
   file it references resolves inside the copied directory

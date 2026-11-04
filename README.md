@@ -86,7 +86,7 @@ product decisions are settled:
 | --- | --- | --- |
 | `cli/` | Single static Go binary: all commands, validation, fingerprints, the local server | v0.1 |
 | `reader/` | TypeScript SPA: canvas, visual kinds, detail dial, code drawer — pure presentation | v0.1 |
-| `skill/` | What `nibble setup` installs into Claude Code / Codex / Cursor | v0.1 |
+| `cli/skill/` | What `nibble setup` installs into Claude Code / Codex / Cursor | v0.1 |
 | `protocol/` | Plate format, visual JSON Schemas, trust rules, golden files | v0.1 |
 | `pill/` | Thin Tauri shell: menu-bar icon + floating pill for waiting plates | v1 |
 | editor panel | VS Code / Cursor webview around the same reader | later |
