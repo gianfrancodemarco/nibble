@@ -1,6 +1,6 @@
 # nibble CLI
 
-The agent-facing half of nibble: five commands over the
+The agent-facing half of nibble: six commands over the
 [protocol](../protocol/PROTOCOL.md). Agents drive these; humans mostly don't.
 
 ```sh
@@ -30,6 +30,12 @@ nibble serve <plate> [--timeout <dur>] [--addr <host:port>] [--no-ui] [--json]
              # any tool — then prints the review and exits with the
              # verdict's code. That exit is what wakes the agent.
              # --no-ui waits headless; --addr pins the port (loopback only)
+
+nibble setup [--agent claude-code] [--json]
+             # installs the embedded agent skill into the current repo at
+             # .claude/skills/nibble/ and prints that path; idempotent —
+             # re-running upgrades the copy to exactly what the binary ships
+             # and touches nothing else under .claude/
 ```
 
 ## The reader
@@ -67,6 +73,14 @@ nibble serve protocol/golden/plates/cli-authored/plate   # read-only: it ships r
 tmp=$(mktemp -d) && cp -R protocol/golden/plates/cli-authored/* "$tmp" && rm "$tmp/plate/review.json"
 nibble serve "$tmp/plate"
 ```
+
+## The skill
+
+The Claude Code skill lives in [`skill/claude-code/`](skill/claude-code/)
+— the single copy, embedded into the binary from there and installed into a
+repo by `nibble setup`. The example visuals are linted by the test suite,
+and the SKILL.md transcript is executed as a test, so the prose cannot
+drift from the commands.
 
 ## Budgets
 

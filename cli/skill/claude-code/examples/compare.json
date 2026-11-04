@@ -1,0 +1,22 @@
+{
+  "kind": "compare",
+  "title": "What moving resize off the request buys",
+  "before": {
+    "label": "resize inline",
+    "content": {
+      "metrics": [
+        { "name": "p95 upload", "value": 6.2, "unit": "s" },
+        { "name": "thumbnail ready after", "value": 0, "unit": "s" }
+      ]
+    }
+  },
+  "after": {
+    "label": "resize queued",
+    "content": {
+      "metrics": [
+        { "name": "p95 upload", "value": 0.4, "unit": "s" },
+        { "name": "thumbnail ready after", "value": 3, "unit": "s" }
+      ]
+    }
+  }
+}

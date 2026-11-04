@@ -33,6 +33,8 @@ func run(t *testing.T, ctx Ctx, args ...string) (int, string, string) {
 			code = RunLint(c, args[1:])
 		case "serve":
 			code = RunServe(c, args[1:])
+		case "setup":
+			code = RunSetup(c, args[1:])
 		default:
 			code = Main(args, &out, &errb)
 		}

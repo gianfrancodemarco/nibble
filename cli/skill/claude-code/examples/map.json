@@ -1,0 +1,19 @@
+{
+  "kind": "map",
+  "title": "What an image upload touches",
+  "nodes": [
+    { "id": "client", "label": "browser", "tier": "edge" },
+    { "id": "api", "label": "upload-api", "detail": "src/upload/handler.ts", "tier": "service", "group": "upload" },
+    { "id": "queue", "label": "resize queue", "detail": "new in this PR", "tier": "data", "group": "upload", "focus": true },
+    { "id": "worker", "label": "resize-worker", "detail": "src/worker/resize.ts", "tier": "service", "group": "upload" },
+    { "id": "s3", "label": "object store", "detail": "originals + 3 sizes", "tier": "data" }
+  ],
+  "edges": [
+    { "from": "client", "to": "api", "label": "POST /images", "style": "flow" },
+    { "from": "api", "to": "s3", "label": "store original", "style": "flow" },
+    { "from": "api", "to": "queue", "label": "enqueue resize", "style": "flow" },
+    { "from": "worker", "to": "queue", "label": "poll", "style": "flow" },
+    { "from": "worker", "to": "s3", "label": "write 3 sizes", "style": "flow" },
+    { "from": "client", "to": "s3", "label": "GET thumbnail — 404 until the worker catches up", "style": "miss" }
+  ]
+}
