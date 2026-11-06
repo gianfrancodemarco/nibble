@@ -22,8 +22,8 @@ deliverables and must be real, lint-clean protocol JSON.
     with the ref grammar and anchors
   - the budgets (40-word captions, 7/12 nibbles, 12 map nodes) and when
     `--because` is honest to use
-  - reading the review that comes back (verdict + targeted comments) and how
-    to answer
+  - reading the review that comes back (targeted comments, or a plain done)
+    and how to answer
 - Worked example JSON in the skill is validated in CI with `nibble lint` /
   protocol tests, so the examples can never drift from the protocol.
 - New `nibble setup` command that installs the skill for Claude Code into the

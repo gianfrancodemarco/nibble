@@ -29,7 +29,7 @@ nibble serve <plate> [--timeout <dur>] [--addr <host:port>] [--no-ui] [--json]
              # "reader: http://…" line goes to stderr) and blocks until
              # review.json appears — submitted in the reader or written by
              # any tool — then prints the review and exits with the
-             # verdict's code. That exit is what wakes the agent.
+             # review's code. That exit is what wakes the agent.
              # --no-ui waits headless; --addr pins the port (loopback only)
 
 nibble setup [--agent claude-code] [--json]
@@ -64,7 +64,7 @@ to the plate dir) verifies plain and `@worktree` refs and marks
 and visuals with every ref `unverified` — the review loop works regardless.
 
 A plate that already has a review serves read-only (review shown, input
-locked) until interrupted or `--timeout`, exiting with the verdict's code;
+locked) until interrupted or `--timeout`, exiting with the review's code;
 `--no-ui` keeps the print-and-exit path for scripts. So the bundled example
 plate works in place:
 
@@ -100,14 +100,12 @@ the override named in the message.
 
 | code | meaning |
 | --- | --- |
-| 0 | success — and `serve`: verdict `approve` |
+| 0 | success — and `serve`: review done, no comments |
 | 1 | validation / protocol error (code + fix-it on stderr, or `{"error":…}` with `--json`) |
-| 2 | usage error — and `serve`: verdict `changes` |
-| 3 | `serve`: verdict `question` |
-| 4 | `serve`: verdict `closed` |
+| 2 | usage error — and `serve`: review has comments to handle |
 | 5 | `serve`: timeout |
 
-(`serve` only emits 2 for a verdict after a successful wait; its usage errors
+(`serve` only emits 2 for a review after a successful wait; its usage errors
 print before blocking, so scripts can tell them apart by stderr.)
 
 ## Environment

@@ -53,7 +53,7 @@ func startServe(t *testing.T, ctx Ctx, args ...string) (url string, stdout *sync
 func TestServeHTTPSide(t *testing.T) {
 	repo := gitInit(t)
 
-	t.Run("review through the reader ends serve with the verdict code", func(t *testing.T) {
+	t.Run("review through the reader ends serve with the review's code", func(t *testing.T) {
 		ctx, plate := sealedPlate(t, repo)
 		url, stdout, code := startServe(t, ctx, plate)
 
@@ -69,7 +69,7 @@ func TestServeHTTPSide(t *testing.T) {
 		resp.Body.Close()
 
 		resp, err = http.Post(url+"/api/review", "application/json",
-			strings.NewReader(`{"verdict":"question"}`))
+			strings.NewReader(reviewComments))
 		if err != nil || resp.StatusCode != 200 {
 			t.Fatalf("POST /api/review: %v %v", err, resp)
 		}
@@ -77,13 +77,13 @@ func TestServeHTTPSide(t *testing.T) {
 
 		select {
 		case got := <-code:
-			if got != 3 {
-				t.Fatalf("serve exit = %d, want 3 (question)", got)
+			if got != 2 {
+				t.Fatalf("serve exit = %d, want 2 (comments)", got)
 			}
 		case <-time.After(2 * time.Second):
 			t.Fatal("serve did not exit within 2s of the posted review")
 		}
-		if !strings.Contains(stdout.String(), "verdict: question") {
+		if !strings.Contains(stdout.String(), "n2:cache") {
 			t.Fatalf("stdout = %q", stdout.String())
 		}
 	})
@@ -114,11 +114,11 @@ func TestServeHTTPSide(t *testing.T) {
 }
 
 // A reviewed plate stays viewable: the UI serves it read-only and serve
-// exits with the verdict's code only on timeout (or interrupt), never 5.
+// exits with the review's code only on timeout (or interrupt), never 5.
 func TestServeReviewedPlateStaysUp(t *testing.T) {
 	repo := gitInit(t)
 	ctx, plate := sealedPlate(t, repo)
-	writeFile(t, plate, "review.json", review("changes"))
+	writeFile(t, plate, "review.json", reviewComments)
 
 	url, stdout, codeCh := startServe(t, ctx, plate, "--timeout", "700ms")
 
@@ -134,14 +134,14 @@ func TestServeReviewedPlateStaysUp(t *testing.T) {
 		t.Fatalf("GET /api/plate on reviewed plate: %v %v", err, resp)
 	}
 	resp.Body.Close()
-	if !strings.Contains(stdout.String(), "verdict: changes") {
+	if !strings.Contains(stdout.String(), "n2:cache") {
 		t.Fatalf("review should print up front; stdout = %q", stdout.String())
 	}
 
 	select {
 	case got := <-codeCh:
 		if got != 2 {
-			t.Fatalf("exit = %d, want 2 (changes), not 5: the review exists", got)
+			t.Fatalf("exit = %d, want 2 (comments), not 5: the review exists", got)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("serve did not exit after --timeout")

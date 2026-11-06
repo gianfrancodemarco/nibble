@@ -8,7 +8,8 @@ description: Build an interactive walkthrough (a plate) instead of a wall of tex
 nibble turns an explanation into a plate: a small set of steps (nibbles),
 each one claim with a visual and references into the real code. The human
 reads it in a browser, pokes the visuals, comments on the exact element they
-disagree with, and sends back a verdict that ends your `serve` command.
+disagree with, and sends back a review that ends your `serve` command —
+their comments, or just "done".
 
 You write JSON and run a CLI. The CLI validates everything — refs against the
 real files, visuals against their schemas, budgets — and tells you how to fix
@@ -41,7 +42,7 @@ switch output modes.
 nibble new   --title <t> [--description <md>] [--description-standard <md>] [--about code|worktree|<base>..<head>]
 nibble serve <plate> [--timeout <dur>] &                          # start serving now, in the background
 nibble add   <plate> --title <md> [--description <md>] [--description-standard <md>] --visual <file.json> [--ref <ref>]...
-nibble done  <plate>                                              # seals it; serve keeps waiting for the verdict
+nibble done  <plate>                                              # seals it; serve keeps waiting for the review
 ```
 
 `--about` says what code the plate is about: `code` (the code as it is, the
@@ -56,10 +57,10 @@ human reads nibble 1 while you build nibble 3. `serve` prints a
 have it, then keep adding.
 
 `serve` blocks until the review is submitted, then exits. Its exit code is
-the verdict: 0 approve, 2 changes, 3 question, 4 closed, 5 timeout. The
+the review: 0 done (no comments), 2 comments to handle, 5 timeout. The
 review itself comes out on stdout. The human can answer before you seal —
 if `serve` ends while you still have nibbles queued, stop adding and handle
-the verdict.
+the review.
 
 ## A worked review
 
@@ -102,12 +103,12 @@ $ nibble add <plate> \
 $ nibble done <plate>
 ✓ sealed at 4 nibbles
 
-$ wait %1   # serve is still running; it exits with the verdict
+$ wait %1   # serve is still running; it exits with the review
 ```
 
 Each `add` landed in the reader the moment it ran — by `done`, the human may
 already be two nibbles in. Sealing tells the reader nothing more is coming;
-the verdict ends the backgrounded `serve`.
+the review ends the backgrounded `serve`.
 
 The visuals: [examples/map.json](examples/map.json),
 [examples/sequence.json](examples/sequence.json),
@@ -273,22 +274,22 @@ plate over a rejection — the message tells you the fix.
 
 ## The review
 
-When `serve` returns, the exit code is the verdict and stdout is the review:
+When `serve` returns, the exit code says what came back and stdout is the
+review — the human's comments, or nothing to address:
 
 ```json
-{"verdict": "changes",
- "comments": [{"target": "n2:s4", "text": "enqueue can fail — what does the client get then?"}]}
+{"comments": [{"target": "n2:s4", "text": "enqueue can fail — what does the client get then?"}]}
 ```
 
 A target `n2` is nibble 2; `n2:s4` is element `s4` on nibble 2's visual —
 here, the enqueue arrow in the sequence. Map each comment back to what it
 points at before answering.
 
-- `approve` (exit 0): done. Report it and move on.
-- `changes` (exit 2): address each comment where the work happens — in the
-  code. Then explain what changed.
-- `question` (exit 3): answer each question. If the answer needs showing,
-  add to the explanation — a reply, a new nibble if the plate is still open
-  — rather than rebuilding the plate from scratch.
-- `closed` (exit 4): the reader is done. Stop; don't re-serve.
-- timeout (exit 5): nobody read it. Say so and carry on without a verdict.
+- done (exit 0, no comments): the reader is done with the plate. Report it
+  and move on; don't re-serve.
+- comments (exit 2): read each comment and decide from its text what it
+  needs — a question gets an answer (a reply, or a new nibble if the plate
+  is still open, rather than rebuilding the plate from scratch); a change
+  request gets addressed where the work happens — in the code — and then an
+  explanation of what changed.
+- timeout (exit 5): nobody read it. Say so and carry on without a review.

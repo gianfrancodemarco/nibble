@@ -43,7 +43,7 @@ const (
 	CodeNibbleTitleMissing      = "nibble.title.missing"
 	CodeNibbleDescription       = "nibble.description"
 	CodeNibbleFile              = "nibble.file"
-	CodeReviewVerdictUnknown    = "review.verdict.unknown"
+	CodeReviewMalformed         = "review.malformed"
 	CodeReviewExists            = "review.exists"
 	CodeRefAnchorDangling       = "ref.anchor.dangling"
 	CodeRefFPInvalid            = "ref.fp.invalid"

@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/fs"
 	"net/http"
 	"os"
@@ -292,16 +293,18 @@ func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 // --- POST /api/review ---
 
 func (s *apiServer) serveReview(w http.ResponseWriter, r *http.Request) {
-	var rev protocol.Review
-	body := http.MaxBytesReader(w, r.Body, 1<<20)
-	if err := json.NewDecoder(body).Decode(&rev); err != nil {
-		httpError(w, http.StatusBadRequest, errf(protocol.CodeReviewVerdictUnknown, "review: %v", err))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		httpError(w, http.StatusBadRequest, errf(protocol.CodeReviewMalformed, "review: %v", err))
 		return
 	}
-	if !validVerdict(rev.Verdict) {
-		httpError(w, http.StatusBadRequest, errf(protocol.CodeReviewVerdictUnknown,
-			"verdict %q; want one of approve, changes, question, closed", rev.Verdict))
+	rev, perr := protocol.ParseReview(body)
+	if perr != nil {
+		httpError(w, http.StatusBadRequest, perr)
 		return
+	}
+	if rev.Comments == nil {
+		rev.Comments = []protocol.ReviewComment{}
 	}
 	unlock, err := lockDir(s.plateDir)
 	if err != nil {
@@ -327,23 +330,15 @@ func (s *apiServer) serveReview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{"ok": true})
 }
 
-func validVerdict(v string) bool {
-	for _, k := range protocol.Verdicts {
-		if v == k {
-			return true
-		}
-	}
-	return false
-}
-
 // --- GET /api/events ---
 
 // plateSnapshot is what the SSE poller diffs: enough to notice a new nibble,
 // the seal, and the review.
 type plateSnapshot struct {
-	nibbles int
-	total   int
-	verdict string
+	nibbles  int
+	total    int
+	reviewed bool
+	comments int
 }
 
 func (s *apiServer) snapshot() plateSnapshot {
@@ -363,9 +358,9 @@ func (s *apiServer) snapshot() plateSnapshot {
 		}
 	}
 	if raw, err := os.ReadFile(filepath.Join(s.plateDir, "review.json")); err == nil {
-		var r protocol.Review
-		if json.Unmarshal(raw, &r) == nil {
-			snap.verdict = r.Verdict
+		if r, err := protocol.ParseReview(raw); err == nil {
+			snap.reviewed = true
+			snap.comments = len(r.Comments)
 		}
 	}
 	return snap
@@ -401,8 +396,8 @@ func (s *apiServer) serveEvents(w http.ResponseWriter, r *http.Request) {
 			if cur.total != 0 && last.total == 0 {
 				emit("sealed", fmt.Sprintf(`{"total":%d}`, cur.total))
 			}
-			if cur.verdict != "" && last.verdict == "" {
-				emit("review", fmt.Sprintf(`{"verdict":%q}`, cur.verdict))
+			if cur.reviewed && !last.reviewed {
+				emit("review", fmt.Sprintf(`{"comments":%d}`, cur.comments))
 			}
 			last = cur
 		}

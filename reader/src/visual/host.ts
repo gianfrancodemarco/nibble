@@ -79,10 +79,10 @@ function openAndVisit(ctx: RenderCtx, id: string): { n: number; ref: number } | 
   return act;
 }
 
-// reviewBody builds the exact JSON the review POST sends: verdict and
-// comments, nothing else — visited state stays in this tab.
-function reviewBody(verdict: string, comments: readonly { target?: string; text: string }[]): string {
-  return JSON.stringify({ verdict, comments });
+// reviewBody builds the exact JSON the review POST sends: the comments,
+// nothing else — visited state stays in this tab. No comments means done.
+function reviewBody(comments: readonly { target?: string; text: string }[]): string {
+  return JSON.stringify({ comments });
 }
 
 type RendererOf<K extends Visual["kind"]> = (v: Extract<Visual, { kind: K }>, ctx: RenderCtx) => Element;
