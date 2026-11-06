@@ -189,6 +189,34 @@ t("ring layout is deterministic", () => {
   eq(layoutRingMap(ringFixture()), layoutRingMap(ringFixture()));
 });
 
+t("a crowded band wraps into rows instead of growing sideways", () => {
+  // five changed nodes: more than one row's worth
+  const nodes: MapNode[] = [
+    { id: "c1", label: "alpha", ring: "changed" },
+    { id: "c2", label: "beta", ring: "changed" },
+    { id: "c3", label: "gamma", ring: "changed" },
+    { id: "c4", label: "delta", ring: "changed" },
+    { id: "c5", label: "epsilon", ring: "changed" },
+    { id: "d1", label: "caller", ring: "dependent" },
+    { id: "r1", label: "other", ring: "rest" },
+  ];
+  const v: MapVisual = { kind: "map", title: "wide", nodes: nodes as MapVisual["nodes"] };
+  const l = layoutRingMap(v);
+  const c = zone(l, "changed");
+  const ys = new Set(["c1", "c2", "c3", "c4", "c5"].map((id) => box(l, id).y));
+  ok(ys.size > 1, "changed band uses more than one row");
+  for (const id of ["c1", "c2", "c3", "c4", "c5"]) {
+    ok(inside(box(l, id), c), `${id} stays inside the changed zone`);
+  }
+  // reading order still follows declaration order
+  const reading = ["c1", "c2", "c3", "c4", "c5"]
+    .map((id) => ({ id, b: box(l, id) }))
+    .sort((p, q) => p.b.y - q.b.y || p.b.x - q.b.x)
+    .map((p) => p.id);
+  eq(reading, ["c1", "c2", "c3", "c4", "c5"], "declaration order across wrapped rows");
+  ok(l.w < 900, `canvas stays narrow enough to read (got ${l.w})`);
+});
+
 t("badges mark exactly the unvisited dependents", () => {
   const v = ringFixture();
   const deps = ["orders", "billing", "retry", "pooltest", "e2e", "chart"];

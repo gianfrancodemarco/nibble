@@ -304,63 +304,66 @@ function mapLayoutOf(v) {
     return isRinged(v) ? layoutRingMap(v) : layoutMap(v);
 }
 // layoutRingMap: three concentric rectangular bands read inside-out — changed
-// at the centre, dependents around it, the rest outside. Rows above and below
-// the centre keep node boxes and edge routing reusable; declaration order
-// within a ring, exactly like columns in the tiered layout.
+// at the centre, dependents around it, the rest outside. Bands are stacks of
+// rows (at most RING_ROW nodes each, so a crowded ring wraps instead of
+// growing sideways); declaration order within a ring, exactly like columns
+// in the tiered layout.
+const RING_ROW = 3;
 function layoutRingMap(v) {
     const PAD = 10, ZPAD = 18, LABEL_H = 26, VGAP = 20, HGAP = 52, NODE_H = MAP_NODE_H;
     const ringOf = (ring) => mapGroupOrder(v.nodes.filter((n) => n.ring === ring));
-    const changed = ringOf("changed");
-    const dep = ringOf("dependent");
-    const rest = ringOf("rest");
+    const chunk = (list) => {
+        const out = [];
+        for (let i = 0; i < list.length; i += RING_ROW)
+            out.push(list.slice(i, i + RING_ROW));
+        return out;
+    };
     const split = (list) => {
         const top = Math.ceil(list.length / 2);
-        return [list.slice(0, top), list.slice(top)];
+        return [chunk(list.slice(0, top)), chunk(list.slice(top))];
     };
-    const [depTop, depBot] = split(dep);
-    const [restTop, restBot] = split(rest);
+    const changed = chunk(ringOf("changed"));
+    const [depTop, depBot] = split(ringOf("dependent"));
+    const [restTop, restBot] = split(ringOf("rest"));
     const rowW = (list) => list.length ? list.reduce((s, n) => s + mapNodeW(n), 0) + (list.length - 1) * HGAP : 0;
-    // Widths inside-out: each zone wraps the widest thing it holds.
-    const cW = rowW(changed) + 2 * ZPAD;
-    const dW = Math.max(cW, rowW(depTop), rowW(depBot)) + 2 * ZPAD;
-    const rW = Math.max(dW, rowW(restTop), rowW(restBot)) + 2 * ZPAD;
+    const stackW = (rows) => Math.max(0, ...rows.map(rowW));
+    // Widths inside-out: each zone wraps the widest row it holds.
+    const cW = stackW(changed) + 2 * ZPAD;
+    const dW = Math.max(cW, stackW(depTop), stackW(depBot)) + 2 * ZPAD;
+    const rW = Math.max(dW, stackW(restTop), stackW(restBot)) + 2 * ZPAD;
     const w = rW + 2 * PAD;
     // Positions top-down: restTop / depTop / changed / depBot / restBot, each
-    // row centered, each zone reserving room for its label.
+    // row centered, each zone reserving room for its label. placeStack returns
+    // the y just below what it placed.
     const nodes = [];
-    const placeRow = (list, y) => {
-        let x = (w - rowW(list)) / 2;
-        for (const n of list) {
-            nodes.push({ id: n.id, x: Math.round(x), y, w: mapNodeW(n), h: NODE_H });
-            x += mapNodeW(n) + HGAP;
+    const placeStack = (rows, y) => {
+        for (const row of rows) {
+            let x = (w - rowW(row)) / 2;
+            for (const n of row) {
+                nodes.push({ id: n.id, x: Math.round(x), y, w: mapNodeW(n), h: NODE_H });
+                x += mapNodeW(n) + HGAP;
+            }
+            y += NODE_H + VGAP;
         }
+        return rows.length ? y - VGAP : y;
     };
     const rTop = PAD;
     let y = rTop + LABEL_H;
-    if (restTop.length) {
-        placeRow(restTop, y);
-        y += NODE_H + VGAP;
-    }
+    if (restTop.length)
+        y = placeStack(restTop, y) + VGAP;
     const dTop = y;
     y += LABEL_H;
-    if (depTop.length) {
-        placeRow(depTop, y);
-        y += NODE_H + VGAP;
-    }
+    if (depTop.length)
+        y = placeStack(depTop, y) + VGAP;
     const cTop = y;
-    placeRow(changed, cTop + LABEL_H);
-    const cBot = cTop + LABEL_H + NODE_H + ZPAD;
-    y = cBot;
-    if (depBot.length) {
-        placeRow(depBot, y + VGAP);
-        y += VGAP + NODE_H;
-    }
+    y = placeStack(changed, cTop + LABEL_H) + ZPAD;
+    const cBot = y;
+    if (depBot.length)
+        y = placeStack(depBot, y + VGAP);
     const dBot = y + ZPAD;
     y = dBot;
-    if (restBot.length) {
-        placeRow(restBot, y + VGAP);
-        y += VGAP + NODE_H;
-    }
+    if (restBot.length)
+        y = placeStack(restBot, y + VGAP);
     const rBot = y + ZPAD;
     const zones = [
         { ring: "rest", x: PAD, y: rTop, w: rW, h: rBot - rTop },
@@ -480,7 +483,11 @@ function renderMapVisual(v, ctx) {
             : `M ${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
         const g = svgEl("g", { class: `edge ${e.style ?? "flow"}`, "data-from": e.from, "data-to": e.to });
         g.appendChild(svgEl("path", { d, "marker-end": `url(#${uid}-arr)` }));
-        if (e.label) {
+        g.appendChild(svgEl("title", {}, e.label ?? ""));
+        // a horizontal label needs to fit the gap between the boxes, or it would
+        // clip behind them (ring rows sit much closer than tier columns)
+        const labelFits = !horizontal || Math.abs(x2 - x1) > (e.label?.length ?? 0) * 6.5;
+        if (e.label && labelFits) {
             g.appendChild(svgEl("text", {
                 x: (x1 + x2) / 2, y: (y1 + y2) / 2 - 7, "text-anchor": "middle", class: "elabel",
             }, e.label));
@@ -1117,27 +1124,25 @@ function render() {
         ? `${plate.nibbles.length} nibbles · still being written`
         : `${plate.nibbles.length} of ${plate.total}`;
     const strip = $("#strip");
+    // Each card is the visual on the left and a lateral bar on the right: the
+    // nibble number, the title (the claim) and its description. Code is reached
+    // through the visual's </> chips, so there is no separate ref list.
     strip.innerHTML = plate.nibbles
         .map((nb, i) => {
         const vs = visualSummary(nb.visual);
-        const refs = nb.refs
-            .map((r, ri) => `<button class="ref" data-n="${nb.n}" data-ref="${ri}">
-            <span>${esc(r.path)}</span><span class="range">:${r.start}${r.end > r.start ? "-" + r.end : ""}</span>
-            ${r.anchor ? `<span class="anchor">@${esc(r.anchor)}</span>` : ""}
-            ${trustBadge(r.trust)}</button>`)
-            .join("");
         const desc = descriptionAt(nb.description, dialLevel);
         return `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
-        <h2>nibble ${nb.n}</h2>
         <div class="visual">
           <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
           <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
           ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
         </div>
-        <p class="ntitle">${mdLite(nb.title)}</p>
-        ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
-        ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
-        <div class="refs">${refs}</div>
+        <aside class="nside">
+          <h2>nibble ${nb.n}</h2>
+          <p class="ntitle">${mdLite(nb.title)}</p>
+          ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
+          ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
+        </aside>
       </article>`;
     })
         .join("");
@@ -1159,12 +1164,6 @@ function render() {
         slot.querySelector(".anchors")?.remove();
         body.classList.add("visual-body");
         slot.appendChild(body);
-    });
-    strip.querySelectorAll(".ref").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            void openDrawer(Number(btn.dataset.n), Number(btn.dataset.ref));
-        });
     });
     applySelection(strip);
     updateCommentTarget();
