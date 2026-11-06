@@ -1,0 +1,11 @@
+{
+  "expect": "map.ring.empty",
+  "visual": {
+    "kind": "map",
+    "title": "rings with nothing changed",
+    "nodes": [
+      { "id": "orders", "label": "orders-api", "ring": "dependent" },
+      { "id": "auth", "label": "auth-api", "ring": "rest" }
+    ]
+  }
+}

@@ -16,6 +16,7 @@ interface MapNode {
   detail?: string;
   group?: string;
   tier?: "edge" | "service" | "data";
+  ring?: "changed" | "dependent" | "rest";
   focus?: boolean;
   level?: "standard";
 }

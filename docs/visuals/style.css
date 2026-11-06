@@ -117,6 +117,21 @@ button:hover { border-color: var(--accent); }
 .code-chip:hover text, .code-chip:focus text { fill: #fff; }
 
 /* map */
+.vis-map .zone rect { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.vis-map .zone.rest rect { stroke-dasharray: 2 5; }
+.vis-map .zone.dependent rect { stroke-dasharray: 7 5; }
+.vis-map .zone.changed rect { fill: var(--accent-soft); stroke: var(--accent); opacity: .85; }
+.vis-map .zone .zlabel {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em;
+  text-transform: uppercase; fill: var(--muted);
+}
+.vis-map .zone.changed .zlabel { fill: var(--accent); }
+.vis-map .zone .zcount { font-family: var(--mono); font-size: 10.5px; fill: var(--accent); }
+.vis-map .zone .zcount.done { fill: var(--ok); }
+.vis-map .node .badge { display: none; }
+.vis-map .node.unvisited .badge { display: initial; }
+.vis-map .node .badge circle { fill: var(--accent); stroke: var(--paper); stroke-width: 1.5; }
+.vis-map .node.unvisited rect { stroke-dasharray: 4 3; }
 .vis-map .node rect { fill: var(--card); stroke: var(--line); stroke-width: 1.2; }
 .vis-map .node text { font-size: 13px; }
 .vis-map .node.focus rect { stroke: var(--accent); stroke-width: 2; }

@@ -151,7 +151,7 @@ function render(): void {
   strip.querySelectorAll<HTMLElement>(".nibble").forEach((card) => {
     card.addEventListener("click", () => setActive(Number(card.dataset.i)));
     const nb = plate!.nibbles[Number(card.dataset.i)];
-    const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel });
+    const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel, visited: hostVisited });
     if (!body) return;
     const slot = card.querySelector(".visual");
     if (!slot) return;
@@ -298,7 +298,7 @@ async function submit(verdict: string): Promise<void> {
     resp = await fetch("api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ verdict, comments: pending }),
+      body: reviewBody(verdict, pending),
     });
   } catch {
     flash("⚠ could not submit — serve has exited; re-run nibble serve and reload");

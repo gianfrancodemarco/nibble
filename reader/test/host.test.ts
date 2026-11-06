@@ -30,3 +30,42 @@ t("comment target is n<N>:<id> only for a selection on the active card", () => {
   eq(commentTarget(2, null, 1), "n2", "no selection");
   eq(commentTarget(2, { card: 0, id: "cache" }, 1), "n2", "other card's selection");
 });
+
+// --- visited dependents: per-session state the host owns ---
+
+function visitedCtx(n: number): RenderCtx {
+  const refs = [{ anchor: "caller-api" }];
+  return { n, anchored: anchorRefIndex(refs), refs, visited: hostVisited };
+}
+
+t("selecting an element marks it visited, and clearing keeps it", () => {
+  let sel = selectAndVisit(null, 0, "pricing-tests");
+  eq(sel, { card: 0, id: "pricing-tests" }, "selected");
+  sel = selectAndVisit(sel, 0, "pricing-tests"); // toggle clears the selection
+  eq(sel, null, "selection cleared");
+  ok(hostVisited.has("pricing-tests"), "stays visited after the selection clears");
+});
+
+t("opening an element's code marks it visited", () => {
+  const ctx = visitedCtx(1);
+  eq(openAndVisit(ctx, "caller-api"), { n: 1, ref: 0 }, "resolves the drawer ref");
+  ok(hostVisited.has("caller-api"), "visited");
+  eq(openAndVisit(ctx, "unanchored"), null, "no code, no activation");
+  ok(!hostVisited.has("unanchored"), "an id without code is not visited by the chip path");
+});
+
+t("visited is one per-session set, shared across renders and nibbles", () => {
+  markVisited("shared-dep");
+  // two fresh render contexts, as after a dial redraw and on another nibble
+  ok(visitedCtx(1).visited!.has("shared-dep"), "first render sees it");
+  ok(visitedCtx(7).visited!.has("shared-dep"), "another nibble's render sees it");
+  ok(!markVisited("shared-dep"), "marking again reports no change");
+  ok(markVisited("fresh-dep"), "a new id reports a change");
+});
+
+t("the review POST body carries no visited information", () => {
+  markVisited("looked-at");
+  const body = reviewBody("approve", [{ target: "n2:cache", text: "nice" }]);
+  eq(JSON.parse(body), { verdict: "approve", comments: [{ target: "n2:cache", text: "nice" }] }, "verdict and comments only");
+  ok(!body.includes("visited"), "no visited key anywhere");
+});

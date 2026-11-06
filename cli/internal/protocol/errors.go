@@ -20,6 +20,9 @@ const (
 	CodeVisualOverviewEmpty = "visual.overview.empty"
 
 	CodeMapNodeDuplicate       = "map.node.duplicate"
+	CodeMapRingUnknown         = "map.ring.unknown"
+	CodeMapRingPartial         = "map.ring.partial"
+	CodeMapRingEmpty           = "map.ring.empty"
 	CodeMapEdgeDangling        = "map.edge.dangling"
 	CodeMapEdgeLevel           = "map.edge.level"
 	CodeMapNodesBudget         = "map.nodes.budget"

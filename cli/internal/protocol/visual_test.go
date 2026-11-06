@@ -141,6 +141,139 @@ func TestVisualLevelField(t *testing.T) {
 	}
 }
 
+// TestVisualRingField covers the `ring` hint: where it is accepted, how bad
+// values are rejected, and that it composes with the other node hints.
+func TestVisualRingField(t *testing.T) {
+	cases := []struct {
+		name string
+		doc  string
+		want string // expected error code, "" means valid
+	}{
+		{
+			name: "all three ring values accepted on map nodes",
+			doc: `{"kind":"map","title":"t","nodes":[
+				{"id":"api","label":"API","ring":"changed"},
+				{"id":"caller","label":"Caller","ring":"dependent"},
+				{"id":"docs","label":"Docs","ring":"rest"}]}`,
+		},
+		{
+			name: "ring composes with group, tier, focus and level",
+			doc: `{"kind":"map","title":"t","nodes":[
+				{"id":"api","label":"API","ring":"changed","tier":"service","focus":true},
+				{"id":"t1","label":"api test","ring":"dependent","group":"tests","level":"standard"},
+				{"id":"t2","label":"e2e test","ring":"dependent","group":"tests"},
+				{"id":"docs","label":"Docs","ring":"rest","tier":"data"}]}`,
+		},
+		{
+			name: "map nested in a compare side is free-form content",
+			doc: `{"kind":"compare","title":"t",
+				"before":{"label":"b","content":{"map":{"nodes":[{"id":"a","label":"A","ring":"changed"}]}}},
+				"after":{"label":"a","content":{"map":{"nodes":[{"id":"a","label":"A"}]}}}}`,
+		},
+		{
+			name: "unknown ring value rejected",
+			doc: `{"kind":"map","title":"t","nodes":[
+				{"id":"api","label":"API","ring":"blast"}]}`,
+			want: "map.ring.unknown",
+		},
+		{
+			name: "ring on a sequence actor is unknown",
+			doc: `{"kind":"sequence","title":"t",
+				"actors":[{"id":"a","label":"A","ring":"changed"},{"id":"b","label":"B"}],
+				"steps":[{"from":"a","to":"b","label":"call"}]}`,
+			want: "visual.field.unknown",
+		},
+		{
+			name: "ring on a timeline lane is unknown",
+			doc: `{"kind":"timeline","title":"t",
+				"lanes":[{"id":"main","label":"Main","ring":"changed"}],
+				"events":[{"lane":"main","at":0,"label":"start"}]}`,
+			want: "visual.field.unknown",
+		},
+		{
+			name: "ring on a compare side is unknown",
+			doc: `{"kind":"compare","title":"t",
+				"before":{"label":"b","ring":"changed","content":{"ref":"x"}},
+				"after":{"label":"a","content":{"ref":"y"}}}`,
+			want: "visual.field.unknown",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateVisual([]byte(tc.doc))
+			if got := ErrCode(err); got != tc.want {
+				t.Fatalf("error code = %q (%v), want %q", got, err, tc.want)
+			}
+			if tc.want == "map.ring.unknown" {
+				for _, v := range []string{"changed", "dependent", "rest"} {
+					if !strings.Contains(err.Error(), v) {
+						t.Fatalf("error %q should list the three ring values", err)
+					}
+				}
+			}
+		})
+	}
+}
+
+// TestVisualRingCoherence covers the cross-node ring rules: rings are
+// all-or-nothing per map, and a ringed map must be anchored on a change.
+func TestVisualRingCoherence(t *testing.T) {
+	cases := []struct {
+		name    string
+		doc     string
+		want    string // expected error code, "" means valid
+		mention string // id the error message must name
+	}{
+		{
+			name: "partially ringed map rejected, naming the unringed",
+			doc: `{"kind":"map","title":"t","nodes":[
+				{"id":"api","label":"API","ring":"changed"},
+				{"id":"db","label":"DB"}]}`,
+			want:    "map.ring.partial",
+			mention: "db",
+		},
+		{
+			name: "coherence sees standard-only nodes",
+			doc: `{"kind":"map","title":"t","nodes":[
+				{"id":"api","label":"API","ring":"changed"},
+				{"id":"warmer","label":"Warmer","level":"standard"}]}`,
+			want:    "map.ring.partial",
+			mention: "warmer",
+		},
+		{
+			name: "ringed map without a changed node rejected",
+			doc: `{"kind":"map","title":"t","nodes":[
+				{"id":"caller","label":"Caller","ring":"dependent"},
+				{"id":"docs","label":"Docs","ring":"rest"}]}`,
+			want: "map.ring.empty",
+		},
+		{
+			name: "fully ringed map valid",
+			doc: `{"kind":"map","title":"t","nodes":[
+				{"id":"api","label":"API","ring":"changed"},
+				{"id":"caller","label":"Caller","ring":"dependent"},
+				{"id":"docs","label":"Docs","ring":"rest"}]}`,
+		},
+		{
+			name: "fully unringed map valid",
+			doc: `{"kind":"map","title":"t","nodes":[
+				{"id":"api","label":"API"},
+				{"id":"db","label":"DB"}]}`,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateVisual([]byte(tc.doc))
+			if got := ErrCode(err); got != tc.want {
+				t.Fatalf("error code = %q (%v), want %q", got, err, tc.want)
+			}
+			if tc.mention != "" && !strings.Contains(err.Error(), tc.mention) {
+				t.Fatalf("error %q should name node %q", err, tc.mention)
+			}
+		})
+	}
+}
+
 // TestVisualLevelCoherence covers the cross-element level rules: nothing
 // drawn at overview may depend on something that is not, and the overview may
 // never be empty.

@@ -157,6 +157,40 @@ Declare meaning only. There are no colours, coordinates or sizes in a visual
 — a field like `x` or `color` is rejected (`visual.field.unknown`). The
 reader owns the pixels.
 
+## Open a PR review with the blast radius
+
+For a PR or worktree review, make nibble 1 a **ringed map**: the whole change
+in three rings, so the reader starts with its reach instead of its diff. Add
+`ring` to every node of a map:
+
+- `"changed"` — the files or components this PR touches. At least one, at
+  the centre.
+- `"dependent"` — unchanged, but depends on something that changed. You
+  compute these yourself before building the plate — you have the repo:
+  callers of changed functions, importers of changed modules, tests that
+  cover the changed code, configs and charts that template it. nibble never
+  runs dependency analysis; it draws what you declare.
+- `"rest"` — everything else in the picture, kept for orientation.
+
+Use `group` on the dependents to say *why* each one depends —
+`"group": "callers"`, `"tests"`, `"configs"` — and the reader clusters them.
+Keep `focus`, `tier`, edges and `level` as on any map; the dial works the
+same (positions never move).
+
+The reader renders the rings as concentric zones and badges every dependent
+the human has not yet looked at, with an "N of M unvisited" count on the
+dependents ring — the plate's promise that no affected caller slips by
+unreviewed. That only works if the rings are honest: list every dependent you
+found, not just the interesting ones.
+
+Rings are all-or-nothing. One ringed node makes `ring` required on all —
+`map.ring.partial` names the ones you missed; add their ring rather than
+deleting the hint, and park anything genuinely unaffected in `rest`. A ringed
+map with no `changed` node is rejected too (`map.ring.empty`): rings only
+mean something anchored on a change. A bad value is `map.ring.unknown`.
+Worked example: [examples/ring-map.json](examples/ring-map.json) — the
+image-resize PR's opening nibble.
+
 ## Layer the detail (the dial)
 
 The reader has a detail dial: **overview** for a skim, **standard** for the

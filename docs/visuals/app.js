@@ -22,6 +22,39 @@ function descriptionAt(d, level) {
         return null;
     return level === "standard" ? d.standard ?? d.overview : d.overview;
 }
+// --- visited dependents: session state, never persisted, never posted ---
+// One set for the whole session: the same element id on two nibbles is the
+// same thing looked at once. Renderers read it through RenderCtx.visited and
+// re-badge in place on the "visitedchange" event; it never reaches the plate
+// or the review.
+const hostVisited = new Set();
+// markVisited records that the reader looked at an element. Returns whether
+// that changed anything, so callers only re-badge on first visits.
+function markVisited(id) {
+    if (hostVisited.has(id))
+        return false;
+    hostVisited.add(id);
+    return true;
+}
+// selectAndVisit: the selection click path. Selecting an element counts as
+// looking at it — even a toggle-off looked first.
+function selectAndVisit(cur, card, id) {
+    markVisited(id);
+    return nextSelection(cur, card, id);
+}
+// openAndVisit: the code-chip path. Opening an element's code counts as
+// looking at it; an id without code resolves to nothing and visits nothing.
+function openAndVisit(ctx, id) {
+    const act = codeActivation(ctx, id);
+    if (act)
+        markVisited(id);
+    return act;
+}
+// reviewBody builds the exact JSON the review POST sends: verdict and
+// comments, nothing else — visited state stays in this tab.
+function reviewBody(verdict, comments) {
+    return JSON.stringify({ verdict, comments });
+}
 const visualRenderers = {};
 // --- pure seam logic (covered by test/host.test.ts) ---
 function anchorRefIndex(refs) {
@@ -146,6 +179,13 @@ function applySelection(strip) {
             body.dispatchEvent(new CustomEvent("anchorselection", { detail: { id: selId } }));
     });
 }
+// applyVisited: tell every rendered visual to re-badge in place — class
+// toggles on fixed positions, never a re-render.
+function applyVisited(strip) {
+    strip.querySelectorAll(".visual-body").forEach((body) => {
+        body.dispatchEvent(new CustomEvent("visitedchange", { detail: { visited: hostVisited } }));
+    });
+}
 function clearVisualSelection(strip, wiring) {
     if (!hostSelection)
         return;
@@ -161,6 +201,9 @@ function wireVisualHost(strip, wiring) {
         const chip = t.closest("[data-code]");
         if (chip) {
             e.stopPropagation();
+            const anchorId = chip.closest("[data-anchor]")?.getAttribute("data-anchor");
+            if (anchorId && markVisited(anchorId))
+                applyVisited(strip);
             wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
             return;
         }
@@ -171,8 +214,11 @@ function wireVisualHost(strip, wiring) {
         if (el) {
             const id = el.getAttribute("data-anchor");
             if (id) {
-                hostSelection = nextSelection(hostSelection, Number(card.dataset.i), id);
+                const first = !hostVisited.has(id);
+                hostSelection = selectAndVisit(hostSelection, Number(card.dataset.i), id);
                 applySelection(strip);
+                if (first)
+                    applyVisited(strip);
                 wiring.onTarget();
             }
         }
@@ -187,6 +233,9 @@ function wireVisualHost(strip, wiring) {
         const chip = e.target?.closest?.("[data-code]");
         if (chip) {
             e.preventDefault();
+            const anchorId = chip.closest("[data-anchor]")?.getAttribute("data-anchor");
+            if (anchorId && markVisited(anchorId))
+                applyVisited(strip);
             wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
         }
     });
@@ -195,35 +244,39 @@ function wireVisualHost(strip, wiring) {
 // test/map.test.ts); rendering builds SVG on top of it and registers with
 // the host.
 const MAP_TIERS = ["edge", "service", "data"];
-function layoutMap(v) {
-    const PAD = 24, VGAP = 22, HGAP = 90, NODE_H = 46;
-    const nodeW = (n) => Math.max(96, 20 + n.label.length * 7.5 + 40);
-    const colOf = (n) => n.tier ?? "service";
-    const present = MAP_TIERS.filter((t) => v.nodes.some((n) => colOf(n) === t));
-    // Within a column: declaration order, with group members pulled together
-    // at the first member's position.
-    const cols = present.map((tier) => {
-        const list = v.nodes.filter((n) => colOf(n) === tier);
-        const ordered = [];
-        const used = new Set();
-        for (const n of list) {
-            if (used.has(n.id))
-                continue;
-            if (n.group) {
-                for (const m of list) {
-                    if (m.group === n.group && !used.has(m.id)) {
-                        ordered.push(m);
-                        used.add(m.id);
-                    }
+const MAP_NODE_H = 46;
+function mapNodeW(n) {
+    return Math.max(96, 20 + n.label.length * 7.5 + 40);
+}
+// Declaration order, with group members pulled together at the first
+// member's position — the ordering discipline tiers and rings share.
+function mapGroupOrder(list) {
+    const ordered = [];
+    const used = new Set();
+    for (const n of list) {
+        if (used.has(n.id))
+            continue;
+        if (n.group) {
+            for (const m of list) {
+                if (m.group === n.group && !used.has(m.id)) {
+                    ordered.push(m);
+                    used.add(m.id);
                 }
             }
-            else {
-                ordered.push(n);
-                used.add(n.id);
-            }
         }
-        return ordered;
-    });
+        else {
+            ordered.push(n);
+            used.add(n.id);
+        }
+    }
+    return ordered;
+}
+function layoutMap(v) {
+    const PAD = 24, VGAP = 22, HGAP = 90, NODE_H = MAP_NODE_H;
+    const nodeW = mapNodeW;
+    const colOf = (n) => n.tier ?? "service";
+    const present = MAP_TIERS.filter((t) => v.nodes.some((n) => colOf(n) === t));
+    const cols = present.map((tier) => mapGroupOrder(v.nodes.filter((n) => colOf(n) === tier)));
     const colW = cols.map((c) => Math.max(...c.map(nodeW)));
     const colH = cols.map((c) => c.length * NODE_H + (c.length - 1) * VGAP);
     const h = Math.max(...colH) + PAD * 2;
@@ -239,12 +292,109 @@ function layoutMap(v) {
     });
     return { w: x - HGAP + PAD, h, nodes };
 }
+// isRinged: a blast-radius map is one where every node declares its ring.
+// Validation makes rings all-or-nothing, so any mixed document (which the
+// protocol rejects) falls back to the tiered layout.
+function isRinged(v) {
+    return v.nodes.every((n) => n.ring !== undefined);
+}
+// mapLayoutOf: the one layout dispatch — concentric rings for a ringed map,
+// tiered columns otherwise.
+function mapLayoutOf(v) {
+    return isRinged(v) ? layoutRingMap(v) : layoutMap(v);
+}
+// layoutRingMap: three concentric rectangular bands read inside-out — changed
+// at the centre, dependents around it, the rest outside. Rows above and below
+// the centre keep node boxes and edge routing reusable; declaration order
+// within a ring, exactly like columns in the tiered layout.
+function layoutRingMap(v) {
+    const PAD = 10, ZPAD = 18, LABEL_H = 26, VGAP = 20, HGAP = 52, NODE_H = MAP_NODE_H;
+    const ringOf = (ring) => mapGroupOrder(v.nodes.filter((n) => n.ring === ring));
+    const changed = ringOf("changed");
+    const dep = ringOf("dependent");
+    const rest = ringOf("rest");
+    const split = (list) => {
+        const top = Math.ceil(list.length / 2);
+        return [list.slice(0, top), list.slice(top)];
+    };
+    const [depTop, depBot] = split(dep);
+    const [restTop, restBot] = split(rest);
+    const rowW = (list) => list.length ? list.reduce((s, n) => s + mapNodeW(n), 0) + (list.length - 1) * HGAP : 0;
+    // Widths inside-out: each zone wraps the widest thing it holds.
+    const cW = rowW(changed) + 2 * ZPAD;
+    const dW = Math.max(cW, rowW(depTop), rowW(depBot)) + 2 * ZPAD;
+    const rW = Math.max(dW, rowW(restTop), rowW(restBot)) + 2 * ZPAD;
+    const w = rW + 2 * PAD;
+    // Positions top-down: restTop / depTop / changed / depBot / restBot, each
+    // row centered, each zone reserving room for its label.
+    const nodes = [];
+    const placeRow = (list, y) => {
+        let x = (w - rowW(list)) / 2;
+        for (const n of list) {
+            nodes.push({ id: n.id, x: Math.round(x), y, w: mapNodeW(n), h: NODE_H });
+            x += mapNodeW(n) + HGAP;
+        }
+    };
+    const rTop = PAD;
+    let y = rTop + LABEL_H;
+    if (restTop.length) {
+        placeRow(restTop, y);
+        y += NODE_H + VGAP;
+    }
+    const dTop = y;
+    y += LABEL_H;
+    if (depTop.length) {
+        placeRow(depTop, y);
+        y += NODE_H + VGAP;
+    }
+    const cTop = y;
+    placeRow(changed, cTop + LABEL_H);
+    const cBot = cTop + LABEL_H + NODE_H + ZPAD;
+    y = cBot;
+    if (depBot.length) {
+        placeRow(depBot, y + VGAP);
+        y += VGAP + NODE_H;
+    }
+    const dBot = y + ZPAD;
+    y = dBot;
+    if (restBot.length) {
+        placeRow(restBot, y + VGAP);
+        y += VGAP + NODE_H;
+    }
+    const rBot = y + ZPAD;
+    const zones = [
+        { ring: "rest", x: PAD, y: rTop, w: rW, h: rBot - rTop },
+        { ring: "dependent", x: (w - dW) / 2, y: dTop, w: dW, h: dBot - dTop },
+        { ring: "changed", x: (w - cW) / 2, y: cTop, w: cW, h: cBot - cTop },
+    ];
+    return { w, h: rBot + PAD, nodes, zones };
+}
+// mapUnvisitedIds: the dependent nodes still carrying a badge — unvisited
+// dependents of a ringed map, in declaration order. Only dependents badge:
+// changed is what you came to read, rest is context; level plays no part,
+// badge state is derived from the full document and the visited set alone.
+function mapUnvisitedIds(v, visited) {
+    if (!isRinged(v))
+        return [];
+    return v.nodes.filter((n) => n.ring === "dependent" && !visited.has(n.id)).map((n) => n.id);
+}
+// unvisitedCounter: the text pinned to the dependents zone label. Null when
+// the map is not ringed or has no dependents; reads done at zero.
+function unvisitedCounter(v, visited) {
+    if (!isRinged(v))
+        return null;
+    const deps = v.nodes.filter((n) => n.ring === "dependent").length;
+    if (deps === 0)
+        return null;
+    const un = mapUnvisitedIds(v, visited).length;
+    return un > 0 ? `${un} of ${deps} unvisited` : "all visited ✓";
+}
 // mapDrawnBoxes: the laid-out boxes drawn at a dial level. Layout is always
 // computed from the full document, so a box never moves between levels — the
 // dial only changes which boxes are drawn.
 function mapDrawnBoxes(v, level) {
     const drawn = new Set(v.nodes.filter((n) => visibleAt(level, n.level)).map((n) => n.id));
-    return layoutMap(v).nodes.filter((b) => drawn.has(b.id));
+    return mapLayoutOf(v).nodes.filter((b) => drawn.has(b.id));
 }
 // mapDrawnEdgeIdx: indices into v.edges of the edges drawn at a dial level —
 // the edge's own level, and both endpoints, must be visible.
@@ -270,7 +420,7 @@ function mapEdgeEnds(a, b) {
 let mapIdSeq = 0;
 function renderMapVisual(v, ctx) {
     const level = ctx.level ?? "standard";
-    const l = layoutMap(v); // full document: positions never depend on the dial
+    const l = mapLayoutOf(v); // full document: positions never depend on the dial
     const drawnNodes = new Set(mapDrawnBoxes(v, level).map((b) => b.id));
     const drawnEdges = new Set(mapDrawnEdgeIdx(v, level));
     const uid = `map${++mapIdSeq}`;
@@ -288,6 +438,33 @@ function renderMapVisual(v, ctx) {
         defs.appendChild(m);
     }
     svg.appendChild(defs);
+    // Ring zones: labelled rounded rects behind everything, outermost first.
+    // The dependents label carries the unvisited counter, updated in place.
+    const visited = ctx.visited ?? new Set();
+    const unvisited = new Set(mapUnvisitedIds(v, visited));
+    let counterEl = null;
+    if (l.zones) {
+        const zonesG = svgEl("g", { class: "zones" });
+        for (const z of l.zones) {
+            const g = svgEl("g", { class: `zone ${z.ring}` });
+            g.appendChild(svgEl("rect", { x: z.x, y: z.y, width: z.w, height: z.h, rx: 12 }));
+            const label = z.ring === "dependent" ? "dependents" : z.ring;
+            const labelEl = svgEl("text", { x: z.x + 12, y: z.y + 17, class: "zlabel" }, label);
+            g.appendChild(labelEl);
+            if (z.ring === "dependent") {
+                const count = unvisitedCounter(v, visited);
+                if (count) {
+                    counterEl = svgEl("text", {
+                        x: z.x + z.w - 12, y: z.y + 17, "text-anchor": "end",
+                        class: "zcount" + (unvisited.size === 0 ? " done" : ""),
+                    }, count);
+                    g.appendChild(counterEl);
+                }
+            }
+            zonesG.appendChild(g);
+        }
+        svg.appendChild(zonesG);
+    }
     const byId = new Map(l.nodes.map((n) => [n.id, n]));
     const edgesG = svgEl("g");
     (v.edges ?? []).forEach((e, ei) => {
@@ -318,20 +495,42 @@ function renderMapVisual(v, ctx) {
         const b = byId.get(n.id);
         if (!b)
             continue;
+        const dep = l.zones !== undefined && n.ring === "dependent";
         const g = svgEl("g", {
-            class: "node" + (n.focus ? " focus" : ""),
+            class: "node" + (n.focus ? " focus" : "") + (dep ? " dep" : "") + (dep && unvisited.has(n.id) ? " unvisited" : ""),
             "data-anchor": n.id,
             transform: `translate(${b.x} ${b.y})`,
         });
         g.appendChild(svgEl("title", {}, n.detail ? `${n.label} — ${n.detail}` : n.label));
         g.appendChild(svgEl("rect", { width: b.w, height: b.h, rx: 10 }));
         g.appendChild(svgEl("text", { x: 12, y: b.h / 2 + 4.5 }, n.label));
+        if (dep) {
+            // the unvisited badge: shown by CSS only while the node is .unvisited
+            const badge = svgEl("g", { class: "badge" });
+            badge.appendChild(svgEl("title", {}, "not looked at yet"));
+            badge.appendChild(svgEl("circle", { cx: b.w - 1, cy: 1, r: 5.5 }));
+            g.appendChild(badge);
+        }
         const chip = codeChip(ctx, n.id, b.w - 34, b.h / 2);
         if (chip)
             g.appendChild(chip);
         nodesG.appendChild(g);
     }
     svg.appendChild(nodesG);
+    // Re-badge in place on visits: class toggles and the counter text — the
+    // layout, and so every box position, stays exactly as rendered.
+    svg.addEventListener("visitedchange", (e) => {
+        const vis = e.detail.visited;
+        const un = new Set(mapUnvisitedIds(v, vis));
+        svg.querySelectorAll(".node.dep").forEach((g) => {
+            const id = g.getAttribute("data-anchor");
+            g.classList.toggle("unvisited", id !== null && un.has(id));
+        });
+        if (counterEl) {
+            counterEl.textContent = unvisitedCounter(v, vis);
+            counterEl.classList.toggle("done", un.size === 0);
+        }
+    });
     // Neighbourhood highlight: the host dims non-selected nodes; edges are
     // ours (they are not addressable anchors).
     svg.addEventListener("anchorselection", (e) => {
@@ -949,7 +1148,7 @@ function render() {
     strip.querySelectorAll(".nibble").forEach((card) => {
         card.addEventListener("click", () => setActive(Number(card.dataset.i)));
         const nb = plate.nibbles[Number(card.dataset.i)];
-        const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel });
+        const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel, visited: hostVisited });
         if (!body)
             return;
         const slot = card.querySelector(".visual");
@@ -1096,7 +1295,7 @@ async function submit(verdict) {
         resp = await fetch("api/review", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ verdict, comments: pending }),
+            body: reviewBody(verdict, pending),
         });
     }
     catch {
