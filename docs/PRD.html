@@ -161,6 +161,22 @@ td .id { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(-
 pre.cli { background: #171512; color: #e7e1d8; border-radius: var(--radius); padding: 16px 18px; font-family: "JetBrains Mono", monospace; font-size: 12.5px; line-height: 1.7; overflow-x: auto; margin: 14px 0 0; }
 pre.cli .p { color: #ff8a3d; } pre.cli .d { color: #8f877c; } pre.cli .g { color: #8fd19e; } pre.cli .y { color: #f0c674; }
 
+.layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 44px; align-items: start; margin-top: 18px; }
+.layout > .content { min-width: 0; }
+aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
+.side .head { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin: 0 0 8px 12px; }
+.side .head:not(:first-child) { margin-top: 22px; }
+.side a { display: block; color: var(--muted); text-decoration: none; padding: 5px 12px; border-left: 2px solid var(--border); }
+.side a:hover { color: var(--text); }
+.side a[aria-current="page"] { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
+@media (max-width: 880px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  aside.side { position: static; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; padding-top: 0; }
+  .side .head { display: none; }
+  .side a { border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; background: var(--surface); }
+  .side a[aria-current="page"] { border-color: var(--accent); }
+}
+
 @media (max-width: 760px) {
   .tabbody.on, .dialwrap { grid-template-columns: 1fr; }
   h1 { font-size: 28px; }
@@ -172,13 +188,25 @@ pre.cli .p { color: #ff8a3d; } pre.cli .d { color: #8f877c; } pre.cli .g { color
 
 <header class="top">
   <a class="brand" href="index.html"><div class="mark" aria-hidden="true"></div>nibble</a>
-  <a class="lk" href="PRD.html" aria-current="page">PRD</a>
   <a class="lk" href="roadmap.html">Roadmap</a>
-  <a class="lk" href="design/mockups.html">Mockups</a>
-  <a class="lk" href="guide/index.html">Docs</a>
+  <a class="lk" href="guide/index.html" aria-current="page">Docs</a>
   <button class="chipbtn" id="themeBtn" type="button">Theme</button>
   <a class="gh" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
 </header>
+
+<div class="layout">
+<aside class="side" aria-label="Docs">
+  <p class="head">Docs</p>
+  <a href="guide/index.html">Getting started</a>
+  <a href="guide/receiving.html">A plate arrives</a>
+  <a href="guide/reading.html">Reading a plate</a>
+  <a href="guide/answering.html">Answering</a>
+  <a href="guide/agents.html">For agents</a>
+  <p class="head">Project</p>
+  <a href="PRD.html" aria-current="page">PRD</a>
+  <a href="design/mockups.html">Mockups</a>
+</aside>
+<div class="content">
 
 <div class="statusline">
   <span class="chip">PRD · <b>v0.2 draft</b> · single source</span>
@@ -593,6 +621,8 @@ nibble/
   <p class="note">A small bite, and in computing half a byte. It describes how the product works — take something big in small pieces — and reads naturally as a verb: <i>nibble through the PR</i>. Tagline: <b>"nibble: so you can ruminate."</b> Also considered: ruminate, bitesize, bites, crumbs, chew, morsels, dose, capsule.</p>
 </section>
 
+</div>
+</div>
 </div>
 <script>
 (function () {

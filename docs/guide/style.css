@@ -41,6 +41,7 @@ button { font: inherit; color: inherit; }
 .layout > .content { min-width: 0; }
 aside.toc { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 .toc .head { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin: 0 0 8px 12px; }
+.toc .head:not(:first-child) { margin-top: 22px; }
 .toc a { display: block; color: var(--muted); text-decoration: none; padding: 5px 12px; border-left: 2px solid var(--border); }
 .toc a:hover { color: var(--text); }
 .toc a[aria-current="page"] { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }

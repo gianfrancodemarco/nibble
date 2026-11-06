@@ -186,6 +186,22 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: v
   .verdicts { grid-template-columns: 1fr; }
   .caption { font-size: 15.5px; }
 }
+
+.layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 44px; align-items: start; margin-top: 18px; }
+.layout > .content { min-width: 0; }
+aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
+.side .head { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; margin: 0 0 8px 12px; }
+.side .head:not(:first-child) { margin-top: 22px; }
+.side a { display: block; color: var(--muted); text-decoration: none; padding: 5px 12px; border-left: 2px solid var(--border); }
+.side a:hover { color: var(--text); }
+.side a[aria-current="page"] { color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
+@media (max-width: 880px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  aside.side { position: static; display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; padding-top: 0; }
+  .side .head { display: none; }
+  .side a { border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; background: var(--surface); }
+  .side a[aria-current="page"] { border-color: var(--accent); }
+}
 </style>
 </head>
 <body>
@@ -193,13 +209,25 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: v
 
 <header class="top">
   <a class="brand" href="../index.html"><div class="mark" aria-hidden="true"></div>nibble</a>
-  <a class="lk" href="../PRD.html">PRD</a>
   <a class="lk" href="../roadmap.html">Roadmap</a>
-  <a class="lk" href="mockups.html" aria-current="page">Mockups</a>
-  <a class="lk" href="../guide/index.html">Docs</a>
+  <a class="lk" href="../guide/index.html" aria-current="page">Docs</a>
   <button class="chipbtn" id="themeBtn" type="button">Theme</button>
   <a class="gh" href="https://github.com/gianfrancodemarco/nibble">GitHub</a>
 </header>
+
+<div class="layout">
+<aside class="side" aria-label="Docs">
+  <p class="head">Docs</p>
+  <a href="../guide/index.html">Getting started</a>
+  <a href="../guide/receiving.html">A plate arrives</a>
+  <a href="../guide/reading.html">Reading a plate</a>
+  <a href="../guide/answering.html">Answering</a>
+  <a href="../guide/agents.html">For agents</a>
+  <p class="head">Project</p>
+  <a href="../PRD.html">PRD</a>
+  <a href="mockups.html" aria-current="page">Mockups</a>
+</aside>
+<div class="content">
 <p class="lede">Design mockups v0.2. Picture first, prose last: the agent's explanation becomes an interactive model of your code, served in small nibbles. Section 02 is live, so try it.</p>
 
 <section>
@@ -477,6 +505,8 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: v
   </div>
 </section>
 
+</div>
+</div>
 </div>
 <script>
 (function () {
