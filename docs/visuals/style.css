@@ -358,11 +358,7 @@ kbd {
 #reviewbar { border-top: 1px solid var(--line); padding: 10px 20px 14px; }
 #reviewbar .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 #comment { flex: 2 1 200px; min-width: 160px; font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
-.verdict[data-verdict="approve"] { border-color: var(--ok); color: var(--ok); font-weight: 600; }
-.verdict[data-verdict="changes"] { border-color: var(--warn); color: var(--warn); font-weight: 600; }
-.verdict.selected { background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 #send { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; margin-left: auto; }
-#send:disabled { opacity: .45; cursor: not-allowed; }
 #pending { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 #pending:empty { display: none; }
 .pin {

@@ -71,18 +71,18 @@ A plate SHALL be append-only while open: nibble files are added with
 increasing numbers and never renumbered. The `done` file seals the plate and
 SHALL carry the final count as `{"total": N}` (an empty marker could not
 detect later additions); a nibble file numbered beyond `total` SHALL make the
-plate invalid (`plate.sealed`). `review.json` (verdict plus comments) marks
-the plate answered. A reader SHALL be able to consume a plate that has
-nibbles but no `done` yet.
+plate invalid (`plate.sealed`). `review.json` (the reader's comments; empty
+means done) marks the plate answered. A reader SHALL be able to consume a
+plate that has nibbles but no `done` yet.
 
 #### Scenario: Reading while writing
 - **WHEN** a plate has `n1.json` and `n2.json` and no `done`
 - **THEN** it parses as a valid, open plate with two nibbles
 
-#### Scenario: Review verdict values
-- **WHEN** `review.json` carries a `verdict` other than `approve`,
-  `changes`, `question`, or `closed`
-- **THEN** parsing fails with error code `review.verdict.unknown`
+#### Scenario: Malformed review
+- **WHEN** `review.json` carries a comment without text, or is not a review
+  object
+- **THEN** parsing fails with error code `review.malformed`
 
 ### Requirement: Ledger file shape
 

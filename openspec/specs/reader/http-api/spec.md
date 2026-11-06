@@ -77,14 +77,15 @@ follow refs. No matching hunks, or no ledger, SHALL be 404.
 
 ### Requirement: Review submission
 
-`POST /api/review` with `{"verdict", "comments"}` SHALL validate the verdict
-against the protocol set, write `review.json` atomically, and answer 200. An
-unknown verdict SHALL be 400 with `review.verdict.unknown`. A plate that
-already has a review SHALL answer 409 with `review.exists` and leave the
-existing review untouched; `review.exists` joins the protocol error index.
+`POST /api/review` with `{"comments"}` SHALL validate the review against the
+protocol (every comment carries non-empty text; no comments means done),
+write `review.json` atomically, and answer 200. A malformed review SHALL be
+400 with `review.malformed`. A plate that already has a review SHALL answer
+409 with `review.exists` and leave the existing review untouched;
+`review.exists` joins the protocol error index.
 
 #### Scenario: Review lands and serve wakes
-- **WHEN** a review with verdict `changes` is POSTed while `serve` waits
+- **WHEN** a review with one comment is POSTed while `serve` waits
 - **THEN** the endpoint answers 200, `review.json` exists, and `serve` exits 2
   within its poll budget
 
@@ -131,7 +132,7 @@ carry a human-readable reason instead of lines.
 #### Scenario: Root missing entirely
 - **WHEN** a plate's root path does not exist on this machine
 - **THEN** `/api/plate` serves the plate with every ref `unverified`, and a
-  posted review still ends `serve` with the verdict's exit code
+  posted review still ends `serve` with the review's exit code
 
 #### Scenario: Golden fixture serves from the checkout
 - **WHEN** `nibble serve` runs on `protocol/golden/plates/cli-authored/plate`,

@@ -47,7 +47,7 @@ func TestEndToEnd(t *testing.T) {
 	// The review arrives the way it will in real life: through the reader.
 	url, stdout, codeCh := startServe(t, ctx, plate)
 	resp, err := http.Post(url+"/api/review", "application/json",
-		strings.NewReader(review("changes")))
+		strings.NewReader(reviewComments))
 	if err != nil || resp.StatusCode != 200 {
 		t.Fatalf("POST review: %v %v", err, resp)
 	}
@@ -58,7 +58,7 @@ func TestEndToEnd(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("serve did not exit after the posted review")
 	}
-	if code != 2 || !strings.Contains(stdout.String(), "verdict: changes") {
+	if code != 2 || !strings.Contains(stdout.String(), "n2:cache") {
 		t.Fatalf("serve: exit %d out %q", code, stdout.String())
 	}
 

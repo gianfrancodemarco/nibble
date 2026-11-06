@@ -50,10 +50,10 @@ function openAndVisit(ctx, id) {
         markVisited(id);
     return act;
 }
-// reviewBody builds the exact JSON the review POST sends: verdict and
-// comments, nothing else — visited state stays in this tab.
-function reviewBody(verdict, comments) {
-    return JSON.stringify({ verdict, comments });
+// reviewBody builds the exact JSON the review POST sends: the comments,
+// nothing else — visited state stays in this tab. No comments means done.
+function reviewBody(comments) {
+    return JSON.stringify({ comments });
 }
 const visualRenderers = {};
 // --- pure seam logic (covered by test/host.test.ts) ---
@@ -1143,7 +1143,7 @@ function renderLedgerBody(l) {
         }
         return body;
     }
-    count.textContent = `${l.total - l.shown} of ${l.total} hunks never came up — worth a look before the verdict`;
+    count.textContent = `${l.total - l.shown} of ${l.total} hunks never came up — worth a look before you answer`;
     body.appendChild(count);
     body.appendChild(renderLedgerDir(ledgerTree(ledgerFileRows(l.hunks)), true));
     return body;
@@ -1214,7 +1214,6 @@ const $ = (sel) => {
 };
 let plate = null;
 let active = 0;
-let chosen = null;
 let justSent = false;
 let dialLevel = DIAL_DEFAULT;
 const pending = [];
@@ -1509,15 +1508,18 @@ function renderReviewBar() {
         bar.classList.add("locked");
         submitted.hidden = false;
         const n = plate.review.comments?.length ?? 0;
-        const badge = `<span class="trust ${plate.review.verdict === "approve" ? "exact" : "shifted"}">${esc(plate.review.verdict)}</span>`;
-        const comments = n ? ` with ${n} comment${n > 1 ? "s" : ""}` : "";
+        const badge = n
+            ? `<span class="trust shifted">${n} comment${n > 1 ? "s" : ""}</span>`
+            : `<span class="trust exact">done</span>`;
         submitted.innerHTML = justSent
-            ? `review sent: ${badge}${comments} — the agent is awake; you can close this tab`
-            : `this plate was reviewed: ${badge}${comments} — you are reading it after the fact`;
+            ? `review sent: ${badge} — the agent is awake; you can close this tab`
+            : `this plate was reviewed: ${badge} — you are reading it after the fact`;
         return;
     }
     bar.classList.remove("locked");
     submitted.hidden = true;
+    const send = $("#send");
+    send.textContent = pending.length ? `send ${pending.length} comment${pending.length > 1 ? "s" : ""}` : "done";
     $("#pending").innerHTML = pending
         .map((c, i) => `<span class="pin"><b>${esc(c.target ?? "plate")}</b> ${esc(c.text)} <button data-i="${i}" title="remove">×</button></span>`)
         .join("");
@@ -1543,13 +1545,13 @@ function addComment() {
     input.value = "";
     renderReviewBar();
 }
-async function submit(verdict) {
+async function submit() {
     let resp;
     try {
         resp = await fetch("api/review", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: reviewBody(verdict, pending),
+            body: reviewBody(pending),
         });
     }
     catch {
@@ -1596,22 +1598,9 @@ $("#comment").addEventListener("keydown", (e) => {
     if (e.key === "Enter")
         addComment();
 });
-// Choosing a verdict is a draft; only "send review" posts it.
-document.querySelectorAll(".verdict").forEach((btn) => {
-    btn.addEventListener("click", () => {
-        chosen = btn.dataset.verdict ?? null;
-        document.querySelectorAll(".verdict").forEach((b) => {
-            b.classList.toggle("selected", b === btn);
-        });
-        const send = $("#send");
-        send.disabled = false;
-        send.textContent = `send review · ${btn.textContent}`;
-    });
-});
-$("#send").addEventListener("click", () => {
-    if (chosen)
-        void submit(chosen);
-});
+// Pinning comments is a draft; only the send button posts the review.
+// With no comments it sends "done" — that alone ends the agent's wait.
+$("#send").addEventListener("click", () => void submit());
 document.addEventListener("keydown", (e) => {
     if (e.target instanceof HTMLInputElement)
         return;
@@ -1631,8 +1620,8 @@ document.addEventListener("keydown", (e) => {
         setDial(dialToggle(dialLevel));
     if (e.key === "?")
         legend.classList.toggle("pinned");
-    if (e.key === "s" && chosen && plate && !plate.review)
-        void submit(chosen);
+    if (e.key === "s" && plate && !plate.review)
+        void submit();
     if (e.key === "Escape") {
         if (legend.classList.contains("pinned"))
             legend.classList.remove("pinned");

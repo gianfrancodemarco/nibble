@@ -14,7 +14,7 @@ interface NibbleData {
   visual: Visual; refs: Ref[];
 }
 interface ReviewComment { target?: string; text: string; }
-interface Review { verdict: string; comments?: ReviewComment[]; }
+interface Review { comments?: ReviewComment[]; }
 interface Plate {
   title: string; description?: LevelledText; repo: string; head_sha: string;
   about: { kind: string; pr?: number; range?: string };
@@ -40,7 +40,6 @@ const $ = <T extends HTMLElement>(sel: string): T => {
 
 let plate: Plate | null = null;
 let active = 0;
-let chosen: string | null = null;
 let justSent = false;
 let dialLevel: DialLevel = DIAL_DEFAULT;
 const pending: ReviewComment[] = [];
@@ -333,15 +332,18 @@ function renderReviewBar(): void {
     bar.classList.add("locked");
     submitted.hidden = false;
     const n = plate.review.comments?.length ?? 0;
-    const badge = `<span class="trust ${plate.review.verdict === "approve" ? "exact" : "shifted"}">${esc(plate.review.verdict)}</span>`;
-    const comments = n ? ` with ${n} comment${n > 1 ? "s" : ""}` : "";
+    const badge = n
+      ? `<span class="trust shifted">${n} comment${n > 1 ? "s" : ""}</span>`
+      : `<span class="trust exact">done</span>`;
     submitted.innerHTML = justSent
-      ? `review sent: ${badge}${comments} — the agent is awake; you can close this tab`
-      : `this plate was reviewed: ${badge}${comments} — you are reading it after the fact`;
+      ? `review sent: ${badge} — the agent is awake; you can close this tab`
+      : `this plate was reviewed: ${badge} — you are reading it after the fact`;
     return;
   }
   bar.classList.remove("locked");
   submitted.hidden = true;
+  const send = $<HTMLButtonElement>("#send");
+  send.textContent = pending.length ? `send ${pending.length} comment${pending.length > 1 ? "s" : ""}` : "done";
   $("#pending").innerHTML = pending
     .map((c, i) => `<span class="pin"><b>${esc(c.target ?? "plate")}</b> ${esc(c.text)} <button data-i="${i}" title="remove">×</button></span>`)
     .join("");
@@ -369,13 +371,13 @@ function addComment(): void {
   renderReviewBar();
 }
 
-async function submit(verdict: string): Promise<void> {
+async function submit(): Promise<void> {
   let resp: Response;
   try {
     resp = await fetch("api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: reviewBody(verdict, pending),
+      body: reviewBody(pending),
     });
   } catch {
     flash("⚠ could not submit — serve has exited; re-run nibble serve and reload");
@@ -423,21 +425,9 @@ $("#comment-add").addEventListener("click", addComment);
 $<HTMLInputElement>("#comment").addEventListener("keydown", (e) => {
   if (e.key === "Enter") addComment();
 });
-// Choosing a verdict is a draft; only "send review" posts it.
-document.querySelectorAll<HTMLButtonElement>(".verdict").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    chosen = btn.dataset.verdict ?? null;
-    document.querySelectorAll<HTMLButtonElement>(".verdict").forEach((b) => {
-      b.classList.toggle("selected", b === btn);
-    });
-    const send = $<HTMLButtonElement>("#send");
-    send.disabled = false;
-    send.textContent = `send review · ${btn.textContent}`;
-  });
-});
-$<HTMLButtonElement>("#send").addEventListener("click", () => {
-  if (chosen) void submit(chosen);
-});
+// Pinning comments is a draft; only the send button posts the review.
+// With no comments it sends "done" — that alone ends the agent's wait.
+$<HTMLButtonElement>("#send").addEventListener("click", () => void submit());
 document.addEventListener("keydown", (e) => {
   if (e.target instanceof HTMLInputElement) return;
   if (e.key === "ArrowLeft") setActive(active - 1);
@@ -452,7 +442,7 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.key === "d") setDial(dialToggle(dialLevel));
   if (e.key === "?") legend.classList.toggle("pinned");
-  if (e.key === "s" && chosen && plate && !plate.review) void submit(chosen);
+  if (e.key === "s" && plate && !plate.review) void submit();
   if (e.key === "Escape") {
     if (legend.classList.contains("pinned")) legend.classList.remove("pinned");
     else if (!($("#drawer") as HTMLElement).hidden) ($("#drawer") as HTMLElement).hidden = true;

@@ -26,10 +26,10 @@
   <div class="krow"><kbd>⎵</kbd><span>step the visual — sequence steps, timeline cursor, compare flip</span></div>
   <div class="krow"><kbd>d</kbd><span>detail dial — skim the overview, or read everything at standard</span></div>
   <div class="krow"><kbd>⏎</kbd><span>pin the typed comment to this nibble, or to the selected element</span></div>
-  <div class="krow"><kbd>s</kbd><span>send the review, once a verdict is chosen</span></div>
+  <div class="krow"><kbd>s</kbd><span>send the review — your pinned comments, or done with none</span></div>
   <div class="krow"><kbd>esc</kbd><span>close the drawer</span></div>
   <div class="krow"><kbd>?</kbd><span>pin this legend open</span></div>
-  <p class="kfoot">Refs open the code drawer. Verdicts only select — <b>send review</b> is what ends the agent's wait.</p>
+  <p class="kfoot">Refs open the code drawer. Pinned comments are a draft — the <b>send</b> button is what ends the agent's wait.</p>
 </aside>
 
 <main id="canvas">
@@ -64,11 +64,7 @@
     <input id="comment" type="text" placeholder="comment on this nibble…" title="type, then ⏎ or the pin button attaches it to the active nibble">
     <button id="comment-add" title="pin the comment to the active nibble (⏎)">pin to <span id="comment-target">n1</span></button>
     <span class="spacer"></span>
-    <button class="verdict" data-verdict="approve" title="choose a verdict — nothing is sent until you press send review">approve</button>
-    <button class="verdict" data-verdict="changes" title="choose a verdict — nothing is sent until you press send review">request changes</button>
-    <button class="verdict" data-verdict="question" title="choose a verdict — nothing is sent until you press send review">question</button>
-    <button class="verdict" data-verdict="closed" title="choose a verdict — nothing is sent until you press send review">close</button>
-    <button id="send" disabled title="send the review and wake the agent (s)">send review</button>
+    <button id="send" title="send the review and wake the agent (s) — your pinned comments, or done with none">done</button>
   </div>
   <div id="submitted" hidden></div>
 </footer>

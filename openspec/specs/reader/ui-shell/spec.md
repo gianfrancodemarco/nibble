@@ -3,7 +3,7 @@
 ## Purpose
 
 The chassis the visual kinds plug into: one canvas, a camera, the code
-drawer, comments and verdict. Pure presentation — TypeScript compiled to one
+drawer and comments. Pure presentation — TypeScript compiled to one
 static file, embedded in the Go binary, talking only to the JSON API.
 
 ## Requirements
@@ -40,32 +40,36 @@ and a trust badge — `exact`, `shifted ±N` (with the resolved position), or
 - **THEN** the drawer shows the stale badge and warning alongside whatever is
   at the original range now
 
-### Requirement: Comments and verdict
+### Requirement: Comments and the send action
 
 The shell SHALL let the reader attach comments to a nibble (target `n<N>`)
-or to a selected visual element (target `n<N>:<element-id>`), and choose one
-verdict (`approve` / `changes` / `question` / `closed`). Choosing is a
-draft: nothing is posted, the verdict can be changed, and `serve` keeps
-running. Only an explicit send action SHALL `POST /api/review` — the
-irreversible step is one deliberate button, never a stray click. After a
-successful send — or on a plate that already has a review — the shell SHALL
-show the review and lock input.
+or to a selected visual element (target `n<N>:<element-id>`). Pinned
+comments are a draft: nothing is posted, comments can be removed, and
+`serve` keeps running. Only an explicit send action SHALL `POST /api/review`
+— the irreversible step is one deliberate button, never a stray click. The
+send button SHALL say what it does: `done` with no pinned comments, `send
+N comment(s)` with some. After a successful send — or on a plate that
+already has a review — the shell SHALL show the review and lock input.
 
-#### Scenario: Choosing a verdict is not sending
-- **WHEN** the reader clicks `approve` and nothing else
+#### Scenario: Pinning a comment is not sending
+- **WHEN** the reader pins a comment and nothing else
 - **THEN** no request is made, `review.json` does not exist, and `serve` keeps
   waiting
 
 #### Scenario: Send ends the loop
-- **WHEN** the reader adds a comment on n2, chooses `changes`, and clicks send
-- **THEN** the POST carries `{"verdict":"changes","comments":[{"target":"n2",...}]}`
+- **WHEN** the reader adds a comment on n2 and clicks send
+- **THEN** the POST carries `{"comments":[{"target":"n2",...}]}`
   and the UI switches to the submitted, locked state, then attempts to close
   the tab (falling back to a visible "sent — you can close this tab" state
   where the browser refuses)
 
+#### Scenario: Done with no comments
+- **WHEN** the reader clicks send with no pinned comments
+- **THEN** the POST carries `{"comments":[]}` — done — and `serve` exits 0
+
 #### Scenario: Anchored comment rides the same review
 - **WHEN** the reader selects a visual element `cache` on n2, pins a comment,
-  and sends with verdict `changes`
+  and sends
 - **THEN** the POST's comments include one with target `n2:cache`
 
 ### Requirement: Follows a live plate

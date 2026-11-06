@@ -54,8 +54,8 @@
 <span class="p">$</span> nibble done  &lt;plate&gt;                                              <span class="d"># coverage check, writes ledger.json, seals</span>
 <span class="p">$</span> nibble lint  &lt;visual.json&gt;                                        <span class="d"># validate a visual standalone</span>
 <span class="p">$</span> nibble serve &lt;plate&gt;                                              <span class="d"># blocks; exits with your review</span></pre>
-<p><span class="mono">serve</span> prints one <span class="mono">reader: http://127.0.0.1:…</span> line to stderr. The agent relays that link to the human, then sleeps until the verdict comes back as its exit code.</p>
-<p><b>The CLI reports results through exit codes:</b> 0 ok · 1 validation error · 2 usage. <span class="mono">serve</span> encodes the verdict: 0 approve · 2 changes · 3 question · 4 closed · 5 timeout. The full reference is in <a href="https://github.com/gianfrancodemarco/nibble/blob/main/cli/README.md">cli/README.md</a>.</p>
+<p><span class="mono">serve</span> prints one <span class="mono">reader: http://127.0.0.1:…</span> line to stderr. The agent relays that link to the human, then sleeps until the review comes back as its exit code.</p>
+<p><b>The CLI reports results through exit codes:</b> 0 ok · 1 validation error · 2 usage. <span class="mono">serve</span> encodes the review: 0 done (no comments) · 2 comments to handle · 5 timeout. The full reference is in <a href="https://github.com/gianfrancodemarco/nibble/blob/main/cli/README.md">cli/README.md</a>.</p>
 
 <h4 id="serve">The serve command</h4>
 <pre class="cli"><span class="p">$</span> nibble serve &lt;plate&gt; [--timeout 2h] [--addr 127.0.0.1:4000] [--no-ui] [--json]</pre>

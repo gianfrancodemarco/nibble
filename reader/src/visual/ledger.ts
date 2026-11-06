@@ -156,7 +156,7 @@ function renderLedgerBody(l: LedgerData): HTMLElement {
     }
     return body;
   }
-  count.textContent = `${l.total - l.shown} of ${l.total} hunks never came up — worth a look before the verdict`;
+  count.textContent = `${l.total - l.shown} of ${l.total} hunks never came up — worth a look before you answer`;
   body.appendChild(count);
   body.appendChild(renderLedgerDir(ledgerTree(ledgerFileRows(l.hunks)), true));
   return body;
