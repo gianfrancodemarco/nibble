@@ -46,7 +46,7 @@ usage:
   nibble setup [--agent claude-code] [--json]
 
 exit codes: 0 ok · 1 validation/protocol error · 2 usage
-serve: 0 approve · 2 changes · 3 question · 4 closed · 5 timeout
+serve: 0 done · 2 comments to handle · 5 timeout
 `
 
 // Main dispatches a command line. It is the whole CLI; main() only calls it.

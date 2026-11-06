@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -21,19 +20,20 @@ import (
 // detection within 2 seconds; 250ms leaves margin without fsnotify.
 const pollInterval = 250 * time.Millisecond
 
-// Verdict exit codes: the stable contract agents script against.
-// 1 stays reserved for errors.
-var verdictExit = map[string]int{
-	"approve":  0,
-	"changes":  2,
-	"question": 3,
-	"closed":   4,
-}
-
+// Review exit codes: the stable contract agents script against.
+// 0 done (no comments), 2 comments to handle, 5 timeout; 1 stays
+// reserved for errors.
 const exitTimeout = 5
 
+func reviewExit(r *protocol.Review) int {
+	if len(r.Comments) > 0 {
+		return 2
+	}
+	return 0
+}
+
 // RunServe blocks until the plate's review.json exists and parses, prints the
-// review, and exits with the verdict's code. The process ending is what wakes
+// review, and exits with the review's code. The process ending is what wakes
 // the agent that started it.
 func RunServe(ctx Ctx, args []string) int {
 	plateDir, args := popArg(args)
@@ -87,11 +87,10 @@ func RunServe(ctx Ctx, args []string) int {
 	// A plate that already has a review leaves nothing to wait for. Headless,
 	// print and exit — the resume path scripts rely on. With the reader up,
 	// keep serving the plate read-only so it stays viewable; interrupt or
-	// --timeout ends it, and the verdict is still the exit code (never 5:
+	// --timeout ends it, and the review is still the exit code (never 5:
 	// the review exists).
 	if raw, err := os.ReadFile(reviewPath); err == nil {
-		var r protocol.Review
-		if json.Unmarshal(raw, &r) == nil && slices.Contains(protocol.Verdicts, r.Verdict) {
+		if r, err := protocol.ParseReview(raw); err == nil {
 			printReview(ctx, *jsonOut, raw, r)
 			if !*noUI {
 				fmt.Fprintln(ctx.Stderr, "already reviewed — serving read-only; ctrl-c or --timeout ends it")
@@ -107,7 +106,7 @@ func RunServe(ctx Ctx, args []string) int {
 					<-sig
 				}
 			}
-			return verdictExit[r.Verdict]
+			return reviewExit(r)
 		}
 	}
 
@@ -118,16 +117,15 @@ func RunServe(ctx Ctx, args []string) int {
 
 	for {
 		if raw, err := os.ReadFile(reviewPath); err == nil {
-			var r protocol.Review
-			if json.Unmarshal(raw, &r) == nil && r.Verdict != "" {
-				if !slices.Contains(protocol.Verdicts, r.Verdict) {
-					return fail(ctx, *jsonOut, errf("review.verdict.unknown",
-						"verdict %q; want one of %s", r.Verdict, strings.Join(protocol.Verdicts, ", ")))
-				}
+			if r, perr := protocol.ParseReview(raw); perr == nil {
 				printReview(ctx, *jsonOut, raw, r)
-				return verdictExit[r.Verdict]
+				return reviewExit(r)
+			} else if json.Valid(raw) {
+				// Complete JSON that still fails validation is a bad
+				// review, not a mid-write snapshot: fail, don't hang.
+				return fail(ctx, *jsonOut, perr)
 			}
-			// Unparseable or incomplete: likely mid-write; keep waiting.
+			// Incomplete JSON: likely mid-write; keep waiting.
 		}
 		if !deadline.IsZero() && time.Now().After(deadline) {
 			fmt.Fprintf(ctx.Stderr, "nibble serve: no review after %s\n", *timeout)
@@ -137,13 +135,17 @@ func RunServe(ctx Ctx, args []string) int {
 	}
 }
 
-func printReview(ctx Ctx, jsonOut bool, raw []byte, r protocol.Review) {
+func printReview(ctx Ctx, jsonOut bool, raw []byte, r *protocol.Review) {
 	if jsonOut {
 		fmt.Fprintln(ctx.Stdout, strings.TrimSpace(string(raw)))
 		return
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "verdict: %s\n", r.Verdict)
+	if len(r.Comments) == 0 {
+		b.WriteString("done — no comments\n")
+	} else {
+		fmt.Fprintf(&b, "comments: %d\n", len(r.Comments))
+	}
 	for _, c := range r.Comments {
 		target := c.Target
 		if target == "" {

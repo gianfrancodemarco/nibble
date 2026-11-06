@@ -75,9 +75,12 @@ enforced by the CLI at authoring time, not by the protocol.
 
 ### review.json
 
-`verdict` is one of `approve`, `changes`, `question`, `closed`, plus
-`comments`: `[{"target": "n2:cache", "text": "…"}]`, each pinned to a nibble
-and optionally an element or line.
+The review is the reader's comments, nothing more:
+`{"comments": [{"target": "n2:cache", "text": "…"}]}`, each pinned to a
+nibble and optionally an element or line, and each with non-empty `text`.
+An empty (or absent) `comments` array means **done**: nothing to address.
+There is no verdict — whether a comment asks a question or requests a change
+is read from the comment itself.
 
 ## Refs
 
@@ -228,7 +231,7 @@ can return:
 | `plate.sealed` | nibbles beyond the sealed `total` |
 | `nibble.file` | nibble file unreadable |
 | `nibble.visual.missing` | nibble has no visual |
-| `review.verdict.unknown` | verdict not in the allowed set |
+| `review.malformed` | review.json is not a review: bad shape, or a comment without text |
 | `review.exists` | a plate takes one review; this one already has it |
 
 The CLI adds codes of its own, same contract:
@@ -243,7 +246,7 @@ The CLI adds codes of its own, same contract:
 
 `nibble new / add / done / lint / serve` — commands, budgets and exit codes
 are documented in [`cli/README.md`](../cli/README.md). The exit-code contract:
-0 ok, 1 validation/protocol error, 2 usage; `serve` encodes the verdict —
-0 approve, 2 changes, 3 question, 4 closed, 5 timeout. The
+0 ok, 1 validation/protocol error, 2 usage; `serve` encodes the review —
+0 done (no comments), 2 comments to handle, 5 timeout. The
 [`golden/plates/cli-authored/`](golden/plates/cli-authored/) fixture is a
 plate written end-to-end by the CLI's own test suite.

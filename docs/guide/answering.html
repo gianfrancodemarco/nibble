@@ -39,9 +39,9 @@
 <p>Two ways to send a comment:</p>
 <div class="cards">
   <div class="card"><b>Ask now</b><p>Ends the agent's wait immediately with your question. The answer comes back threaded into the same plate.</p></div>
-  <div class="card"><b>Hold for review</b><p>Keeps the comment until you send your review with a verdict: <b>approve</b>, <b>changes</b>, <b>question</b> or <b>close</b>.</p></div>
+  <div class="card"><b>Hold for review</b><p>Keeps the comment until you send your review. The review is just your comments — none means <b>done</b>.</p></div>
 </div>
-<p><b>Choosing a verdict does not send anything.</b> Clicking approve (or any other verdict) only selects it. The plate stays open, the agent keeps waiting, and you can change your mind or add comments. The review is posted only when you click <b>send review</b>. That click is what ends the agent’s wait, and the verdict becomes its exit code. No stray click can close a review.</p>
+<p><b>Pinning a comment does not send anything.</b> The plate stays open, the agent keeps waiting, and you can change your mind or remove comments. The review is posted only when you click the <b>send</b> button — it says <b>done</b> with no comments pinned, or <b>send N comments</b> with some. That click is what ends the agent’s wait, and whether there are comments becomes its exit code. No stray click can close a review.</p>
 <p>In a PR review, check the end of the plate before approving. The <b>not-shown ledger</b> lists every hunk of the diff no nibble referenced, and the map badges <b>dependents the plate never visited</b> (callers, tests, configs of the changed code). That's where agent-written PRs usually go wrong. Both are open to comments like anything else.</p>
 <p>Comments travel back pinned to what you selected, each carrying its trust level, so the agent knows exactly what you meant even if the code moved.</p>
 <nav class="pager">

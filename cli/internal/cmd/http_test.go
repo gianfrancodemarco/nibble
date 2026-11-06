@@ -217,15 +217,15 @@ func TestAPIReview(t *testing.T) {
 	_, plate, ts := apiFixture(t)
 
 	code, body := postJSON(t, ts.URL+"/api/review",
-		`{"verdict":"nonsense"}`)
-	if code != 400 || !strings.Contains(body, "review.verdict.unknown") {
-		t.Fatalf("bad verdict: %d %s", code, body)
+		`{"comments":[{"target":"n1"}]}`)
+	if code != 400 || !strings.Contains(body, "review.malformed") {
+		t.Fatalf("bad review: %d %s", code, body)
 	}
 	if _, err := os.Stat(filepath.Join(plate, "review.json")); !os.IsNotExist(err) {
 		t.Fatal("rejected review must not be written")
 	}
 
-	first := `{"verdict":"changes","comments":[{"target":"n1","text":"what about billing?"}]}`
+	first := `{"comments":[{"target":"n1","text":"what about billing?"}]}`
 	if code, body = postJSON(t, ts.URL+"/api/review", first); code != 200 {
 		t.Fatalf("review: %d %s", code, body)
 	}
@@ -234,7 +234,7 @@ func TestAPIReview(t *testing.T) {
 		t.Fatalf("review.json = %q err %v", raw, err)
 	}
 
-	code, body = postJSON(t, ts.URL+"/api/review", `{"verdict":"approve"}`)
+	code, body = postJSON(t, ts.URL+"/api/review", `{"comments":[]}`)
 	if code != 409 || !strings.Contains(body, "review.exists") {
 		t.Fatalf("second review: %d %s", code, body)
 	}
@@ -305,8 +305,8 @@ func TestAPIEvents(t *testing.T) {
 	}
 	waitEvent(t, ch, `sealed {"total":3}`)
 
-	writeFile(t, plate, "review.json", review("approve"))
-	waitEvent(t, ch, `review {"verdict":"approve"}`)
+	writeFile(t, plate, "review.json", reviewDone)
+	waitEvent(t, ch, `review {"comments":0}`)
 }
 
 func TestAPIStaticUI(t *testing.T) {
@@ -464,7 +464,7 @@ func TestAPIDegraded(t *testing.T) {
 			}
 		}
 		// The review loop does not need the root at all.
-		if code, _ := postJSON(t, ts.URL+"/api/review", `{"verdict":"closed"}`); code != 200 {
+		if code, _ := postJSON(t, ts.URL+"/api/review", `{"comments":[]}`); code != 200 {
 			t.Fatalf("review on rootless plate: %d", code)
 		}
 	})

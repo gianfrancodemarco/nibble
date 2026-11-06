@@ -31,13 +31,13 @@ stops when the wait ends.
 
 #### Scenario: Pre-existing review
 - **WHEN** `serve --no-ui` starts on a plate that already has a valid review
-- **THEN** it prints the review and exits immediately with the verdict's code
+- **THEN** it prints the review and exits immediately with the review's code
 
 #### Scenario: Pre-existing review, with the reader
 - **WHEN** `serve` (UI on) starts on a plate that already has a valid review
 - **THEN** it prints the review, announces the reader URL, and keeps serving
   the plate read-only — the review visible, input locked — until interrupted
-  or `--timeout` elapses, then exits with the verdict's code (not 5: the
+  or `--timeout` elapses, then exits with the review's code (not 5: the
   review exists)
 
 #### Scenario: Reader URL announced
@@ -46,30 +46,34 @@ stops when the wait ends.
   the wait and stdout stays empty until the review
 
 #### Scenario: Review submitted through the reader
-- **WHEN** a review with verdict `question` is POSTed to the running reader
-- **THEN** `serve` prints the review and exits 3, same as a hand-written file
+- **WHEN** a review with one comment is POSTed to the running reader
+- **THEN** `serve` prints the review and exits 2, same as a hand-written file
 
-### Requirement: Verdict exit codes
+### Requirement: Review exit codes
 
-`serve` SHALL exit with a code that encodes the verdict: 0 `approve`,
-2 `changes`, 3 `question`, 4 `closed`, 5 timeout. (1 stays reserved for
-errors.) The mapping is part of the stable contract agents script against.
+`serve` SHALL exit with a code that encodes the review: 0 done (no
+comments), 2 comments to handle, 5 timeout. (1 stays reserved for errors.)
+The mapping is part of the stable contract agents script against.
 
-#### Scenario: Changes requested
-- **WHEN** the review's verdict is `changes`
+#### Scenario: Comments to handle
+- **WHEN** the review carries at least one comment
 - **THEN** `serve` exits with code 2
+
+#### Scenario: Done
+- **WHEN** the review carries no comments
+- **THEN** `serve` exits with code 0
 
 ### Requirement: Review output
 
-By default `serve` SHALL print the review as markdown: the verdict, then one
+By default `serve` SHALL print the review as markdown: a `done — no
+comments` line for an empty review, or a comment count followed by one
 section per comment with its target and trust context. With `--json` it SHALL
 print the parsed review object instead. Output goes to stdout only after the
 wait ends.
 
 #### Scenario: Markdown review
-- **WHEN** a review with verdict `changes` and one comment targeting
-  `n2:cache` is served
-- **THEN** stdout contains `verdict: changes` and a section naming `n2:cache`
+- **WHEN** a review with one comment targeting `n2:cache` is served
+- **THEN** stdout contains `comments: 1` and a section naming `n2:cache`
   with the comment text
 
 ### Requirement: Timeout

@@ -54,9 +54,9 @@
 <pre class="cli"><span class="p">$</span> git clone https://github.com/gianfrancodemarco/nibble &amp;&amp; cd nibble
 <span class="p">$</span> go install -C cli ./cmd/nibble
 <span class="p">$</span> nibble serve protocol/golden/plates/cli-authored/plate   <span class="d"># prints reader: http://127.0.0.1:…; open it</span></pre>
-<p>That plate is already reviewed, so it opens read-only with the verdict visible. To answer it yourself, serve an unreviewed copy:</p>
+<p>That plate is already reviewed, so it opens read-only with the review visible. To answer it yourself, serve an unreviewed copy:</p>
 <pre class="cli"><span class="p">$</span> tmp=$(mktemp -d) &amp;&amp; cp -R protocol/golden/plates/cli-authored/* "$tmp" &amp;&amp; rm "$tmp/plate/review.json"
-<span class="p">$</span> nibble serve "$tmp/plate"      <span class="d"># comment, choose a verdict, send; serve exits with its code</span></pre>
+<span class="p">$</span> nibble serve "$tmp/plate"      <span class="d"># pin comments (or none) and send; serve exits with the review's code</span></pre>
 
 <h4 id="ask">What to ask</h4>
 <p>You just talk to your agent:</p>

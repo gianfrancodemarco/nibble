@@ -65,7 +65,8 @@ t("visited is one per-session set, shared across renders and nibbles", () => {
 
 t("the review POST body carries no visited information", () => {
   markVisited("looked-at");
-  const body = reviewBody("approve", [{ target: "n2:cache", text: "nice" }]);
-  eq(JSON.parse(body), { verdict: "approve", comments: [{ target: "n2:cache", text: "nice" }] }, "verdict and comments only");
+  const body = reviewBody([{ target: "n2:cache", text: "nice" }]);
+  eq(JSON.parse(body), { comments: [{ target: "n2:cache", text: "nice" }] }, "comments only");
   ok(!body.includes("visited"), "no visited key anywhere");
+  eq(JSON.parse(reviewBody([])), { comments: [] }, "no comments means done");
 });

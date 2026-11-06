@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -77,13 +78,16 @@ type Nibble struct {
 	Raw         json.RawMessage `json:"-"`
 }
 
-// Review is review.json: the human's answer.
+// Review is review.json: the human's answer — their comments, nothing more.
+// No comments means done: nothing to address.
 type Review struct {
-	Verdict  string `json:"verdict"`
-	Comments []struct {
-		Target string `json:"target,omitempty"`
-		Text   string `json:"text"`
-	} `json:"comments,omitempty"`
+	Comments []ReviewComment `json:"comments"`
+}
+
+// ReviewComment is one pinned comment, targeted at a nibble or an element.
+type ReviewComment struct {
+	Target string `json:"target,omitempty"`
+	Text   string `json:"text"`
 }
 
 // Plate is a parsed, validated plate folder.
@@ -127,8 +131,26 @@ func (a *About) UnmarshalJSON(raw []byte) error {
 var fpRe = regexp.MustCompile(`^fp1:[0-9a-f]{64}$`)
 var hashRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
-// Verdicts are the review verdicts protocol v1 allows.
-var Verdicts = []string{"approve", "changes", "question", "closed"}
+// ParseReview parses and validates review.json bytes. A review is its
+// comments; an empty or absent comments array means done. Every comment
+// must carry non-empty text.
+func ParseReview(raw []byte) (*Review, error) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	var r Review
+	if err := dec.Decode(&r); err != nil {
+		return nil, errf(CodeReviewMalformed, "review.json: %v", err)
+	}
+	// A second document (or trailing garbage) is not a review.
+	if dec.More() {
+		return nil, errf(CodeReviewMalformed, "review.json: trailing data after the review object")
+	}
+	for i, c := range r.Comments {
+		if strings.TrimSpace(c.Text) == "" {
+			return nil, errf(CodeReviewMalformed, "review.json: comment %d has no text", i+1)
+		}
+	}
+	return &r, nil
+}
 
 // ParsePlate reads and validates a plate directory per protocol v1.
 // Files that are not part of the protocol are ignored.
@@ -214,14 +236,11 @@ func ParsePlate(dir string) (*Plate, error) {
 
 	// Review.
 	if rawReview, err := os.ReadFile(filepath.Join(dir, "review.json")); err == nil {
-		var r Review
-		if err := json.Unmarshal(rawReview, &r); err != nil {
-			return nil, errf(CodeReviewVerdictUnknown, "review.json: %v", err)
+		r, err := ParseReview(rawReview)
+		if err != nil {
+			return nil, err
 		}
-		if !slices.Contains(Verdicts, r.Verdict) {
-			return nil, errf(CodeReviewVerdictUnknown, "verdict %q; want one of %s", r.Verdict, strings.Join(Verdicts, ", "))
-		}
-		p.Review = &r
+		p.Review = r
 	}
 
 	return p, nil

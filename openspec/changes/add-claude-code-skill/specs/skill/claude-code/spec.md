@@ -42,8 +42,8 @@ plate is being built rather than silently switching output modes.
 `SKILL.md` SHALL teach the full loop with the real command surface: `nibble
 new` (choosing `--about` for code, worktree and range plates), `nibble add`
 with a caption, a visual file and `--ref` strings in the v1 grammar, `nibble
-done`, and `nibble serve` blocking until the review, whose verdict is the
-exit code (0 approve, 2 changes, 3 question, 4 closed, 5 timeout).
+done`, and `nibble serve` blocking until the review, whose outcome is the
+exit code (0 done, 2 comments to handle, 5 timeout).
 
 #### Scenario: The loop is complete
 - **WHEN** an agent follows the skill's transcript end to end in a git repo
@@ -90,12 +90,13 @@ error.
 
 ### Requirement: Teaches answering the review
 
-The skill SHALL teach reading `serve`'s result: the verdict from the exit
-code, the review JSON from stdout, and comment targets (`n<N>` and
+The skill SHALL teach reading `serve`'s result: done vs comments from the
+exit code, the review JSON from stdout, and comment targets (`n<N>` and
 `n<N>:<element-id>`) mapped back to the nibble and element they point at. It
-SHALL instruct the agent to answer `changes` and `question` verdicts by
-addressing each comment where the work happens, and when asked for more
-detail, to add to the explanation rather than rebuild the plate.
+SHALL instruct the agent to answer each comment by deciding from its text
+what it needs — a code change or an answer — addressing it where the work
+happens, and when asked for more detail, to add to the explanation rather
+than rebuild the plate.
 
 #### Scenario: Targets are decoded
 - **WHEN** the skill's review section is read

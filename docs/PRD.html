@@ -370,7 +370,7 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
       <g class="step" id="s5"><line x1="315" y1="247" x2="527" y2="247"/><path class="arr" d="M535 247l-10-5v10z"/><text x="330" y="238">nibble add ×4  — refs + opinions validated</text></g>
       <g class="step" id="s6"><line x1="535" y1="290" x2="747" y2="290"/><path class="arr" d="M755 290l-10-5v10z"/><text x="550" y="281">nibbles appear live</text></g>
       <g class="step" id="s7"><line x1="95" y1="333" x2="747" y2="333"/><path class="arr" d="M755 333l-10-5v10z"/><text x="110" y="324">open · explore · comment on a node · press v for a missing visual</text></g>
-      <g class="step" id="s8"><line x1="755" y1="386" x2="323" y2="386"/><path class="arr" d="M315 386l10-5v10z"/><text x="330" y="377">serve exits: verdict + pinned comments + visual requests</text></g>
+      <g class="step" id="s8"><line x1="755" y1="386" x2="323" y2="386"/><path class="arr" d="M315 386l10-5v10z"/><text x="330" y="377">serve exits: pinned comments, or a plain done</text></g>
     </svg>
   </div>
 </section>
@@ -445,12 +445,12 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
       <path class="n-edge" d="M190 68H292"/><polygon points="292,64 292,72 299,68" fill="var(--muted)"/>
       <text class="n-lab" x="245" y="58" style="text-anchor:middle">new · add · serve</text>
       <path class="n-edge" d="M300 98H198"/><polygon points="198,94 198,102 191,98" fill="var(--muted)"/>
-      <text class="n-lab" x="245" y="116" style="text-anchor:middle">verdict + review</text>
+      <text class="n-lab" x="245" y="116" style="text-anchor:middle">comments / done</text>
       <!-- cli <-> reader -->
       <path class="n-edge" d="M480 68H602"/><polygon points="602,64 602,72 609,68" fill="var(--muted)"/>
       <text class="n-lab" x="545" y="58" style="text-anchor:middle">SSE · lines · trust</text>
       <path class="n-edge" d="M610 98H488"/><polygon points="488,94 488,102 481,98" fill="var(--muted)"/>
-      <text class="n-lab" x="545" y="116" style="text-anchor:middle">comments · verdict</text>
+      <text class="n-lab" x="545" y="116" style="text-anchor:middle">comments · done</text>
       <!-- reader -->
       <rect class="n-box n-new" x="610" y="50" width="180" height="66" rx="10"/>
       <text class="n-txt" x="630" y="78">reader</text><text class="n-sub" x="630" y="98">TypeScript SPA · pure view</text>
@@ -527,7 +527,7 @@ nibble/
     <tbody>
       <tr class="p0"><td class="id">C1</td><td>add rejects refs to missing files / out-of-range lines, and anchors to unknown nodes</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p0"><td class="id">C2</td><td>add enforces the opinions: visual required, per-task budgets; over budget needs --because, printed on the plate</td><td><span class="pri p0">P0</span></td></tr>
-      <tr class="p0"><td class="id">C3</td><td>serve blocks; exits with the review on stdout; exit code encodes verdict</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">C3</td><td>serve blocks; exits with the review on stdout; exit code encodes done vs comments</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p0"><td class="id">C4</td><td>Idempotent, retry-safe commands; --json everywhere</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p1"><td class="id">C5</td><td>lint validates a visual against its schema without touching a plate</td><td><span class="pri p1">P1</span></td></tr>
       <tr class="p1"><td class="id">C6</td><td>setup installs a skill for Claude Code / Codex / Cursor, with worked visual examples</td><td><span class="pri p1">P1</span></td></tr>
@@ -564,7 +564,7 @@ nibble/
   <h3>MVP (v0.1)</h3>
   <p class="note"><b>In:</b> CLI (new, add, done, serve) with validation C1–C4 + C7, plate format v1, <b>PR review</b> (<span class="mono">--about pr:N</span>) and <span class="mono">--about worktree</span> with diff refs, reader R1–R7 + R12 (dial at overview/standard), R14, R16–R17 (blast-radius rings, not-shown ledger) with map, sequence, timeline and compare, browser-tab reader, Claude Code skill.</p>
   <p class="note"><b>Out, queued for v0.2:</b> chapter flow for huge PRs, voice walk, the deep layer and visuals on demand, what-ifs, state/data/chart, export, editor panel, telemetry.</p>
-  <p class="note"><b>Why a browser tab and not a native window:</b> the product is interactive SVG, and the browser is its best runtime — <span class="mono">nibble serve</span> starts a loopback server (ephemeral port, token URL), serves the reader SPA from the binary, streams nibbles over SSE, takes comments back over POST, then writes <span class="mono">review.json</span> and exits with the verdict code, which is what wakes the agent. Same bundle embeds in a VS Code/Cursor panel later. <b>Decided (2026-11-01):</b> v1 ships a thin Tauri shell around that same web app — a menu-bar icon and a floating pill for waiting plates — so volunteered plates get a deck-calm tray while the reader stays pure web.</p>
+  <p class="note"><b>Why a browser tab and not a native window:</b> the product is interactive SVG, and the browser is its best runtime — <span class="mono">nibble serve</span> starts a loopback server (ephemeral port, token URL), serves the reader SPA from the binary, streams nibbles over SSE, takes comments back over POST, then writes <span class="mono">review.json</span> and exits with the review's code, which is what wakes the agent. Same bundle embeds in a VS Code/Cursor panel later. <b>Decided (2026-11-01):</b> v1 ships a thin Tauri shell around that same web app — a menu-bar icon and a floating pill for waiting plates — so volunteered plates get a deck-calm tray while the reader stays pure web.</p>
 </section>
 
 <section id="metrics">
@@ -653,7 +653,7 @@ nibble/
     '<b>5.</b> Each <b>add</b> is validated: refs, title and description budgets, node caps. Bad nibbles bounce with a fix-it.',
     '<b>6.</b> Nibbles stream into the open reader live.',
     '<b>7.</b> You explore, scrub, comment on a node — or press <b>v</b> to request a missing visual.',
-    '<b>8.</b> serve exits: verdict, comments pinned to things, visual requests. The agent continues.'
+    '<b>8.</b> serve exits: the review — comments pinned to things, or a plain done. The agent continues.'
   ];
   var li = 0, steps = [];
   for (var i = 1; i <= 8; i++) steps.push(document.getElementById('s' + i));
