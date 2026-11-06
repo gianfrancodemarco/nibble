@@ -5,6 +5,23 @@
 // data-anchor, and ask the host for code chips. Selection, comment targets
 // and the drawer affordance are wired once, here. No top-level DOM access:
 // this file is also part of the node-run test build.
+const DIAL_DEFAULT = "standard";
+function dialToggle(level) {
+    return level === "standard" ? "overview" : "standard";
+}
+// visibleAt: is an element with this `level` hint drawn at the dial level?
+// Absent means overview — drawn everywhere.
+function visibleAt(level, elLevel) {
+    return level === "standard" || elLevel === undefined;
+}
+// descriptionAt picks the description variant for a dial level. Fallback is
+// downward only: standard falls back to overview; the overview never shows
+// the long text. Null means nothing to show.
+function descriptionAt(d, level) {
+    if (!d)
+        return null;
+    return level === "standard" ? d.standard ?? d.overview : d.overview;
+}
 const visualRenderers = {};
 // --- pure seam logic (covered by test/host.test.ts) ---
 function anchorRefIndex(refs) {
@@ -22,6 +39,46 @@ function nextSelection(cur, card, id) {
 }
 function commentTarget(n, sel, card) {
     return sel && sel.card === card ? `n${n}:${sel.id}` : `n${n}`;
+}
+// anchorDrawnAt: is the element with this stable id drawn at the dial level?
+// Ids that never carry a level (actors, compare sides, state names) are
+// always drawn; an id the visual does not declare is not drawn.
+function anchorDrawnAt(v, id, level) {
+    if (v.kind === "map") {
+        const n = v.nodes.find((x) => x.id === id);
+        return n !== undefined && visibleAt(level, n.level);
+    }
+    if (v.kind === "sequence") {
+        if (v.actors.some((a) => a.id === id))
+            return true;
+        const s = v.steps.find((x) => x.id === id);
+        return s !== undefined && visibleAt(level, s.level);
+    }
+    if (v.kind === "timeline") {
+        const lane = v.lanes.find((l) => l.id === id);
+        if (lane)
+            return visibleAt(level, lane.level);
+        const laneHidden = (laneId) => {
+            const l = v.lanes.find((x) => x.id === laneId);
+            return l !== undefined && !visibleAt(level, l.level);
+        };
+        const inSet = (events) => events?.find((e) => e.id === id);
+        const e = inSet(v.events) ?? v.states?.reduce((hit, s) => hit ?? inSet(s.events), undefined);
+        if (e)
+            return visibleAt(level, e.level) && !laneHidden(e.lane);
+        return v.states?.some((s) => s.name === id) ?? false;
+    }
+    return id === "before" || id === "after";
+}
+// selectionAfterDial: a selection survives a dial turn only while its element
+// is still drawn; otherwise it clears (and the comment target falls back).
+function selectionAfterDial(sel, visualOf, level) {
+    if (!sel)
+        return null;
+    const v = visualOf(sel.card);
+    if (!v)
+        return null;
+    return anchorDrawnAt(v, sel.id, level) ? sel : null;
 }
 // --- SVG helpers shared by the renderers ---
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -182,6 +239,24 @@ function layoutMap(v) {
     });
     return { w: x - HGAP + PAD, h, nodes };
 }
+// mapDrawnBoxes: the laid-out boxes drawn at a dial level. Layout is always
+// computed from the full document, so a box never moves between levels — the
+// dial only changes which boxes are drawn.
+function mapDrawnBoxes(v, level) {
+    const drawn = new Set(v.nodes.filter((n) => visibleAt(level, n.level)).map((n) => n.id));
+    return layoutMap(v).nodes.filter((b) => drawn.has(b.id));
+}
+// mapDrawnEdgeIdx: indices into v.edges of the edges drawn at a dial level —
+// the edge's own level, and both endpoints, must be visible.
+function mapDrawnEdgeIdx(v, level) {
+    const drawn = new Set(v.nodes.filter((n) => visibleAt(level, n.level)).map((n) => n.id));
+    const out = [];
+    (v.edges ?? []).forEach((e, i) => {
+        if (visibleAt(level, e.level) && drawn.has(e.from) && drawn.has(e.to))
+            out.push(i);
+    });
+    return out;
+}
 // --- rendering ---
 function mapEdgeEnds(a, b) {
     if (b.x >= a.x + a.w)
@@ -194,7 +269,10 @@ function mapEdgeEnds(a, b) {
 }
 let mapIdSeq = 0;
 function renderMapVisual(v, ctx) {
-    const l = layoutMap(v);
+    const level = ctx.level ?? "standard";
+    const l = layoutMap(v); // full document: positions never depend on the dial
+    const drawnNodes = new Set(mapDrawnBoxes(v, level).map((b) => b.id));
+    const drawnEdges = new Set(mapDrawnEdgeIdx(v, level));
     const uid = `map${++mapIdSeq}`;
     const svg = svgEl("svg", {
         viewBox: `0 0 ${l.w} ${l.h}`, class: "vis-map",
@@ -212,11 +290,13 @@ function renderMapVisual(v, ctx) {
     svg.appendChild(defs);
     const byId = new Map(l.nodes.map((n) => [n.id, n]));
     const edgesG = svgEl("g");
-    for (const e of v.edges ?? []) {
+    (v.edges ?? []).forEach((e, ei) => {
+        if (!drawnEdges.has(ei))
+            return;
         const a = byId.get(e.from);
         const b = byId.get(e.to);
         if (!a || !b)
-            continue; // validation forbids this; stay defensive
+            return; // validation forbids this; stay defensive
         const { x1, y1, x2, y2, horizontal } = mapEdgeEnds(a, b);
         const d = horizontal
             ? `M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`
@@ -229,10 +309,12 @@ function renderMapVisual(v, ctx) {
             }, e.label));
         }
         edgesG.appendChild(g);
-    }
+    });
     svg.appendChild(edgesG);
     const nodesG = svgEl("g");
     for (const n of v.nodes) {
+        if (!drawnNodes.has(n.id))
+            continue;
         const b = byId.get(n.id);
         if (!b)
             continue;
@@ -271,6 +353,16 @@ const SEQ_STEP_GAP = 46;
 function seqAdvance(shown, delta, total) {
     return Math.max(0, Math.min(total, shown + delta));
 }
+// seqDrawnSteps: indices into v.steps of the steps drawn at a dial level.
+// Stepping advances through these only; positions come from the full layout.
+function seqDrawnSteps(v, level) {
+    const out = [];
+    v.steps.forEach((s, i) => {
+        if (visibleAt(level, s.level))
+            out.push(i);
+    });
+    return out;
+}
 function layoutSequence(v) {
     const PAD = 24;
     let x = PAD;
@@ -291,7 +383,10 @@ function layoutSequence(v) {
 }
 let seqIdSeq = 0;
 function renderSequenceVisual(v, ctx) {
-    const l = layoutSequence(v);
+    const level = ctx.level ?? "standard";
+    const l = layoutSequence(v); // full document: step rows never move
+    const drawn = seqDrawnSteps(v, level);
+    const posOf = new Map(drawn.map((idx, pos) => [idx, pos]));
     const uid = `seq${++seqIdSeq}`;
     const svg = svgEl("svg", {
         viewBox: `0 0 ${l.w} ${l.h}`, class: "vis-seq",
@@ -328,6 +423,8 @@ function renderSequenceVisual(v, ctx) {
     // steps
     const stepsG = svgEl("g");
     v.steps.forEach((s, i) => {
+        if (!posOf.has(i))
+            return; // hidden at this dial level
         const a = byId.get(s.from);
         const b = byId.get(s.to);
         const y = l.steps[i].y;
@@ -360,9 +457,10 @@ function renderSequenceVisual(v, ctx) {
         stepsG.appendChild(g);
     });
     svg.appendChild(stepsG);
-    // step control: ▸ advances, ◂ goes back, clicking a step jumps to it
+    // step control: ▸ advances, ◂ goes back, clicking a step jumps to it.
+    // Stepping walks the drawn subset only.
     let shown = 0;
-    const total = v.steps.length;
+    const total = drawn.length;
     const ctrl = svgEl("g", { class: "seq-ctrl", transform: `translate(${l.w - 92} ${l.h - 14})` });
     const back = svgEl("text", { x: 0, y: 0, class: "btn", role: "button" }, "◂");
     const fwd = svgEl("text", { x: 18, y: 0, class: "btn", role: "button" }, "▸");
@@ -371,9 +469,9 @@ function renderSequenceVisual(v, ctx) {
     svg.appendChild(ctrl);
     const apply = () => {
         stepsG.querySelectorAll(".step").forEach((g) => {
-            const i = Number(g.getAttribute("data-step"));
-            g.classList.toggle("done", i < shown);
-            g.classList.toggle("cur", i === shown - 1);
+            const pos = posOf.get(Number(g.getAttribute("data-step"))) ?? -1;
+            g.classList.toggle("done", pos >= 0 && pos < shown);
+            g.classList.toggle("cur", pos === shown - 1);
         });
         counter.textContent = `${shown}/${total}`;
     };
@@ -384,7 +482,10 @@ function renderSequenceVisual(v, ctx) {
         const g = e.target.closest(".step");
         if (!g)
             return;
-        shown = Number(g.getAttribute("data-step")) + 1;
+        const pos = posOf.get(Number(g.getAttribute("data-step")));
+        if (pos === undefined)
+            return;
+        shown = pos + 1;
         apply();
     });
     svg.addEventListener("stepvisual", (e) => {
@@ -427,6 +528,18 @@ function tlAxis(v) {
     const max = Math.max(...times);
     return { min, max: max > min ? max : min + 1 };
 }
+// tlDrawnLanes: the lanes drawn at a dial level. Lane rows keep the full
+// document's positions; a hidden lane leaves its row empty.
+function tlDrawnLanes(v, level) {
+    return v.lanes.filter((l) => visibleAt(level, l.level));
+}
+// tlDrawnEvents: the events of one event set drawn at a dial level — the
+// event's own level, and its lane, must be visible. The scrubber and space
+// stepping walk these only.
+function tlDrawnEvents(v, events, level) {
+    const hiddenLanes = new Set(v.lanes.filter((l) => !visibleAt(level, l.level)).map((l) => l.id));
+    return events.filter((e) => visibleAt(level, e.level) && !hiddenLanes.has(e.lane));
+}
 function tlWeightR(weight, maxWeight) {
     const FLOOR = 4;
     if (!weight || weight <= 0 || maxWeight <= 0)
@@ -444,8 +557,12 @@ function tlFmt(seconds, clock) {
 }
 // --- rendering ---
 function renderTimelineVisual(v, ctx) {
+    const level = ctx.level ?? "standard";
     const { states, defaultIndex } = tlStatesOf(v);
+    // Geometry (axis, lane rows) comes from the full document, so nothing
+    // moves when the dial turns; the level only filters what is drawn.
     const axis = tlAxis(v);
+    const drawnLaneIds = new Set(tlDrawnLanes(v, level).map((l) => l.id));
     const clock = states.some((s) => s.events.some((e) => typeof e.at === "string" && e.at.includes(":")));
     const maxWeight = Math.max(0, ...states.flatMap((s) => s.events.map((e) => e.weight ?? 0)));
     const PADL = 16, LANE_H = 64, TOP = 14;
@@ -486,6 +603,8 @@ function renderTimelineVisual(v, ctx) {
     // lanes
     const lanesG = svgEl("g");
     v.lanes.forEach((l) => {
+        if (!drawnLaneIds.has(l.id))
+            return; // hidden at this dial level
         const y = laneY.get(l.id);
         lanesG.appendChild(svgEl("line", { x1: PADL + labelW, y1: y, x2: PADL + labelW + plotW, y2: y, class: "lane" }));
         lanesG.appendChild(svgEl("text", { x: PADL, y: y + 4, class: "lane-label" }, l.label));
@@ -504,7 +623,7 @@ function renderTimelineVisual(v, ctx) {
     svg.appendChild(eventsG);
     function drawEvents() {
         eventsG.innerHTML = "";
-        for (const e of states[stateIdx].events) {
+        for (const e of tlDrawnEvents(v, states[stateIdx].events, level)) {
             const y = laneY.get(e.lane);
             if (y === undefined)
                 continue; // validation forbids dangling lanes
@@ -555,7 +674,7 @@ function renderTimelineVisual(v, ctx) {
     // space steps the cursor between distinct event times
     wrap.addEventListener("stepvisual", (e) => {
         const delta = e.detail.delta;
-        const times = [...new Set(states[stateIdx].events.map((ev) => tlParseAt(ev.at)))].sort((a, b) => a - b);
+        const times = [...new Set(tlDrawnEvents(v, states[stateIdx].events, level).map((ev) => tlParseAt(ev.at)))].sort((a, b) => a - b);
         const next = delta > 0 ? times.find((t) => t > cursor) : [...times].reverse().find((t) => t < cursor);
         cursor = next ?? (delta > 0 ? axis.max : axis.min);
         applyCursor();
@@ -725,8 +844,10 @@ let plate = null;
 let active = 0;
 let chosen = null;
 let justSent = false;
+let dialLevel = DIAL_DEFAULT;
 const pending = [];
-// --- tiny markdown: captions are "one or two sentences", bold/code/italic ---
+const visualOfCard = (card) => plate?.nibbles[card]?.visual ?? null;
+// --- tiny markdown: titles and descriptions get bold/code/italic only ---
 function esc(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -777,10 +898,14 @@ function render() {
         return;
     $("#plate-title").textContent = plate.title;
     $("#plate-meta").textContent = `${aboutLabel(plate)} · ${plate.head_sha.slice(0, 7)}`;
+    const plateDesc = descriptionAt(plate.description, dialLevel);
+    const pdEl = $("#plate-desc");
+    pdEl.hidden = plateDesc === null;
+    pdEl.innerHTML = plateDesc === null ? "" : mdLite(plateDesc);
     const notice = $("#notice");
     if (!plate.source.found) {
         notice.hidden = false;
-        notice.textContent = `refs unverified — the plate’s root ${plate.source.path} isn’t on this machine; captions and visuals only`;
+        notice.textContent = `refs unverified — the plate’s root ${plate.source.path} isn’t on this machine; text and visuals only`;
     }
     else if (!plate.source.git && plate.nibbles.some((nb) => nb.refs.some((r) => r.trust.level === "unverified"))) {
         notice.hidden = false;
@@ -802,26 +927,29 @@ function render() {
             ${r.anchor ? `<span class="anchor">@${esc(r.anchor)}</span>` : ""}
             ${trustBadge(r.trust)}</button>`)
             .join("");
+        const desc = descriptionAt(nb.description, dialLevel);
         return `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
         <h2>nibble ${nb.n}</h2>
         <div class="visual">
-          <div class="vhead"><span class="kind">${esc(vs.kind)}</span><span class="vtitle">${esc(vs.title)}</span></div>
+          <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
           <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
           ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
         </div>
-        <p class="caption">${mdLite(nb.caption)}</p>
+        <p class="ntitle">${mdLite(nb.title)}</p>
+        ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
         ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
         <div class="refs">${refs}</div>
       </article>`;
     })
         .join("");
     // Per-kind rendering: swap each card's fallback summary for the rendered
-    // visual when a renderer for its kind is registered.
-    hostSelection = null;
+    // visual when a renderer for its kind is registered. A selection survives
+    // the rebuild only while its element is drawn at the dial level.
+    hostSelection = selectionAfterDial(hostSelection, visualOfCard, dialLevel);
     strip.querySelectorAll(".nibble").forEach((card) => {
         card.addEventListener("click", () => setActive(Number(card.dataset.i)));
         const nb = plate.nibbles[Number(card.dataset.i)];
-        const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs });
+        const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel });
         if (!body)
             return;
         const slot = card.querySelector(".visual");
@@ -839,8 +967,20 @@ function render() {
             void openDrawer(Number(btn.dataset.n), Number(btn.dataset.ref));
         });
     });
+    applySelection(strip);
+    updateCommentTarget();
     renderReviewBar();
     camera();
+}
+// --- the detail dial: one plate-wide level, same canvas, same camera ---
+function setDial(level) {
+    if (level === dialLevel)
+        return;
+    dialLevel = level;
+    document.querySelectorAll("#dial .dial-pos").forEach((b) => {
+        b.classList.toggle("on", b.dataset.level === level);
+    });
+    render(); // redraw in place: layout is computed from the full document
 }
 // --- camera: an animated transform, never a navigation ---
 function updateCommentTarget() {
@@ -993,6 +1133,9 @@ function listen() {
 // --- wire up ---
 $("#prev").addEventListener("click", () => setActive(active - 1));
 $("#next").addEventListener("click", () => setActive(active + 1));
+document.querySelectorAll("#dial .dial-pos").forEach((btn) => {
+    btn.addEventListener("click", () => setDial(btn.dataset.level));
+});
 $("#drawer-close").addEventListener("click", () => ($("#drawer").hidden = true));
 const legend = $("#legend");
 $("#comment-add").addEventListener("click", addComment);
@@ -1031,6 +1174,8 @@ document.addEventListener("keydown", (e) => {
             body.dispatchEvent(new CustomEvent("stepvisual", { detail: { delta: e.shiftKey ? -1 : 1 } }));
         }
     }
+    if (e.key === "d")
+        setDial(dialToggle(dialLevel));
     if (e.key === "?")
         legend.classList.toggle("pinned");
     if (e.key === "s" && chosen && plate && !plate.review)

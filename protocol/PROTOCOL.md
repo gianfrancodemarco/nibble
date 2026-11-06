@@ -32,10 +32,12 @@ Fixtures: [`golden/plates/`](golden/plates/).
 | --- | --- | --- |
 | `version` | int | protocol version; this document is 1 |
 | `title` | string | non-empty |
+| `description` | object | optional levelled prose (below) |
 | `repo` | string | path of the root refs resolve against: absolute, or relative to the plate directory (a portable plate bundles a snapshot of its files) |
 | `head_sha` | string | commit the working tree was at |
 | `about` | see below | what code the plate is about |
 | `created_at` | string | RFC 3339 |
+| `because` | string | optional reason for exceeding a budget, shown to the reader |
 
 `about` takes one of four forms: `"code"` (the code as it is), `"worktree"`
 (the uncommitted diff), `{"pr": 1247}`, or `{"range": "main..feat"}`.
@@ -44,11 +46,27 @@ Fixtures: [`golden/plates/`](golden/plates/).
 
 | field | type | meaning |
 | --- | --- | --- |
-| `caption` | string | markdown; one or two sentences |
+| `title` | string | markdown; the claim, one or two sentences (renamed from early drafts' `caption`, which is refused with `nibble.title.missing`) |
+| `description` | object | optional levelled prose (below) |
 | `visual` | object | required — a visual document (below) |
 | `view` | object | optional camera hint on the plate's canvas |
 | `because` | string | optional reason for exceeding a budget, shown to the reader |
 | `refs` | array | stored refs (below), may be empty |
+
+### description — levelled prose
+
+Plates and nibbles share one description shape, following the detail dial:
+
+```json
+{"overview": "the skim text", "standard": "the fuller story"}
+```
+
+`overview` is required and non-empty — the skim is the point; `standard` is
+optional, shown at the dial's standard level, **falling back to `overview`**
+when absent (never the other way: the overview never shows the long text). A
+description of any other shape fails with `plate.description` /
+`nibble.description`. Word budgets (overview ≤ 100, standard ≤ 250) are
+enforced by the CLI at authoring time, not by the protocol.
 
 ### done
 
@@ -135,6 +153,20 @@ event sets the reader toggles between; at most one is `default`.
 and state names, and `before`/`after` are stable ids — what a ref's
 `@anchor` and a review comment's `target` point at.
 
+**Levels — the detail dial**: map nodes and edges, sequence steps, and
+timeline lanes and events may declare `level`: the minimum dial level at
+which the element is drawn. Absent means the element belongs to the
+**overview** and is drawn at every level; `"standard"` marks it
+standard-only. `"standard"` is the only v1 value (`"deep"` is reserved for a
+later version — anything else is `visual.level.unknown`). The dial changes
+how much is drawn, never the layout: a levelled visual is one picture whose
+overview is a subset, so an element drawn at overview may not depend on one
+that is not (`map.edge.level`, `timeline.event.level`), and a visual whose
+every level-capable element is standard-only is rejected
+(`visual.overview.empty`). A visual with no `level` fields reads identically
+at both levels. Compare sides and sequence actors take no `level`; a map
+nested in a compare side is free-form content, as before.
+
 ## Error code index
 
 Codes are the stable API; messages are not. Every code the implementation
@@ -153,15 +185,22 @@ can return:
 | `visual.kind.unknown` | not a v1 kind |
 | `visual.field.unknown` | unknown field (usually a presentation knob) |
 | `visual.schema` | any other schema violation |
+| `visual.level.unknown` | `level` is not `"standard"` (`"deep"` reserved; overview is the default) |
+| `visual.overview.empty` | every level-capable element is standard-only, so overview would draw nothing |
 | `map.node.duplicate` | node id declared twice |
 | `map.edge.dangling` | edge references a missing node |
+| `map.edge.level` | overview edge touches a standard-only node |
 | `map.nodes.budget` | more than 12 nodes |
 | `sequence.step.dangling` | step references a missing actor |
 | `timeline.event.dangling` | event in a missing lane |
+| `timeline.event.level` | overview event in a standard-only lane |
 | `timeline.state.duplicate` | two states share a name |
 | `timeline.state.default` | more than one default state |
 | `compare.sides.mismatch` | sides hold different content types |
 | `plate.header` | plate.json unreadable or a field malformed |
+| `plate.description` | plate description is not `{overview, standard?}` with a non-empty overview |
+| `nibble.title.missing` | nibble has no `title` (or still carries the pre-rename `caption`) |
+| `nibble.description` | nibble description is not `{overview, standard?}` with a non-empty overview |
 | `plate.version.missing` | no `version` field |
 | `plate.version.unsupported` | version this consumer does not implement |
 | `plate.nibbles.gap` | nibble numbering has a hole |
@@ -176,7 +215,7 @@ The CLI adds codes of its own, same contract:
 | code | meaning |
 | --- | --- |
 | `cli.repo.missing` | command run outside a git repository |
-| `cli.budget` | caption or nibble count over budget, and no `--because` |
+| `cli.budget` | title, description or nibble count over budget, and no `--because` |
 | `cli.plate.empty` | sealing a plate that has no nibbles |
 
 ## The CLI, briefly

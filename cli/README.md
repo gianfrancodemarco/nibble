@@ -10,12 +10,13 @@ go install github.com/gianfrancodemarco/nibble/cli/cmd/nibble@main
 ## Commands
 
 ```sh
-nibble new   --title <t> [--about code|worktree|<base>..<head>] [--json]
+nibble new   --title <t> [--description <md>] [--description-standard <md>]
+             [--about code|worktree|<base>..<head>] [--json]
              # creates a plate under $NIBBLE_HOME/plates (default ~/.nibble/plates),
              # prints its path — the only stdout line
 
-nibble add   <plate> --caption <md> --visual <file.json> [--ref <ref>]...
-             [--because <reason>] [--json]
+nibble add   <plate> --title <md> [--description <md>] [--description-standard <md>]
+             --visual <file.json> [--ref <ref>]... [--because <reason>] [--json]
              # validates the visual and every ref against the real repo
              # (diff-ref sides resolved through git), fingerprints refs,
              # writes n<N>.json atomically; rejections are fix-its with
@@ -59,8 +60,8 @@ for `app.js`):
 Serving degrades per ref by what is available: a full git repo serves
 everything; a plain directory of files (the plate’s `repo` may be relative
 to the plate dir) verifies plain and `@worktree` refs and marks
-`base..head` refs `unverified`; a missing root serves captions and visuals
-with every ref `unverified` — the review loop works regardless.
+`base..head` refs `unverified`; a missing root serves titles, descriptions
+and visuals with every ref `unverified` — the review loop works regardless.
 
 A plate that already has a review serves read-only (review shown, input
 locked) until interrupted or `--timeout`, exiting with the verdict's code;
@@ -85,9 +86,11 @@ drift from the commands.
 ## Budgets
 
 Small by default, with a reason as the escape hatch — the reason is stored in
-the nibble (`because`) and shown to the reader:
+the written file (`because`: the nibble for `add`, `plate.json` for `new`)
+and shown to the reader:
 
-- captions: **40 words**
+- titles: **40 words**
+- description overview: **100 words** · description standard: **250 words**
 - nibbles per plate: **7** (`code`, `worktree`) · **12** (`<base>..<head>`)
 
 Over budget without `--because "<reason>"` → `cli.budget`, with the limit and

@@ -1,5 +1,5 @@
 {
-  "caption": "The query itself is fine; it is the **41 at once** that saturates the pool.",
+  "title": "The query itself is fine; it is the **41 at once** that saturates the pool.",
   "visual": {
     "kind": "sequence",
     "title": "One getPrice, on the hour",

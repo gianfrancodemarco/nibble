@@ -1,0 +1,12 @@
+{
+  "expect": "map.edge.level",
+  "visual": {
+    "kind": "map",
+    "title": "overview edge into a hidden node",
+    "nodes": [
+      { "id": "api", "label": "api" },
+      { "id": "warmer", "label": "cache warmer", "level": "standard" }
+    ],
+    "edges": [ { "from": "api", "to": "warmer", "label": "cron" } ]
+  }
+}

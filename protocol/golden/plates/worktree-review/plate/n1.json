@@ -1,5 +1,5 @@
 {
-  "caption": "The TTL now carries jitter; everything else is untouched.",
+  "title": "The TTL now carries jitter; everything else is untouched.",
   "visual": {
     "kind": "compare",
     "title": "The TTL, today and with jitter",

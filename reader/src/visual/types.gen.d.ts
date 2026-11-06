@@ -17,12 +17,14 @@ interface MapNode {
   group?: string;
   tier?: "edge" | "service" | "data";
   focus?: boolean;
+  level?: "standard";
 }
 interface MapEdge {
   from: string;
   to: string;
   label?: string;
   style?: "flow" | "miss" | "weak";
+  level?: "standard";
 }
 
 interface SequenceVisual {
@@ -52,6 +54,7 @@ interface SequenceVisual {
       label: string;
       kind?: "call" | "return" | "async";
       alt?: string;
+      level?: "standard";
     },
     ...{
       id?: string;
@@ -60,6 +63,7 @@ interface SequenceVisual {
       label: string;
       kind?: "call" | "return" | "async";
       alt?: string;
+      level?: "standard";
     }[]
   ];
 }
@@ -70,6 +74,7 @@ type TimelineEvents = {
   at: number | string;
   label: string;
   weight?: number;
+  level?: "standard";
 }[];
 
 interface TimelineVisual {
@@ -82,10 +87,12 @@ interface TimelineVisual {
     {
       id: string;
       label: string;
+      level?: "standard";
     },
     ...{
       id: string;
       label: string;
+      level?: "standard";
     }[]
   ];
   events?: TimelineEvents;

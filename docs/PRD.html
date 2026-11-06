@@ -235,7 +235,7 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
   <h3>Opinionated on purpose</h3>
   <p class="note">These are product decisions, not settings. The CLI enforces them with fix-it messages.</p>
   <div class="cards">
-    <div class="card"><b><span>01</span>Picture first, prose last</b><p>Every nibble leads with a visual. The caption is one or two sentences, never a paragraph. No visual, no nibble.</p></div>
+    <div class="card"><b><span>01</span>Picture first, prose last</b><p>Every nibble leads with a visual. The title is one or two sentences, never a paragraph; depth lives in the levelled description (overview ≤ 100 words, standard ≤ 250). No visual, no nibble.</p></div>
     <div class="card"><b><span>02</span>Interactive, not animated</b><p>A visual you can only watch is a video. Every visual has something to do: scrub, toggle, click, step, compare.</p></div>
     <div class="card"><b><span>03</span>One canvas per plate</b><p>Nibbles move a camera across one shared map. You build a spatial picture, not a slideshow.</p></div>
     <div class="card"><b><span>04</span>Code is evidence, on demand</b><p>Click any node, edge or moment to open the validated lines behind it in a drawer.</p></div>
@@ -469,7 +469,7 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 
   <div class="cards">
     <div class="card"><b>nibble CLI <span style="float:right" class="pri p0">v0.1</span></b><p>The single Go binary agents shell out to: <span class="mono">new · add · done · serve · lint · export · setup</span>. Owns <i>all</i> protocol logic — ref validation, fingerprints, budgets, schema checks, trust — and <span class="mono">serve</span> hosts the loopback server and blocks until your answer.</p></div>
-    <div class="card"><b>Agent skill <span style="float:right" class="pri p0">v0.1</span></b><p>What <span class="mono">setup</span> installs into Claude Code / Codex / Cursor: when to reach for nibble, how to write captions and visuals (worked examples), the budgets, how to answer visual requests. Prompt content, not code — the CLI enforces what the skill teaches.</p></div>
+    <div class="card"><b>Agent skill <span style="float:right" class="pri p0">v0.1</span></b><p>What <span class="mono">setup</span> installs into Claude Code / Codex / Cursor: when to reach for nibble, how to write titles, descriptions and visuals (worked examples), the budgets, how to answer visual requests. Prompt content, not code — the CLI enforces what the skill teaches.</p></div>
     <div class="card"><b>Reader <span style="float:right" class="pri p0">v0.1</span></b><p>The TypeScript SPA: canvas and camera, the visual kinds, detail dial, code drawer, comments. Pure presentation — it never touches files, it renders what the CLI computed. Embedded into the CLI binary at build time.</p></div>
     <div class="card"><b>Pill <span style="float:right" class="pri p1">v1</span></b><p>The thin Tauri shell: a menu-bar icon and a floating pill listing waiting plates, opening the same reader in its own window. The only component that is a desktop app.</p></div>
     <div class="card"><b>Protocol <span style="float:right" class="pri p0">v0.1</span></b><p>The contract everything shares: plate folder format, visual JSON Schemas, the fingerprint and trust rules, golden files. Components can be rewritten against it without breaking a single plate.</p></div>
@@ -501,11 +501,11 @@ nibble/
     <caption>Reader</caption>
     <thead><tr><th style="width:52px">ID</th><th>Requirement</th><th style="width:60px">Pri</th></tr></thead>
     <tbody>
-      <tr class="p0"><td class="id">R1</td><td>Canvas-first layout: visual ≥ 60% of the window; caption below; code in a drawer</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">R1</td><td>Canvas-first layout: visual ≥ 60% of the window; title and description below; code in a drawer</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p0"><td class="id">R2</td><td>One shared canvas per plate; moving between nibbles animates the camera, not a page swap</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p0"><td class="id">R3</td><td>Visual kinds map, sequence, timeline, compare with built-in interactions</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p0"><td class="id">R4</td><td>Clicking any anchored element opens the code drawer at the validated lines</td><td><span class="pri p0">P0</span></td></tr>
-      <tr class="p0"><td class="id">R5</td><td>Comment on node / edge / moment / line / caption; Ask now or Hold for review</td><td><span class="pri p0">P0</span></td></tr>
+      <tr class="p0"><td class="id">R5</td><td>Comment on node / edge / moment / line / title; Ask now or Hold for review</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p0"><td class="id">R6</td><td>Live: nibbles appear while the agent is still writing</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p0"><td class="id">R7</td><td>Keyboard: ← → nibbles, space play/step, e evidence, c comment, v request visual, s submit, q close</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p1"><td class="id">R8</td><td>Visual kinds state, data, chart</td><td><span class="pri p1">P1</span></td></tr>
@@ -515,7 +515,7 @@ nibble/
       <tr class="p0"><td class="id">R12</td><td>Detail dial: overview and standard ship with every plate; deep may arrive on demand</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p1"><td class="id">R13</td><td>Request a visual from any element with v; answers appear threaded in place</td><td><span class="pri p1">P1</span></td></tr>
       <tr class="p0"><td class="id">R14</td><td>PR mode: diff-aware map (files coloured by churn), side-by-side compare for diff refs</td><td><span class="pri p0">P0</span></td></tr>
-      <tr class="p1"><td class="id">R15</td><td>Voice walk (w): captions read aloud, highlight and camera in sync; answers read too</td><td><span class="pri p1">P1</span></td></tr>
+      <tr class="p1"><td class="id">R15</td><td>Voice walk (w): titles read aloud, highlight and camera in sync; answers read too</td><td><span class="pri p1">P1</span></td></tr>
       <tr class="p0"><td class="id">R16</td><td>PR map rings: changed / dependent-but-unchanged (callers, importers, tests, configs) / rest; unvisited dependents badged</td><td><span class="pri p0">P0</span></td></tr>
       <tr class="p0"><td class="id">R17</td><td>Not-shown ledger: every plate ends with the diff hunks no nibble referenced, open to comments</td><td><span class="pri p0">P0</span></td></tr>
     </tbody>
@@ -542,10 +542,10 @@ nibble/
   <h2>§8.3 · §9</h2>
   <h3>On disk, and the CLI</h3>
   <p class="note">A plate is a folder of small JSON files, append-only while open, readable by anything, versioned from day one. Refs store a fingerprint of the lines they point at; when a file changes underneath a plate, elements come back as <b>exact</b>, <b>shifted</b> or <b>stale</b> instead of silently wrong. <b>Shipped:</b> the protocol is specified in <a class="inline" href="https://github.com/gianfrancodemarco/nibble/blob/main/protocol/PROTOCOL.md">protocol/PROTOCOL.md</a>, with JSON Schemas, golden conformance fixtures, and a tested Go package implementing it.</p>
-  <p class="note"><b>Decided (2026-11-01):</b> the CLI is a single static <b>Go</b> binary (small, instant start, easy installs); the reader stays TypeScript but is <b>pure presentation</b>. All protocol logic — fingerprints, ref parsing, budgets, validation, trust — lives once, in Go: the reader talks only to the Go server and receives trust badges already computed, never files to check. TS types are generated from the JSON Schema files, so nothing protocol-shaped is hand-written twice. <b>Shipped:</b> the Go CLI (new · add · done · lint · serve) and the reader — <span class="mono">serve</span> hosts it on loopback, computes trust per request, streams new nibbles over SSE and turns the submitted review into its exit code; the four v1 visual kinds (map · sequence · timeline · compare) render as interactive SVG with anchors wired to the code drawer and to comments, and the reader's visual types are generated from the JSON Schemas; the Claude Code skill (<span class="mono">skill/</span>, installed by <span class="mono">nibble setup</span>) teaches an agent the loop, with worked examples kept lint-clean by CI. The detail dial is the next item.</p>
+  <p class="note"><b>Decided (2026-11-01):</b> the CLI is a single static <b>Go</b> binary (small, instant start, easy installs); the reader stays TypeScript but is <b>pure presentation</b>. All protocol logic — fingerprints, ref parsing, budgets, validation, trust — lives once, in Go: the reader talks only to the Go server and receives trust badges already computed, never files to check. TS types are generated from the JSON Schema files, so nothing protocol-shaped is hand-written twice. <b>Shipped:</b> the Go CLI (new · add · done · lint · serve) and the reader — <span class="mono">serve</span> hosts it on loopback, computes trust per request, streams new nibbles over SSE and turns the submitted review into its exit code; the four v1 visual kinds (map · sequence · timeline · compare) render as interactive SVG with anchors wired to the code drawer and to comments, and the reader's visual types are generated from the JSON Schemas; the Claude Code skill (<span class="mono">skill/</span>, installed by <span class="mono">nibble setup</span>) teaches an agent the loop, with worked examples kept lint-clean by CI; the detail dial — visuals layer with a per-element <span class="mono">level</span> hint, and the reader flips between overview and standard (<kbd>d</kbd>) on one unmoving canvas; and levelled text — plates and nibbles carry a title plus a two-depth <span class="mono">description</span> the dial switches with everything else. Blast-radius rings are the next item.</p>
 <pre class="cli"><span class="d"># what the agent runs — most of the time the skill does, not you</span>
 <span class="p">$</span> nibble new   --title "PR 1247 · ch 1: payments" --about pr:1247    <span class="d"># prints the plate path</span>
-<span class="p">$</span> nibble add   &lt;plate&gt; --caption "…" --visual timeline.json \
+<span class="p">$</span> nibble add   &lt;plate&gt; --title "…" --visual timeline.json \
                --ref "src/cache/prices.ts:43-45 @cache"               <span class="d"># validated, or bounced with a fix-it</span>
 <span class="p">$</span> nibble done  &lt;plate&gt;                                               <span class="d"># coverage check, seals the plate</span>
 <span class="p">$</span> nibble serve &lt;plate&gt;                                               <span class="d"># tray + block until you answer</span>
@@ -553,7 +553,7 @@ nibble/
 <span class="d"># a plate on disk</span>
 ~/.nibble/plates/p-20261101-0915-a3f2/
   plate.json     <span class="d">version · title · repo · head_sha · canvas</span>
-  n1.json        <span class="d">caption · view · visual · controls · refs (fingerprinted)</span>
+  n1.json        <span class="d">title · description · view · visual · controls · refs (fingerprinted)</span>
   n2.json
   done           <span class="d">written last</span>
   review.json    <span class="d">written by the reader; serve prints it and exits</span></pre>
@@ -590,7 +590,7 @@ nibble/
       <tr><td>Structure</td><td>Sequence of groups</td><td>Camera across one canvas; ≤ 7 nibbles</td></tr>
       <tr><td>Detail</td><td>One telling</td><td>A dial: overview / standard / deep</td></tr>
       <tr><td>Scope</td><td>Explain, plan, review via the walk</td><td>Explain · review the worktree · review a PR, with diff refs first-class</td></tr>
-      <tr><td>Narration</td><td>Prose band, read aloud</td><td>Caption ≤ 40 words; voice walk planned (R15)</td></tr>
+      <tr><td>Narration</td><td>Prose band, read aloud</td><td>Title ≤ 40 words + levelled description (≤ 100 / ≤ 250); voice walk planned (R15)</td></tr>
       <tr><td>Runtime</td><td>Native Rust window</td><td>Web reader in a thin Tauri shell (native pill); editor panel later</td></tr>
       <tr><td>Protocol</td><td>.deck folders, frozen v1</td><td>Own format only — no deck interop (decided)</td></tr>
     </tbody>
@@ -650,7 +650,7 @@ nibble/
     '<b>2.</b> The agent creates a plate. Only a shell is needed.',
     '<b>3.</b> <b>nibble serve</b> blocks. This waiting command is what ends with your answer.',
     '<b>4.</b> The tray appears. It invites; it never steals focus.',
-    '<b>5.</b> Each <b>add</b> is validated: refs, caption length, node caps. Bad nibbles bounce with a fix-it.',
+    '<b>5.</b> Each <b>add</b> is validated: refs, title and description budgets, node caps. Bad nibbles bounce with a fix-it.',
     '<b>6.</b> Nibbles stream into the open reader live.',
     '<b>7.</b> You explore, scrub, comment on a node — or press <b>v</b> to request a missing visual.',
     '<b>8.</b> serve exits: verdict, comments pinned to things, visual requests. The agent continues.'

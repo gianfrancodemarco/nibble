@@ -13,10 +13,38 @@ interface AnchoredRef {
 }
 interface VisualSelection { card: number; id: string }
 
+// The detail dial: two positions in v0.1. Overview draws only unlevelled
+// elements; standard draws everything. Deep arrives in v0.2.
+type DialLevel = "overview" | "standard";
+const DIAL_DEFAULT: DialLevel = "standard";
+
+function dialToggle(level: DialLevel): DialLevel {
+  return level === "standard" ? "overview" : "standard";
+}
+
+// visibleAt: is an element with this `level` hint drawn at the dial level?
+// Absent means overview — drawn everywhere.
+function visibleAt(level: DialLevel, elLevel?: "standard"): boolean {
+  return level === "standard" || elLevel === undefined;
+}
+
+// LevelledText is a plate's or nibble's description: the overview is the skim
+// text, standard the fuller story shown at the dial's standard level.
+interface LevelledText { overview: string; standard?: string }
+
+// descriptionAt picks the description variant for a dial level. Fallback is
+// downward only: standard falls back to overview; the overview never shows
+// the long text. Null means nothing to show.
+function descriptionAt(d: LevelledText | undefined, level: DialLevel): string | null {
+  if (!d) return null;
+  return level === "standard" ? d.standard ?? d.overview : d.overview;
+}
+
 interface RenderCtx {
   n: number; // nibble number, 1-based
   anchored: Map<string, number>; // anchor id → nibble ref index
   refs: readonly AnchoredRef[];
+  level?: DialLevel; // absent means standard
 }
 
 type RendererOf<K extends Visual["kind"]> = (v: Extract<Visual, { kind: K }>, ctx: RenderCtx) => Element;
@@ -39,6 +67,48 @@ function nextSelection(cur: VisualSelection | null, card: number, id: string): V
 
 function commentTarget(n: number, sel: VisualSelection | null, card: number): string {
   return sel && sel.card === card ? `n${n}:${sel.id}` : `n${n}`;
+}
+
+// anchorDrawnAt: is the element with this stable id drawn at the dial level?
+// Ids that never carry a level (actors, compare sides, state names) are
+// always drawn; an id the visual does not declare is not drawn.
+function anchorDrawnAt(v: Visual, id: string, level: DialLevel): boolean {
+  if (v.kind === "map") {
+    const n = v.nodes.find((x) => x.id === id);
+    return n !== undefined && visibleAt(level, n.level);
+  }
+  if (v.kind === "sequence") {
+    if (v.actors.some((a) => a.id === id)) return true;
+    const s = v.steps.find((x) => x.id === id);
+    return s !== undefined && visibleAt(level, s.level);
+  }
+  if (v.kind === "timeline") {
+    const lane = v.lanes.find((l) => l.id === id);
+    if (lane) return visibleAt(level, lane.level);
+    const laneHidden = (laneId: string) => {
+      const l = v.lanes.find((x) => x.id === laneId);
+      return l !== undefined && !visibleAt(level, l.level);
+    };
+    const inSet = (events: TimelineEvents | undefined) =>
+      events?.find((e) => e.id === id);
+    const e = inSet(v.events) ?? v.states?.reduce<ReturnType<typeof inSet>>((hit, s) => hit ?? inSet(s.events), undefined);
+    if (e) return visibleAt(level, e.level) && !laneHidden(e.lane);
+    return v.states?.some((s) => s.name === id) ?? false;
+  }
+  return id === "before" || id === "after";
+}
+
+// selectionAfterDial: a selection survives a dial turn only while its element
+// is still drawn; otherwise it clears (and the comment target falls back).
+function selectionAfterDial(
+  sel: VisualSelection | null,
+  visualOf: (card: number) => Visual | null,
+  level: DialLevel,
+): VisualSelection | null {
+  if (!sel) return null;
+  const v = visualOf(sel.card);
+  if (!v) return null;
+  return anchorDrawnAt(v, sel.id, level) ? sel : null;
 }
 
 // --- SVG helpers shared by the renderers ---

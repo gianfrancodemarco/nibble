@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "title": "Why checkout slows down every hour",
+  "description": {
+    "overview": "Checkout p99 jumps to 4.2 s on the hour. The cause is one flat cache TTL.",
+    "standard": "Every cached price expires exactly 3600 s after it was warmed, so all 41 keys die together at the top of the hour and every miss races to Postgres at once, saturating the 20-connection pool. Jittering the TTL spreads the expiries over ten minutes and the spike becomes a plateau."
+  },
+  "repo": "/work/shop",
+  "head_sha": "4f2a91c",
+  "about": "code",
+  "created_at": "2026-11-01T10:00:00Z"
+}

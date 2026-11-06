@@ -1,6 +1,6 @@
 {
   "because": "the before/after needs the full story",
-  "caption": "why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why ",
+  "title": "why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why ",
   "refs": [
     {
       "ref": "diff:src/prices.ts@worktree:3",

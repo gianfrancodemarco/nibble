@@ -1,0 +1,15 @@
+{
+  "kind": "timeline",
+  "title": "The hourly spike, lane by lane",
+  "lanes": [
+    { "id": "requests", "label": "requests" },
+    { "id": "db", "label": "postgres load" },
+    { "id": "gc", "label": "cache expiry", "level": "standard" }
+  ],
+  "events": [
+    { "id": "spike", "lane": "requests", "at": "12:00:00", "label": "p99 4.2s", "weight": 3 },
+    { "id": "flood", "lane": "db", "at": "12:00:01", "label": "41 identical SELECTs", "weight": 2 },
+    { "id": "expiry", "lane": "gc", "at": "12:00:00", "label": "41 keys expire together", "level": "standard" },
+    { "id": "calm", "lane": "requests", "at": "12:05:00", "label": "back to 80ms", "level": "standard" }
+  ]
+}

@@ -233,7 +233,7 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 <section>
   <h2>Opinions</h2>
   <div class="principles">
-    <div class="pr"><b><span>01</span>Picture first, prose last</b><p>Every nibble leads with a visual. The caption is one or two sentences, never a paragraph.</p></div>
+    <div class="pr"><b><span>01</span>Picture first, prose last</b><p>Every nibble leads with a visual. The title is one or two sentences, never a paragraph; depth lives in the levelled description.</p></div>
     <div class="pr"><b><span>02</span>Interactive, not animated</b><p>Every visual has something to do: scrub, toggle, click, step, compare.</p></div>
     <div class="pr"><b><span>03</span>One canvas per plate</b><p>Nibbles move a camera across one shared map. You build a spatial picture, not a slideshow.</p></div>
     <div class="pr"><b><span>04</span>Code is evidence, on demand</b><p>Click any node, edge or moment to open the validated lines behind it.</p></div>
@@ -472,11 +472,11 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
   <h2>06 · Agent side</h2>
   <h3>Strict in, structured out</h3>
   <p class="note">The CLI enforces the opinions with fix-it messages. The blocked <span class="mono">nibble serve</span> exits with the review.</p>
-<pre class="term"><span class="p">$</span> nibble add $P --caption "…" --ref "src/cache/prices.ts:43-45 @cache"
+<pre class="term"><span class="p">$</span> nibble add $P --title "…" --ref "src/cache/prices.ts:43-45 @cache"
 <span class="y">✗ rejected: nibble has no visual. Add --visual (map|sequence|timeline|compare).</span>
-<span class="p">$</span> nibble add $P --caption "… 61 words …" --visual stampede.json --ref "…"
-<span class="y">✗ rejected: caption is 61 words (max 40). Move detail into the visual or split the nibble.</span>
-<span class="p">$</span> nibble add $P --caption "Every cached price expires on the hour…" \
+<span class="p">$</span> nibble add $P --title "… 61 words …" --visual stampede.json --ref "…"
+<span class="y">✗ rejected: title is 61 words (max 40). Move detail into the visual or split the nibble.</span>
+<span class="p">$</span> nibble add $P --title "Every cached price expires on the hour…" \
     --visual stampede.json --ref "src/cache/prices.ts:43-45 @cache"
 <span class="g">✓ nibble 2 added (timeline, 3 nodes, 1 control)</span>
 <span class="p">$</span> nibble serve $P      <span class="d"># blocked until you answer</span>
@@ -493,7 +493,7 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 <section>
   <h2>Tokens</h2>
   <h3>Colour and type</h3>
-  <p class="note">Warm paper neutrals and a dotted canvas. Tangerine is the one accent, used for anything you can act on. Amber is the reading light, blue is your selection, and red means overloaded. Type is Inter for UI and captions, JetBrains Mono for code, refs and keys.</p>
+  <p class="note">Warm paper neutrals and a dotted canvas. Tangerine is the one accent, used for anything you can act on. Amber is the reading light, blue is your selection, and red means overloaded. Type is Inter for UI and text, JetBrains Mono for code, refs and keys.</p>
   <div class="tokens">
     <div class="tok"><div class="sw" style="background:var(--bg)"></div><div>Background<br><code>--bg</code></div></div>
     <div class="tok"><div class="sw" style="background:var(--surface)"></div><div>Surface<br><code>--surface</code></div></div>

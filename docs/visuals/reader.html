@@ -14,12 +14,14 @@
   <span class="spacer"></span>
   <span id="progress" class="meta"></span>
 </header>
+<div id="plate-desc" hidden></div>
 <div id="notice" hidden></div>
 
 <div id="main">
 <aside id="legend" aria-label="keyboard shortcuts">
   <div class="krow"><kbd>← →</kbd><span>previous / next nibble</span></div>
   <div class="krow"><kbd>⎵</kbd><span>step the visual — sequence steps, timeline cursor, compare flip</span></div>
+  <div class="krow"><kbd>d</kbd><span>detail dial — skim the overview, or read everything at standard</span></div>
   <div class="krow"><kbd>⏎</kbd><span>pin the typed comment to this nibble, or to the selected element</span></div>
   <div class="krow"><kbd>s</kbd><span>send the review, once a verdict is chosen</span></div>
   <div class="krow"><kbd>esc</kbd><span>close the drawer</span></div>
@@ -36,6 +38,10 @@
   <button id="prev" title="previous nibble (←)">←</button>
   <span id="pos" class="meta"></span>
   <button id="next" title="next nibble (→)">→</button>
+  <span id="dial" role="group" aria-label="detail dial" title="detail dial (d) — how much every visual draws">
+    <button class="dial-pos" data-level="overview">overview</button>
+    <button class="dial-pos on" data-level="standard">standard</button>
+  </span>
 </nav>
 
 <aside id="drawer" hidden>

@@ -3,7 +3,7 @@
   "title": "The same upload, resize inline and queued",
   "lanes": [
     { "id": "client", "label": "browser" },
-    { "id": "api", "label": "upload-api" },
+    { "id": "api", "label": "upload-api", "level": "standard" },
     { "id": "worker", "label": "resize-worker" }
   ],
   "states": [
@@ -13,8 +13,8 @@
       "default": true,
       "events": [
         { "id": "post", "lane": "client", "at": 0, "label": "POST 4 MB image" },
-        { "id": "stored", "lane": "api", "at": 0.1, "label": "original stored" },
-        { "id": "resizing", "lane": "api", "at": 0.3, "label": "resizing 3 sizes in-request", "weight": 3 },
+        { "id": "stored", "lane": "api", "at": 0.1, "label": "original stored", "level": "standard" },
+        { "id": "resizing", "lane": "api", "at": 0.3, "label": "resizing 3 sizes in-request", "weight": 3, "level": "standard" },
         { "id": "done", "lane": "client", "at": 6.2, "label": "201 after 6.2 s" }
       ]
     },
@@ -23,8 +23,8 @@
       "label": "resize queued (after)",
       "events": [
         { "lane": "client", "at": 0, "label": "POST 4 MB image" },
-        { "lane": "api", "at": 0.1, "label": "original stored" },
-        { "lane": "api", "at": 0.2, "label": "resize job enqueued" },
+        { "lane": "api", "at": 0.1, "label": "original stored", "level": "standard" },
+        { "lane": "api", "at": 0.2, "label": "resize job enqueued", "level": "standard" },
         { "lane": "client", "at": 0.4, "label": "201 after 0.4 s" },
         { "lane": "worker", "at": 2.5, "label": "3 sizes written", "weight": 3 }
       ]

@@ -10,13 +10,13 @@ interface Ref {
   anchor?: string; note?: string; diff?: boolean; trust: Trust;
 }
 interface NibbleData {
-  n: number; caption: string; because?: string;
+  n: number; title: string; description?: LevelledText; because?: string;
   visual: Visual; refs: Ref[];
 }
 interface ReviewComment { target?: string; text: string; }
 interface Review { verdict: string; comments?: ReviewComment[]; }
 interface Plate {
-  title: string; repo: string; head_sha: string;
+  title: string; description?: LevelledText; repo: string; head_sha: string;
   about: { kind: string; pr?: number; range?: string };
   source: { path: string; found: boolean; git: boolean };
   open: boolean; total: number; review: Review | null; nibbles: NibbleData[];
@@ -41,9 +41,12 @@ let plate: Plate | null = null;
 let active = 0;
 let chosen: string | null = null;
 let justSent = false;
+let dialLevel: DialLevel = DIAL_DEFAULT;
 const pending: ReviewComment[] = [];
 
-// --- tiny markdown: captions are "one or two sentences", bold/code/italic ---
+const visualOfCard = (card: number): Visual | null => plate?.nibbles[card]?.visual ?? null;
+
+// --- tiny markdown: titles and descriptions get bold/code/italic only ---
 
 function esc(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -95,10 +98,14 @@ function render(): void {
   if (!plate) return;
   $("#plate-title").textContent = plate.title;
   $("#plate-meta").textContent = `${aboutLabel(plate)} · ${plate.head_sha.slice(0, 7)}`;
+  const plateDesc = descriptionAt(plate.description, dialLevel);
+  const pdEl = $("#plate-desc");
+  pdEl.hidden = plateDesc === null;
+  pdEl.innerHTML = plateDesc === null ? "" : mdLite(plateDesc);
   const notice = $("#notice");
   if (!plate.source.found) {
     notice.hidden = false;
-    notice.textContent = `refs unverified — the plate’s root ${plate.source.path} isn’t on this machine; captions and visuals only`;
+    notice.textContent = `refs unverified — the plate’s root ${plate.source.path} isn’t on this machine; text and visuals only`;
   } else if (!plate.source.git && plate.nibbles.some((nb) => nb.refs.some((r) => r.trust.level === "unverified"))) {
     notice.hidden = false;
     notice.textContent = `${plate.source.path} isn’t a git repository — base..head refs are unverified`;
@@ -121,14 +128,16 @@ function render(): void {
             ${trustBadge(r.trust)}</button>`,
         )
         .join("");
+      const desc = descriptionAt(nb.description, dialLevel);
       return `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
         <h2>nibble ${nb.n}</h2>
         <div class="visual">
-          <div class="vhead"><span class="kind">${esc(vs.kind)}</span><span class="vtitle">${esc(vs.title)}</span></div>
+          <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
           <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
           ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
         </div>
-        <p class="caption">${mdLite(nb.caption)}</p>
+        <p class="ntitle">${mdLite(nb.title)}</p>
+        ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
         ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
         <div class="refs">${refs}</div>
       </article>`;
@@ -136,12 +145,13 @@ function render(): void {
     .join("");
 
   // Per-kind rendering: swap each card's fallback summary for the rendered
-  // visual when a renderer for its kind is registered.
-  hostSelection = null;
+  // visual when a renderer for its kind is registered. A selection survives
+  // the rebuild only while its element is drawn at the dial level.
+  hostSelection = selectionAfterDial(hostSelection, visualOfCard, dialLevel);
   strip.querySelectorAll<HTMLElement>(".nibble").forEach((card) => {
     card.addEventListener("click", () => setActive(Number(card.dataset.i)));
     const nb = plate!.nibbles[Number(card.dataset.i)];
-    const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs });
+    const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel });
     if (!body) return;
     const slot = card.querySelector(".visual");
     if (!slot) return;
@@ -158,8 +168,21 @@ function render(): void {
     });
   });
 
+  applySelection(strip);
+  updateCommentTarget();
   renderReviewBar();
   camera();
+}
+
+// --- the detail dial: one plate-wide level, same canvas, same camera ---
+
+function setDial(level: DialLevel): void {
+  if (level === dialLevel) return;
+  dialLevel = level;
+  document.querySelectorAll<HTMLButtonElement>("#dial .dial-pos").forEach((b) => {
+    b.classList.toggle("on", b.dataset.level === level);
+  });
+  render(); // redraw in place: layout is computed from the full document
 }
 
 // --- camera: an animated transform, never a navigation ---
@@ -314,6 +337,9 @@ function listen(): void {
 
 $("#prev").addEventListener("click", () => setActive(active - 1));
 $("#next").addEventListener("click", () => setActive(active + 1));
+document.querySelectorAll<HTMLButtonElement>("#dial .dial-pos").forEach((btn) => {
+  btn.addEventListener("click", () => setDial(btn.dataset.level as DialLevel));
+});
 $("#drawer-close").addEventListener("click", () => (($("#drawer") as HTMLElement).hidden = true));
 const legend = $("#legend");
 $("#comment-add").addEventListener("click", addComment);
@@ -347,6 +373,7 @@ document.addEventListener("keydown", (e) => {
       body.dispatchEvent(new CustomEvent("stepvisual", { detail: { delta: e.shiftKey ? -1 : 1 } }));
     }
   }
+  if (e.key === "d") setDial(dialToggle(dialLevel));
   if (e.key === "?") legend.classList.toggle("pinned");
   if (e.key === "s" && chosen && plate && !plate.review) void submit(chosen);
   if (e.key === "Escape") {

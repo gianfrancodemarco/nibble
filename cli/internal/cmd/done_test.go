@@ -15,7 +15,7 @@ func TestRunDone(t *testing.T) {
 	t.Run("seals with the count, idempotently", func(t *testing.T) {
 		ctx, plate := newTestPlate(t, repo)
 		for i := 0; i < 3; i++ {
-			if code, _, errb := run(t, ctx, "add", plate, "--caption", "c", "--visual", visual); code != 0 {
+			if code, _, errb := run(t, ctx, "add", plate, "--title", "c", "--visual", visual); code != 0 {
 				t.Fatal(errb)
 			}
 		}

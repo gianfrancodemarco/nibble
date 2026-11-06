@@ -12,6 +12,16 @@ function seqAdvance(shown: number, delta: number, total: number): number {
   return Math.max(0, Math.min(total, shown + delta));
 }
 
+// seqDrawnSteps: indices into v.steps of the steps drawn at a dial level.
+// Stepping advances through these only; positions come from the full layout.
+function seqDrawnSteps(v: SequenceVisual, level: DialLevel): number[] {
+  const out: number[] = [];
+  v.steps.forEach((s, i) => {
+    if (visibleAt(level, s.level)) out.push(i);
+  });
+  return out;
+}
+
 function layoutSequence(v: SequenceVisual): SequenceLayout {
   const PAD = 24;
   let x = PAD;
@@ -34,7 +44,10 @@ function layoutSequence(v: SequenceVisual): SequenceLayout {
 let seqIdSeq = 0;
 
 function renderSequenceVisual(v: SequenceVisual, ctx: RenderCtx): Element {
-  const l = layoutSequence(v);
+  const level = ctx.level ?? "standard";
+  const l = layoutSequence(v); // full document: step rows never move
+  const drawn = seqDrawnSteps(v, level);
+  const posOf = new Map(drawn.map((idx, pos) => [idx, pos]));
   const uid = `seq${++seqIdSeq}`;
   const svg = svgEl("svg", {
     viewBox: `0 0 ${l.w} ${l.h}`, class: "vis-seq",
@@ -74,6 +87,7 @@ function renderSequenceVisual(v: SequenceVisual, ctx: RenderCtx): Element {
   // steps
   const stepsG = svgEl("g");
   v.steps.forEach((s, i) => {
+    if (!posOf.has(i)) return; // hidden at this dial level
     const a = byId.get(s.from);
     const b = byId.get(s.to);
     const y = l.steps[i].y;
@@ -103,9 +117,10 @@ function renderSequenceVisual(v: SequenceVisual, ctx: RenderCtx): Element {
   });
   svg.appendChild(stepsG);
 
-  // step control: ▸ advances, ◂ goes back, clicking a step jumps to it
+  // step control: ▸ advances, ◂ goes back, clicking a step jumps to it.
+  // Stepping walks the drawn subset only.
   let shown = 0;
-  const total = v.steps.length;
+  const total = drawn.length;
   const ctrl = svgEl("g", { class: "seq-ctrl", transform: `translate(${l.w - 92} ${l.h - 14})` });
   const back = svgEl("text", { x: 0, y: 0, class: "btn", role: "button" }, "◂");
   const fwd = svgEl("text", { x: 18, y: 0, class: "btn", role: "button" }, "▸");
@@ -115,9 +130,9 @@ function renderSequenceVisual(v: SequenceVisual, ctx: RenderCtx): Element {
 
   const apply = () => {
     stepsG.querySelectorAll<SVGGElement>(".step").forEach((g) => {
-      const i = Number(g.getAttribute("data-step"));
-      g.classList.toggle("done", i < shown);
-      g.classList.toggle("cur", i === shown - 1);
+      const pos = posOf.get(Number(g.getAttribute("data-step"))) ?? -1;
+      g.classList.toggle("done", pos >= 0 && pos < shown);
+      g.classList.toggle("cur", pos === shown - 1);
     });
     counter.textContent = `${shown}/${total}`;
   };
@@ -127,7 +142,9 @@ function renderSequenceVisual(v: SequenceVisual, ctx: RenderCtx): Element {
   stepsG.addEventListener("click", (e) => {
     const g = (e.target as Element).closest<SVGGElement>(".step");
     if (!g) return;
-    shown = Number(g.getAttribute("data-step")) + 1;
+    const pos = posOf.get(Number(g.getAttribute("data-step")));
+    if (pos === undefined) return;
+    shown = pos + 1;
     apply();
   });
   svg.addEventListener("stepvisual", (e) => {

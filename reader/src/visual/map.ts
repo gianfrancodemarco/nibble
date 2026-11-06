@@ -49,6 +49,25 @@ function layoutMap(v: MapVisual): MapLayout {
   return { w: x - HGAP + PAD, h, nodes };
 }
 
+// mapDrawnBoxes: the laid-out boxes drawn at a dial level. Layout is always
+// computed from the full document, so a box never moves between levels — the
+// dial only changes which boxes are drawn.
+function mapDrawnBoxes(v: MapVisual, level: DialLevel): LaidOutNode[] {
+  const drawn = new Set(v.nodes.filter((n) => visibleAt(level, n.level)).map((n) => n.id));
+  return layoutMap(v).nodes.filter((b) => drawn.has(b.id));
+}
+
+// mapDrawnEdgeIdx: indices into v.edges of the edges drawn at a dial level —
+// the edge's own level, and both endpoints, must be visible.
+function mapDrawnEdgeIdx(v: MapVisual, level: DialLevel): number[] {
+  const drawn = new Set(v.nodes.filter((n) => visibleAt(level, n.level)).map((n) => n.id));
+  const out: number[] = [];
+  (v.edges ?? []).forEach((e, i) => {
+    if (visibleAt(level, e.level) && drawn.has(e.from) && drawn.has(e.to)) out.push(i);
+  });
+  return out;
+}
+
 // --- rendering ---
 
 function mapEdgeEnds(a: LaidOutNode, b: LaidOutNode): { x1: number; y1: number; x2: number; y2: number; horizontal: boolean } {
@@ -61,7 +80,10 @@ function mapEdgeEnds(a: LaidOutNode, b: LaidOutNode): { x1: number; y1: number; 
 let mapIdSeq = 0;
 
 function renderMapVisual(v: MapVisual, ctx: RenderCtx): Element {
-  const l = layoutMap(v);
+  const level = ctx.level ?? "standard";
+  const l = layoutMap(v); // full document: positions never depend on the dial
+  const drawnNodes = new Set(mapDrawnBoxes(v, level).map((b) => b.id));
+  const drawnEdges = new Set(mapDrawnEdgeIdx(v, level));
   const uid = `map${++mapIdSeq}`;
   const svg = svgEl("svg", {
     viewBox: `0 0 ${l.w} ${l.h}`, class: "vis-map",
@@ -81,10 +103,11 @@ function renderMapVisual(v: MapVisual, ctx: RenderCtx): Element {
 
   const byId = new Map(l.nodes.map((n) => [n.id, n]));
   const edgesG = svgEl("g");
-  for (const e of v.edges ?? []) {
+  (v.edges ?? []).forEach((e, ei) => {
+    if (!drawnEdges.has(ei)) return;
     const a = byId.get(e.from);
     const b = byId.get(e.to);
-    if (!a || !b) continue; // validation forbids this; stay defensive
+    if (!a || !b) return; // validation forbids this; stay defensive
     const { x1, y1, x2, y2, horizontal } = mapEdgeEnds(a, b);
     const d = horizontal
       ? `M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`
@@ -97,11 +120,12 @@ function renderMapVisual(v: MapVisual, ctx: RenderCtx): Element {
       }, e.label));
     }
     edgesG.appendChild(g);
-  }
+  });
   svg.appendChild(edgesG);
 
   const nodesG = svgEl("g");
   for (const n of v.nodes) {
+    if (!drawnNodes.has(n.id)) continue;
     const b = byId.get(n.id);
     if (!b) continue;
     const g = svgEl("g", {

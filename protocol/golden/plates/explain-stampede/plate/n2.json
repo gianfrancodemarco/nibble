@@ -1,5 +1,5 @@
 {
-  "caption": "Every cached price expires **on the hour**, so every miss hits Postgres in the same second.",
+  "title": "Every cached price expires **on the hour**, so every miss hits Postgres in the same second.",
   "visual": {
     "kind": "timeline",
     "title": "Every key expires on the hour",

@@ -39,22 +39,23 @@
 </aside>
 <div class="content">
 <h1>Reading a plate</h1>
-<p class="lede">The canvas takes most of the window. The caption sits below it, and the code lives in a drawer. Moving between nibbles moves the camera across <b>one shared map</b>. You can try the <a href="#visuals">live demo below</a>: it is the real reader on a real plate.</p>
+<p class="lede">The canvas takes most of the window. The title sits below it — with its description when the nibble has one — and the code lives in a drawer. Moving between nibbles moves the camera across <b>one shared map</b>. You can try the <a href="#visuals">live demo below</a>: it is the real reader on a real plate.</p>
 <h4 id="keys">Keys</h4>
 <table class="keys">
   <thead><tr><th>key</th><th>does</th></tr></thead>
   <tbody>
     <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>previous / next nibble (camera move, not a page swap)</td></tr>
     <tr><td><kbd>space</kbd></td><td>play / step the active visual (step a sequence, jump the timeline cursor, flip a compare; <kbd>shift</kbd> reverses)</td></tr>
+    <tr><td><kbd>d</kbd></td><td>detail dial: flip every visual between overview and standard (deep arrives in <span class="soon">v0.2</span>)</td></tr>
     <tr><td><kbd>e</kbd></td><td>open the evidence drawer (the code behind the selection)</td></tr>
     <tr><td><kbd>c</kbd></td><td>comment on the selected thing</td></tr>
     <tr><td><kbd>v</kbd></td><td>request a missing visual from the selected thing <span class="soon">v0.2</span></td></tr>
-    <tr><td><kbd>w</kbd></td><td>voice walk: captions read aloud, highlight in sync <span class="soon">v0.2</span></td></tr>
+    <tr><td><kbd>w</kbd></td><td>voice walk: titles read aloud, highlight in sync <span class="soon">v0.2</span></td></tr>
     <tr><td><kbd>s</kbd></td><td>submit your review</td></tr>
     <tr><td><kbd>q</kbd></td><td>close without answering</td></tr>
   </tbody>
 </table>
-<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd>, <kbd>space</kbd>, <kbd>⏎</kbd> (pin comment), <kbd>s</kbd> (send, once a verdict is chosen), <kbd>esc</kbd> (drawer, then selection) and <kbd>?</kbd> (the in-reader legend) are live. Clicking does the rest: selecting an element pins comments to it (<span class="mono">n2:cache</span>), and its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer.</p>
+<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd>, <kbd>space</kbd>, <kbd>d</kbd> (the dial), <kbd>⏎</kbd> (pin comment), <kbd>s</kbd> (send, once a verdict is chosen), <kbd>esc</kbd> (drawer, then selection) and <kbd>?</kbd> (the in-reader legend) are live. Clicking does the rest: selecting an element pins comments to it (<span class="mono">n2:cache</span>), and its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer.</p>
 
 <h4 id="visuals">The visuals</h4>
 <p>Each visual renders as interactive SVG. The reader lays it out from what the agent declared: the agent sends the meaning, the reader draws the pixels.</p>
@@ -75,10 +76,11 @@
 
 <h4 id="dial">The detail dial</h4>
 <p>Every plate reads at three depths on the same canvas: <b>overview</b> (the shape in one sentence, enough to decide whether to care), <b>standard</b> (what a plate opens at), <b>deep</b> (per-element numbers and edge cases, generated on demand <span class="soon">v0.2</span>). You can spend ninety seconds or ten minutes on the same plate.</p>
+<p>In the v0.1 reader the dial has two positions — press <kbd>d</kbd> (or use the toggle next to the stepper) to flip between overview and standard. Nothing moves when you turn it: the overview is the same picture drawing less, so what you located at a skim is exactly where it stays when you go deeper. If the element you had selected isn’t drawn at overview, the selection clears and comments fall back to the whole nibble. Prose follows the dial too: the plate and each nibble can carry a two-depth <b>description</b> under their title — the skim text at overview, the fuller story at standard.</p>
 
 <h4 id="trust">Trust badges</h4>
 <p>The code keeps changing after a plate is written. For this reason, every ref is re-checked against the file as it is now.</p>
-<p>Checking <b>degrades per ref</b>, depending on what this machine has. A plain ref and a <span class="mono">@worktree</span> ref only need their file. A <span class="mono">base..head</span> ref needs git. With the plate’s repo present, everything is verified. With just a folder of files, only <span class="mono">base..head</span> refs fall back to <b>unverified</b>. With nothing, the plate still opens with captions and visuals, but every ref is unverified. The review loop works in all three cases.</p>
+<p>Checking <b>degrades per ref</b>, depending on what this machine has. A plain ref and a <span class="mono">@worktree</span> ref only need their file. A <span class="mono">base..head</span> ref needs git. With the plate’s repo present, everything is verified. With just a folder of files, only <span class="mono">base..head</span> refs fall back to <b>unverified</b>. With nothing, the plate still opens with text and visuals, but every ref is unverified. The review loop works in all three cases.</p>
 <div class="cards">
   <div class="card"><b><span class="trust ok">exact</span></b><p>The lines are exactly where the agent said.</p></div>
   <div class="card"><b><span class="trust shift">shifted +3</span></b><p>The same lines were found whole at one new position. The offset is shown.</p></div>

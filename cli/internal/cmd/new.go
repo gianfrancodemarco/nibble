@@ -20,6 +20,9 @@ func RunNew(ctx Ctx, args []string) int {
 	fs := flag.NewFlagSet("new", flag.ContinueOnError)
 	fs.SetOutput(ctx.Stderr)
 	title := fs.String("title", "", "plate title (required)")
+	description := fs.String("description", "", "overview description (markdown, ≤100 words)")
+	descStandard := fs.String("description-standard", "", "standard-level description (markdown, ≤250 words)")
+	because := fs.String("because", "", "reason for exceeding a budget")
 	about := fs.String("about", "code", "code | worktree | <base>..<head>")
 	jsonOut := fs.Bool("json", false, "machine output")
 	if err := fs.Parse(args); err != nil {
@@ -28,6 +31,15 @@ func RunNew(ctx Ctx, args []string) int {
 	if *title == "" {
 		fmt.Fprintln(ctx.Stderr, "nibble new: --title is required")
 		return 2
+	}
+	desc, err := descriptionValue(*description, *descStandard, "plate.description")
+	if err != nil {
+		return fail(ctx, *jsonOut, err)
+	}
+	if *because == "" {
+		if err := checkDescriptionBudgets(*description, *descStandard); err != nil {
+			return fail(ctx, *jsonOut, err)
+		}
 	}
 	var aboutJSON any
 	switch {
@@ -75,6 +87,12 @@ func RunNew(ctx Ctx, args []string) int {
 		"about":      aboutJSON,
 		"created_at": now.Format(time.RFC3339),
 	}
+	if desc != nil {
+		header["description"] = desc
+	}
+	if *because != "" {
+		header["because"] = *because
+	}
 	raw, err := json.MarshalIndent(header, "", "  ")
 	if err != nil {
 		return fail(ctx, *jsonOut, err)
@@ -105,8 +123,8 @@ func writeAtomic(path string, data []byte) error {
 	return nil
 }
 
-// wordCount counts words in a caption after stripping light markdown syntax.
-func wordCount(caption string) int {
-	stripped := strings.NewReplacer("*", "", "_", "", "`", "", "#", "", ">", "", "[", " ", "]", " ", "(", " ", ")", " ").Replace(caption)
+// wordCount counts words in budgeted text after stripping light markdown.
+func wordCount(text string) int {
+	stripped := strings.NewReplacer("*", "", "_", "", "`", "", "#", "", ">", "", "[", " ", "]", " ", "(", " ", ")", " ").Replace(text)
 	return len(strings.Fields(stripped))
 }

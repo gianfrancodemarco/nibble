@@ -1,5 +1,5 @@
 {
-  "caption": "Jitter spreads the expiries; the spike becomes a plateau.",
+  "title": "Jitter spreads the expiries; the spike becomes a plateau.",
   "visual": {
     "kind": "compare",
     "title": "The TTL, today and with jitter",

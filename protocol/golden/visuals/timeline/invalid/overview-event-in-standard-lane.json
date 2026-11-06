@@ -1,0 +1,14 @@
+{
+  "expect": "timeline.event.level",
+  "visual": {
+    "kind": "timeline",
+    "title": "overview event in a hidden lane",
+    "lanes": [
+      { "id": "requests", "label": "requests" },
+      { "id": "gc", "label": "cache expiry", "level": "standard" }
+    ],
+    "events": [
+      { "lane": "gc", "at": "12:00:00", "label": "41 keys expire" }
+    ]
+  }
+}

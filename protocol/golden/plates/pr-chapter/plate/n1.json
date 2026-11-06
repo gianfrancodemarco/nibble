@@ -1,5 +1,5 @@
 {
-  "caption": "The middleware is new; its callers did not change.",
+  "title": "The middleware is new; its callers did not change.",
   "visual": {
     "kind": "map",
     "title": "What a getPrice call touches",

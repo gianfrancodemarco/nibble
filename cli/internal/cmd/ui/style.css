@@ -63,21 +63,24 @@ button:hover { border-color: var(--accent); }
   transition: transform .45s cubic-bezier(.22, 1, .36, 1);
 }
 
+/* One card in view at a time: the active card takes the canvas, neighbours
+   sit fully off-screen; the camera slides between them. The card is a column
+   where the visual flexes — it shrinks before the title or description can
+   leave the view. */
 .nibble {
-  flex: 0 0 min(560px, 86vw);
+  flex: 0 0 calc(100% - 48px);
+  display: flex; flex-direction: column;
   background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-  padding: 18px 20px; max-height: 100%; overflow: auto;
+  padding: 18px 22px; max-height: 100%; overflow: auto;
   opacity: .45; transform: scale(.96);
   transition: opacity .3s, transform .3s, border-color .3s;
 }
-/* Visual-first: a card with a rendered visual is sized by the visual (R1 —
-   the picture is the card, ≥60% of the window at standard sizes). */
-.nibble:has(.visual.rendered) { flex-basis: min(74vw, 1100px); }
+.nibble:has(.visual.rendered) { height: 100%; }
 .nibble.active { opacity: 1; transform: scale(1); border-color: var(--accent); }
 .nibble h2 { margin: 0 0 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
-.nibble .caption { margin: 10px 0 12px; font-size: 16px; }
-.nibble .caption code { font-family: var(--mono); font-size: 14px; background: var(--accent-soft); padding: 1px 4px; border-radius: 4px; }
-.nibble .because { font-size: 13px; color: var(--muted); font-style: italic; margin: 0 0 10px; }
+.nibble .ntitle { margin: 12px 0 0; font-size: 17px; }
+.nibble .ntitle code { font-family: var(--mono); font-size: 14px; background: var(--accent-soft); padding: 1px 4px; border-radius: 4px; }
+.nibble .because { font-size: 13px; color: var(--muted); font-style: italic; margin: 6px 0 0; }
 
 .visual {
   border: 1px dashed var(--line); border-radius: 10px;
@@ -89,15 +92,18 @@ button:hover { border-color: var(--accent); }
   color: var(--accent); background: var(--accent-soft);
   border-radius: 5px; padding: 2px 7px; margin-right: 8px;
 }
-.visual .vtitle { font-weight: 600; }
 .visual .soon { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .visual .vhead { display: flex; align-items: baseline; }
 
-/* rendered visuals: the SVG body is the card's dominant element */
-.visual.rendered { border-style: solid; background: var(--paper); padding: 10px 12px; }
+/* rendered visuals: the SVG body is the card's dominant element, flexing to
+   whatever height the card's text leaves it (min-height keeps it readable) */
+.visual.rendered {
+  border-style: solid; background: var(--paper); padding: 10px 12px;
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+}
 .visual.rendered .visual-body {
   display: block; width: 100%;
-  height: clamp(280px, 60vh, 720px);
+  flex: 1; min-height: 220px;
   margin-top: 8px;
 }
 .visual-body text { font-family: var(--sans); fill: var(--ink); }
@@ -226,6 +232,27 @@ button:hover { border-color: var(--accent); }
 #stepper {
   display: flex; align-items: center; justify-content: center; gap: 16px;
   padding: 10px; border-top: 1px solid var(--line);
+}
+
+/* levelled descriptions: the plate's under the header, a nibble's on its card */
+#plate-desc {
+  padding: 10px 20px; border-bottom: 1px solid var(--line);
+  color: var(--ink); font-size: 15px; line-height: 1.55; max-width: 110ch;
+}
+#plate-desc[hidden] { display: none; }
+.nibble .desc { color: var(--ink); opacity: .82; font-size: 14.5px; line-height: 1.55; margin: 6px 0 0; }
+
+/* the detail dial: two positions, the active one marked */
+#dial {
+  display: inline-flex; align-items: center;
+  border: 1px solid var(--line); border-radius: 999px; overflow: hidden;
+}
+#dial .dial-pos {
+  border: none; border-radius: 0; background: none;
+  padding: 3px 12px; font-size: 12.5px; color: var(--muted);
+}
+#dial .dial-pos.on {
+  background: var(--accent); color: var(--paper);
 }
 
 #drawer[hidden] { display: none; }

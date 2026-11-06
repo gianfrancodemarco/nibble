@@ -1,5 +1,9 @@
 {
-  "caption": "One `getPrice` call touches three things; the **cache** is where the trouble starts.",
+  "title": "One `getPrice` call touches three things; the **cache** is where the trouble starts.",
+  "description": {
+    "overview": "The cache sits between checkout and Postgres; misses go straight through.",
+    "standard": "checkout-api calls getPrice per item. A hit returns from memory; a miss runs a SELECT through the shared pool. The pool has 20 connections, so correlated misses are the only way this picture hurts — which is exactly what synchronized expiry produces."
+  },
   "visual": {
     "kind": "map",
     "title": "What a getPrice call touches",
