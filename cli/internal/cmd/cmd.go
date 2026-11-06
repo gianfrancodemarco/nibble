@@ -36,9 +36,10 @@ func (c Ctx) PlatesDir() (string, error) {
 const usage = `nibble — agent explanations you can poke
 
 usage:
-  nibble new   --title <t> [--about code|worktree|<base>..<head>] [--json]
-  nibble add   <plate> --caption <md> --visual <file.json> [--ref <ref>]...
-               [--because <reason>] [--json]
+  nibble new   --title <t> [--description <md>] [--description-standard <md>]
+               [--about code|worktree|<base>..<head>] [--json]
+  nibble add   <plate> --title <md> [--description <md>] [--description-standard <md>]
+               --visual <file.json> [--ref <ref>]... [--because <reason>] [--json]
   nibble done  <plate> [--json]
   nibble lint  <visual.json> [--json]
   nibble serve <plate> [--timeout <dur>] [--json]

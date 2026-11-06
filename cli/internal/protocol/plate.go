@@ -18,16 +18,42 @@ type About struct {
 	Range string
 }
 
+// Description is levelled prose on a plate or a nibble: Overview is the skim
+// text (required when a description is present), Standard the fuller text the
+// dial shows at its standard level, falling back to Overview when absent.
+type Description struct {
+	Overview string `json:"overview"`
+	Standard string `json:"standard,omitempty"`
+}
+
+// validateDescription checks the shape rules shared by plate and nibble
+// descriptions; code is the error code to fail with.
+func validateDescription(raw json.RawMessage, code, where string) (*Description, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return nil, nil
+	}
+	var d Description
+	if err := json.Unmarshal(raw, &d); err != nil {
+		return nil, errf(code, "%s description: want {\"overview\": \"<md>\", \"standard\": \"<md>\"}: %v", where, err)
+	}
+	if d.Overview == "" {
+		return nil, errf(code, "%s description needs a non-empty overview: the skim text is what makes a description readable at a glance", where)
+	}
+	return &d, nil
+}
+
 // PlateHeader is plate.json. Raw preserves the original bytes so unknown
 // fields survive a rewrite.
 type PlateHeader struct {
-	Version   int    `json:"version"`
-	Title     string `json:"title"`
-	Repo      string `json:"repo"`
-	HeadSHA   string `json:"head_sha"`
-	About     About  `json:"-"`
-	CreatedAt string `json:"created_at"`
-	Raw       json.RawMessage `json:"-"`
+	Version     int             `json:"version"`
+	Title       string          `json:"title"`
+	Description *Description    `json:"description,omitempty"`
+	Repo        string          `json:"repo"`
+	HeadSHA     string          `json:"head_sha"`
+	About       About           `json:"-"`
+	CreatedAt   string          `json:"created_at"`
+	Because     string          `json:"because,omitempty"`
+	Raw         json.RawMessage `json:"-"`
 }
 
 // NibbleRef is one stored ref inside a nibble file: the ref string plus its
@@ -42,12 +68,13 @@ type NibbleRef struct {
 
 // Nibble is one n<N>.json file.
 type Nibble struct {
-	Caption string          `json:"caption"`
-	Visual  json.RawMessage `json:"visual"`
-	View    json.RawMessage `json:"view,omitempty"`
-	Because string          `json:"because,omitempty"`
-	Refs    []NibbleRef     `json:"refs"`
-	Raw     json.RawMessage `json:"-"`
+	Title       string          `json:"title"`
+	Description *Description    `json:"-"`
+	Visual      json.RawMessage `json:"visual"`
+	View        json.RawMessage `json:"view,omitempty"`
+	Because     string          `json:"because,omitempty"`
+	Refs        []NibbleRef     `json:"refs"`
+	Raw         json.RawMessage `json:"-"`
 }
 
 // Review is review.json: the human's answer.
@@ -121,12 +148,14 @@ func ParsePlate(dir string) (*Plate, error) {
 		return nil, errf(CodePlateVersionMissing, "plate.json has no version field")
 	}
 	var hdr struct {
-		Version   int    `json:"version"`
-		Title     string `json:"title"`
-		Repo      string `json:"repo"`
-		HeadSHA   string `json:"head_sha"`
-		About     About  `json:"about"`
-		CreatedAt string `json:"created_at"`
+		Version     int             `json:"version"`
+		Title       string          `json:"title"`
+		Description json.RawMessage `json:"description"`
+		Repo        string          `json:"repo"`
+		HeadSHA     string          `json:"head_sha"`
+		About       About           `json:"about"`
+		CreatedAt   string          `json:"created_at"`
+		Because     string          `json:"because"`
 	}
 	if err := json.Unmarshal(rawHeader, &hdr); err != nil {
 		if pe, ok := err.(*Error); ok {
@@ -140,10 +169,14 @@ func ParsePlate(dir string) (*Plate, error) {
 	if hdr.Title == "" {
 		return nil, errf(CodePlateHeader, "plate.json: title must not be empty")
 	}
+	desc, err := validateDescription(hdr.Description, CodePlateDescription, "plate")
+	if err != nil {
+		return nil, err
+	}
 	p.Header = PlateHeader{
-		Version: hdr.Version, Title: hdr.Title, Repo: hdr.Repo,
+		Version: hdr.Version, Title: hdr.Title, Description: desc, Repo: hdr.Repo,
 		HeadSHA: hdr.HeadSHA, About: hdr.About, CreatedAt: hdr.CreatedAt,
-		Raw: rawHeader,
+		Because: hdr.Because, Raw: rawHeader,
 	}
 
 	// Nibbles: n1.json, n2.json, … contiguous from 1.
@@ -200,6 +233,24 @@ func parseNibble(raw []byte, n int) (*Nibble, error) {
 		return nil, errf(CodeNibbleFile, "n%d.json: %v", n, err)
 	}
 	nib.Raw = raw
+	var extra struct {
+		Caption     json.RawMessage `json:"caption"`
+		Description json.RawMessage `json:"description"`
+	}
+	if err := json.Unmarshal(raw, &extra); err != nil {
+		return nil, errf(CodeNibbleFile, "n%d.json: %v", n, err)
+	}
+	if nib.Title == "" {
+		if len(extra.Caption) > 0 {
+			return nil, errf(CodeNibbleTitleMissing, "n%d.json carries caption: the field was renamed title — same claim, same 40-word budget", n)
+		}
+		return nil, errf(CodeNibbleTitleMissing, "n%d.json has no title: every nibble leads with its claim", n)
+	}
+	desc, err := validateDescription(extra.Description, CodeNibbleDescription, fmt.Sprintf("n%d.json", n))
+	if err != nil {
+		return nil, err
+	}
+	nib.Description = desc
 	if len(nib.Visual) == 0 || string(nib.Visual) == "null" {
 		return nil, errf(CodeNibbleVisualMissing, "n%d.json has no visual: every nibble leads with one (map, sequence, timeline or compare)", n)
 	}

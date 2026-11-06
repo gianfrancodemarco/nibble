@@ -29,7 +29,8 @@
         "detail": { "type": "string" },
         "group": { "type": "string" },
         "tier": { "enum": ["edge", "service", "data"] },
-        "focus": { "type": "boolean" }
+        "focus": { "type": "boolean" },
+        "level": { "enum": ["standard"] }
       }
     },
     "edge": {
@@ -40,7 +41,8 @@
         "from": { "type": "string" },
         "to": { "type": "string" },
         "label": { "type": "string" },
-        "style": { "enum": ["flow", "miss", "weak"] }
+        "style": { "enum": ["flow", "miss", "weak"] },
+        "level": { "enum": ["standard"] }
       }
     }
   }

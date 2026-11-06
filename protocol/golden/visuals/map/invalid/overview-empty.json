@@ -1,0 +1,12 @@
+{
+  "expect": "visual.overview.empty",
+  "visual": {
+    "kind": "map",
+    "title": "everything hidden at overview",
+    "nodes": [
+      { "id": "a", "label": "api", "level": "standard" },
+      { "id": "b", "label": "cache", "level": "standard" }
+    ],
+    "edges": [ { "from": "a", "to": "b", "level": "standard" } ]
+  }
+}

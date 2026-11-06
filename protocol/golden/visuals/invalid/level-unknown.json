@@ -1,0 +1,11 @@
+{
+  "expect": "visual.level.unknown",
+  "visual": {
+    "kind": "map",
+    "title": "deep is reserved for v0.2",
+    "nodes": [
+      { "id": "a", "label": "api" },
+      { "id": "b", "label": "cache", "level": "deep" }
+    ]
+  }
+}

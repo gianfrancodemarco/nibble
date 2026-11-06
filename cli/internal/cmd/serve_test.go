@@ -13,7 +13,7 @@ func sealedPlate(t *testing.T, repo string) (Ctx, string) {
 	t.Helper()
 	visual := writeFile(t, t.TempDir(), "map.json", testMap)
 	ctx, plate := newTestPlate(t, repo)
-	if code, _, errb := run(t, ctx, "add", plate, "--caption", "c", "--visual", visual); code != 0 {
+	if code, _, errb := run(t, ctx, "add", plate, "--title", "c", "--visual", visual); code != 0 {
 		t.Fatal(errb)
 	}
 	if code, _, errb := run(t, ctx, "done", plate); code != 0 {

@@ -41,7 +41,7 @@ func TestRunAdd(t *testing.T) {
 
 	t.Run("happy path appends fingerprinted nibble", func(t *testing.T) {
 		code, out, errb := run(t, ctx, "add", plate,
-			"--caption", "The **cache** is where the trouble starts.",
+			"--title", "The **cache** is where the trouble starts.",
 			"--visual", visual,
 			"--ref", "src/prices.ts:3-4 @cache the ttl lines")
 		if code != 0 {
@@ -61,7 +61,7 @@ func TestRunAdd(t *testing.T) {
 	})
 
 	t.Run("second add is contiguous", func(t *testing.T) {
-		code, _, errb := run(t, ctx, "add", plate, "--caption", "c", "--visual", visual)
+		code, _, errb := run(t, ctx, "add", plate, "--title", "c", "--visual", visual)
 		if code != 0 {
 			t.Fatalf("exit = %d, stderr = %s", code, errb)
 		}
@@ -83,7 +83,7 @@ func TestRunAdd(t *testing.T) {
 	for _, tt := range rejects {
 		t.Run(tt.name, func(t *testing.T) {
 			before, _ := protocol.ParsePlate(plate)
-			args := append([]string{"add", plate, "--caption", "c", "--visual", visual}, tt.args...)
+			args := append([]string{"add", plate, "--title", "c", "--visual", visual}, tt.args...)
 			code, _, errb := run(t, ctx, args...)
 			if code != 1 || !strings.Contains(errb, tt.code) {
 				t.Fatalf("exit = %d, stderr = %q, want code %s", code, errb, tt.code)
@@ -100,7 +100,7 @@ func TestRunAdd(t *testing.T) {
 	}
 
 	t.Run("beyond eof reports the real line count", func(t *testing.T) {
-		code, _, errb := run(t, ctx, "add", plate, "--caption", "c", "--visual", visual, "--ref", "src/pool.ts:1-99")
+		code, _, errb := run(t, ctx, "add", plate, "--title", "c", "--visual", visual, "--ref", "src/pool.ts:1-99")
 		if code != 1 || !strings.Contains(errb, "2 lines") {
 			t.Fatalf("stderr should name the 2-line file: %q", errb)
 		}
@@ -108,14 +108,14 @@ func TestRunAdd(t *testing.T) {
 
 	t.Run("pixel smuggling visual rejected", func(t *testing.T) {
 		bad := writeFile(t, t.TempDir(), "bad.json", `{"kind":"map","title":"m","nodes":[{"id":"a","label":"A","x":3}]}`)
-		code, _, errb := run(t, ctx, "add", plate, "--caption", "c", "--visual", bad)
+		code, _, errb := run(t, ctx, "add", plate, "--title", "c", "--visual", bad)
 		if code != 1 || !strings.Contains(errb, "visual.field.unknown") {
 			t.Fatalf("exit %d stderr %q", code, errb)
 		}
 	})
 
 	t.Run("worktree diff ref fingerprints the disk side", func(t *testing.T) {
-		code, _, errb := run(t, ctx, "add", plate, "--caption", "c", "--visual", visual,
+		code, _, errb := run(t, ctx, "add", plate, "--title", "c", "--visual", visual,
 			"--ref", "diff:src/pool.ts@worktree:1-2")
 		if code != 0 {
 			t.Fatalf("exit = %d, stderr = %s", code, errb)
@@ -123,7 +123,7 @@ func TestRunAdd(t *testing.T) {
 	})
 
 	t.Run("range head side resolves through git", func(t *testing.T) {
-		code, _, errb := run(t, ctx, "add", plate, "--caption", "c", "--visual", visual,
+		code, _, errb := run(t, ctx, "add", plate, "--title", "c", "--visual", visual,
 			"--ref", "diff:src/retry.ts@main..feat#head:1-2")
 		if code != 0 {
 			t.Fatalf("exit = %d, stderr = %s", code, errb)
@@ -132,18 +132,18 @@ func TestRunAdd(t *testing.T) {
 
 	t.Run("sealed plate refuses adds", func(t *testing.T) {
 		_, sealed := newTestPlate(t, repo)
-		run(t, ctx, "add", sealed, "--caption", "c", "--visual", visual)
+		run(t, ctx, "add", sealed, "--title", "c", "--visual", visual)
 		if code, _, _ := run(t, Ctx{Dir: repo}, "done", sealed); code != 0 {
 			t.Skip("done not implemented yet")
 		}
-		code, _, errb := run(t, ctx, "add", sealed, "--caption", "c", "--visual", visual)
+		code, _, errb := run(t, ctx, "add", sealed, "--title", "c", "--visual", visual)
 		if code != 1 || !strings.Contains(errb, "plate.sealed") {
 			t.Fatalf("exit %d stderr %q", code, errb)
 		}
 	})
 
 	t.Run("json error shape", func(t *testing.T) {
-		code, out, _ := run(t, ctx, "add", plate, "--caption", "c", "--visual", visual,
+		code, out, _ := run(t, ctx, "add", plate, "--title", "c", "--visual", visual,
 			"--ref", "src/nope.ts:1", "--json")
 		if code != 1 {
 			t.Fatal("exit != 1")
@@ -162,14 +162,14 @@ func TestRunAddBudgets(t *testing.T) {
 	visual := writeFile(t, t.TempDir(), "map.json", testMap)
 	long := strings.Repeat("word ", 41)
 
-	t.Run("over-long caption needs --because", func(t *testing.T) {
+	t.Run("over-long title needs --because", func(t *testing.T) {
 		ctx, plate := newTestPlate(t, repo)
-		code, _, errb := run(t, ctx, "add", plate, "--caption", long, "--visual", visual)
+		code, _, errb := run(t, ctx, "add", plate, "--title", long, "--visual", visual)
 		if code != 1 || !strings.Contains(errb, "cli.budget") ||
 			!strings.Contains(errb, "40") || !strings.Contains(errb, "--because") {
 			t.Fatalf("exit %d stderr %q", code, errb)
 		}
-		code, _, errb = run(t, ctx, "add", plate, "--caption", long, "--visual", visual,
+		code, _, errb = run(t, ctx, "add", plate, "--title", long, "--visual", visual,
 			"--because", "the race needs three actors")
 		if code != 0 {
 			t.Fatalf("with --because: exit %d stderr %q", code, errb)
@@ -183,15 +183,15 @@ func TestRunAddBudgets(t *testing.T) {
 	t.Run("code plate allows 7 nibbles, rejects the 8th", func(t *testing.T) {
 		ctx, plate := newTestPlate(t, repo)
 		for i := 1; i <= 7; i++ {
-			if code, _, errb := run(t, ctx, "add", plate, "--caption", fmt.Sprintf("c%d", i), "--visual", visual); code != 0 {
+			if code, _, errb := run(t, ctx, "add", plate, "--title", fmt.Sprintf("c%d", i), "--visual", visual); code != 0 {
 				t.Fatalf("add %d: %s", i, errb)
 			}
 		}
-		code, _, errb := run(t, ctx, "add", plate, "--caption", "c8", "--visual", visual)
+		code, _, errb := run(t, ctx, "add", plate, "--title", "c8", "--visual", visual)
 		if code != 1 || !strings.Contains(errb, "cli.budget") {
 			t.Fatalf("8th add: exit %d stderr %q", code, errb)
 		}
-		if code, _, _ := run(t, ctx, "add", plate, "--caption", "c8", "--visual", visual, "--because", "big"); code != 0 {
+		if code, _, _ := run(t, ctx, "add", plate, "--title", "c8", "--visual", visual, "--because", "big"); code != 0 {
 			t.Fatal("8th with --because should pass")
 		}
 	})
@@ -199,11 +199,11 @@ func TestRunAddBudgets(t *testing.T) {
 	t.Run("range plate allows 12", func(t *testing.T) {
 		ctx, plate := newTestPlate(t, repo, "--about", "main..feat")
 		for i := 1; i <= 12; i++ {
-			if code, _, errb := run(t, ctx, "add", plate, "--caption", fmt.Sprintf("c%d", i), "--visual", visual); code != 0 {
+			if code, _, errb := run(t, ctx, "add", plate, "--title", fmt.Sprintf("c%d", i), "--visual", visual); code != 0 {
 				t.Fatalf("add %d: %s", i, errb)
 			}
 		}
-		code, _, errb := run(t, ctx, "add", plate, "--caption", "c13", "--visual", visual)
+		code, _, errb := run(t, ctx, "add", plate, "--title", "c13", "--visual", visual)
 		if code != 1 || !strings.Contains(errb, "cli.budget") {
 			t.Fatalf("13th add: exit %d stderr %q", code, errb)
 		}

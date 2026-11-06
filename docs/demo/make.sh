@@ -22,27 +22,31 @@ git -C "$WORK/shop" -c user.name=demo -c user.email=demo@nibble commit -qm "shop
 export NIBBLE_HOME="$WORK/home"
 cd "$WORK/shop"
 
-PLATE=$("$BIN" new --title "Why checkout slows down every hour" --about code)
+PLATE=$("$BIN" new --title "Why checkout slows down every hour" --about code \
+  --description "Checkout p99 jumps to 4.2 s on the hour. The cause is one flat cache TTL." \
+  --description-standard "Every cached price expires exactly 3600 s after it was warmed, so all 41 keys die together at the top of the hour and every miss races to Postgres at once, saturating the 20-connection pool. Jittering the TTL spreads the expiries over ten minutes and the spike becomes a plateau.")
 
 "$BIN" add "$PLATE" \
-  --caption "One \`getPrice\` call touches three things; the **cache** is where the trouble starts." \
+  --title "One \`getPrice\` call touches three things; the **cache** is where the trouble starts." \
+  --description "The cache sits between checkout and Postgres; misses go straight through." \
+  --description-standard "checkout-api calls getPrice per item. A hit returns from memory; a miss runs a SELECT through the shared pool. The pool has 20 connections, so correlated misses are the only way this picture hurts — which is exactly what synchronized expiry produces." \
   --visual "$ROOT/docs/demo/visuals/map.json" \
   --ref "src/api/checkout.ts:3-9 @checkout the endpoint" \
   --ref "src/cache/prices.ts:9-11 @cache the cache-first read" \
   --ref "src/db/pool.ts:4-7 @db pool max 20"
 
 "$BIN" add "$PLATE" \
-  --caption "The query itself is fine; it is the **41 at once** that saturates the pool." \
+  --title "The query itself is fine; it is the **41 at once** that saturates the pool." \
   --visual "$ROOT/docs/demo/visuals/sequence.json" \
   --ref "src/cache/prices.ts:12 @s3 the select on miss"
 
 "$BIN" add "$PLATE" \
-  --caption "Every cached price expires **on the hour**, so every miss hits Postgres in the same second." \
+  --title "Every cached price expires **on the hour**, so every miss hits Postgres in the same second." \
   --visual "$ROOT/docs/demo/visuals/timeline.json" \
   --ref "src/cache/prices.ts:6-7 @expiry the flat ttl"
 
 "$BIN" add "$PLATE" \
-  --caption "Jitter spreads the expiries; the spike becomes a plateau." \
+  --title "Jitter spreads the expiries; the spike becomes a plateau." \
   --visual "$ROOT/docs/demo/visuals/compare.json" \
   --ref "src/cache/prices.ts:13-14 @after the jittered ttl"
 

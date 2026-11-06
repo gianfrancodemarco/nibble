@@ -29,11 +29,11 @@ func TestEndToEnd(t *testing.T) {
 	ctx, plate := newTestPlate(t, repo)
 
 	steps := [][]string{
-		{"add", plate, "--caption", "One `getPrice` call touches the **cache** first.",
+		{"add", plate, "--title", "One `getPrice` call touches the **cache** first.",
 			"--visual", mapV, "--ref", "src/prices.ts:3-4 @cache the ttl lines"},
-		{"add", plate, "--caption", "Every key expires **on the hour**.",
+		{"add", plate, "--title", "Every key expires **on the hour**.",
 			"--visual", tlV, "--ref", "src/pool.ts:1 @db pool size"},
-		{"add", plate, "--caption", strings.Repeat("why ", 41),
+		{"add", plate, "--title", strings.Repeat("why ", 41),
 			"--visual", cmpV, "--ref", "diff:src/prices.ts@worktree:3",
 			"--because", "the before/after needs the full story"},
 		{"done", plate},

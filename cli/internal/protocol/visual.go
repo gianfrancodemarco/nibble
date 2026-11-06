@@ -94,6 +94,9 @@ func ValidateVisual(raw []byte) error {
 			if names := findUnknownFields(verr); len(names) > 0 {
 				return errf(CodeVisualFieldUnknown, "unknown field(s) %s: agents describe what things are, never how they look", strings.Join(names, ", "))
 			}
+			if hasLevelViolation(verr) {
+				return errf(CodeVisualLevelUnknown, "level must be %q (the only v1 level; %q is reserved, and overview is the default — just omit the field)", "standard", "deep")
+			}
 			return errf(CodeVisualSchema, "%v", verr)
 		}
 		return errf(CodeVisualSchema, "%v", err)
@@ -110,6 +113,21 @@ func ValidateVisual(raw []byte) error {
 		return validateCompare(raw)
 	}
 	return nil
+}
+
+// hasLevelViolation walks a validation error tree looking for a failure at a
+// `level` property — in v1 that is always a bad enum value.
+func hasLevelViolation(v *jsonschema.ValidationError) bool {
+	loc := v.InstanceLocation
+	if len(loc) > 0 && loc[len(loc)-1] == "level" {
+		return true
+	}
+	for _, c := range v.Causes {
+		if hasLevelViolation(c) {
+			return true
+		}
+	}
+	return false
 }
 
 // findUnknownFields walks a validation error tree looking for
@@ -129,10 +147,12 @@ type mapDoc struct {
 	Nodes []struct {
 		ID    string `json:"id"`
 		Label string `json:"label"`
+		Level string `json:"level"`
 	} `json:"nodes"`
 	Edges []struct {
-		From string `json:"from"`
-		To   string `json:"to"`
+		From  string `json:"from"`
+		To    string `json:"to"`
+		Level string `json:"level"`
 	} `json:"edges"`
 }
 
@@ -145,11 +165,18 @@ func validateMap(raw []byte) error {
 		return errf(CodeMapNodesBudget, "map has %d nodes (max %d): split the plate into chapters or collapse a group", len(d.Nodes), maxMapNodes)
 	}
 	ids := map[string]bool{}
+	standardOnly := map[string]bool{}
+	allStandard := true
 	for _, n := range d.Nodes {
 		if ids[n.ID] {
 			return errf(CodeMapNodeDuplicate, "node id %q declared twice", n.ID)
 		}
 		ids[n.ID] = true
+		if n.Level == "standard" {
+			standardOnly[n.ID] = true
+		} else {
+			allStandard = false
+		}
 	}
 	for _, e := range d.Edges {
 		if !ids[e.From] {
@@ -158,6 +185,17 @@ func validateMap(raw []byte) error {
 		if !ids[e.To] {
 			return errf(CodeMapEdgeDangling, "edge to %q: no such node", e.To)
 		}
+		if e.Level != "standard" {
+			if standardOnly[e.From] {
+				return errf(CodeMapEdgeLevel, "overview edge from %q: that node is standard-only; mark the edge level standard or unlevel the node", e.From)
+			}
+			if standardOnly[e.To] {
+				return errf(CodeMapEdgeLevel, "overview edge to %q: that node is standard-only; mark the edge level standard or unlevel the node", e.To)
+			}
+		}
+	}
+	if allStandard {
+		return errf(CodeVisualOverviewEmpty, "every node is standard-only, so the overview would draw nothing: leave the core of the picture unlevelled")
 	}
 	return nil
 }
@@ -167,9 +205,10 @@ type sequenceDoc struct {
 		ID string `json:"id"`
 	} `json:"actors"`
 	Steps []struct {
-		ID   string `json:"id"`
-		From string `json:"from"`
-		To   string `json:"to"`
+		ID    string `json:"id"`
+		From  string `json:"from"`
+		To    string `json:"to"`
+		Level string `json:"level"`
 	} `json:"steps"`
 }
 
@@ -182,6 +221,7 @@ func validateSequence(raw []byte) error {
 	for _, a := range d.Actors {
 		ids[a.ID] = true
 	}
+	allStandard := true
 	for _, s := range d.Steps {
 		if !ids[s.From] {
 			return errf(CodeSequenceStepDangling, "step from %q: no such actor", s.From)
@@ -189,18 +229,26 @@ func validateSequence(raw []byte) error {
 		if !ids[s.To] {
 			return errf(CodeSequenceStepDangling, "step to %q: no such actor", s.To)
 		}
+		if s.Level != "standard" {
+			allStandard = false
+		}
+	}
+	if allStandard {
+		return errf(CodeVisualOverviewEmpty, "every step is standard-only, so the overview would draw bare lifelines: leave the key steps unlevelled")
 	}
 	return nil
 }
 
 type timelineEvent struct {
-	ID   string `json:"id"`
-	Lane string `json:"lane"`
+	ID    string `json:"id"`
+	Lane  string `json:"lane"`
+	Level string `json:"level"`
 }
 
 type timelineDoc struct {
 	Lanes []struct {
-		ID string `json:"id"`
+		ID    string `json:"id"`
+		Level string `json:"level"`
 	} `json:"lanes"`
 	Events []timelineEvent `json:"events"`
 	States []struct {
@@ -216,13 +264,26 @@ func validateTimeline(raw []byte) error {
 		return errf(CodeVisualSchema, "%v", err)
 	}
 	lanes := map[string]bool{}
+	standardOnly := map[string]bool{}
+	allStandard := true
 	for _, l := range d.Lanes {
 		lanes[l.ID] = true
+		if l.Level == "standard" {
+			standardOnly[l.ID] = true
+		} else {
+			allStandard = false
+		}
 	}
 	checkEvents := func(events []timelineEvent, where string) error {
 		for _, e := range events {
 			if !lanes[e.Lane] {
 				return errf(CodeTimelineEventDangling, "%s: event in lane %q: no such lane", where, e.Lane)
+			}
+			if e.Level != "standard" && standardOnly[e.Lane] {
+				return errf(CodeTimelineEventLevel, "%s: overview event in lane %q: that lane is standard-only; mark the event level standard or unlevel the lane", where, e.Lane)
+			}
+			if e.Level != "standard" {
+				allStandard = false
 			}
 		}
 		return nil
@@ -246,6 +307,9 @@ func validateTimeline(raw []byte) error {
 	}
 	if defaults > 1 {
 		return errf(CodeTimelineStateDefault, "%d states marked default, at most one may be", defaults)
+	}
+	if allStandard {
+		return errf(CodeVisualOverviewEmpty, "every lane and event is standard-only, so the overview would draw nothing: leave the core of the picture unlevelled")
 	}
 	return nil
 }

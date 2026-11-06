@@ -17,7 +17,8 @@
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
-          "label": { "type": "string", "minLength": 1 }
+          "label": { "type": "string", "minLength": 1 },
+          "level": { "enum": ["standard"] }
         }
       }
     },
@@ -50,7 +51,8 @@
           "lane": { "type": "string" },
           "at": { "type": ["number", "string"] },
           "label": { "type": "string", "minLength": 1 },
-          "weight": { "type": "number" }
+          "weight": { "type": "number" },
+          "level": { "enum": ["standard"] }
         }
       }
     }

@@ -1,5 +1,5 @@
 {
-  "caption": "One `getPrice` call touches the **cache** first.",
+  "title": "One `getPrice` call touches the **cache** first.",
   "refs": [
     {
       "ref": "src/prices.ts:3-4 @cache the ttl lines",

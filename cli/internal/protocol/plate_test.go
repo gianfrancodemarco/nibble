@@ -55,13 +55,122 @@ func init() {
 	}
 }
 
+// writePlate lays a plate on disk from a header and nibble JSON strings.
+func writePlate(t *testing.T, header string, nibbles ...string) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "plate.json"), []byte(header), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for i, nb := range nibbles {
+		name := filepath.Join(dir, "n"+string(rune('1'+i))+".json")
+		if err := os.WriteFile(name, []byte(nb), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+const testHeader = `{"version":1,"title":"t","repo":"/r","head_sha":"abc","about":"code","created_at":"2026-11-01T10:00:00Z"}`
+const testVisual = `{"kind":"map","title":"m","nodes":[{"id":"a","label":"A"}]}`
+
+// TestNibbleTitleAndDescriptions covers the caption → title rename and the
+// levelled description object on nibbles.
+func TestNibbleTitleAndDescriptions(t *testing.T) {
+	cases := []struct {
+		name   string
+		nibble string
+		want   string // error code, "" means valid
+	}{
+		{
+			name:   "title parses",
+			nibble: `{"title":"the claim","visual":` + testVisual + `,"refs":[]}`,
+		},
+		{
+			name:   "old caption field refused, message names the rename",
+			nibble: `{"caption":"the claim","visual":` + testVisual + `,"refs":[]}`,
+			want:   "nibble.title.missing",
+		},
+		{
+			name: "overview-only description",
+			nibble: `{"title":"c","description":{"overview":"why this matters"},
+				"visual":` + testVisual + `,"refs":[]}`,
+		},
+		{
+			name: "both description variants",
+			nibble: `{"title":"c","description":{"overview":"skim","standard":"the full story"},
+				"visual":` + testVisual + `,"refs":[]}`,
+		},
+		{
+			name: "standard without overview rejected",
+			nibble: `{"title":"c","description":{"standard":"only the long form"},
+				"visual":` + testVisual + `,"refs":[]}`,
+			want: "nibble.description",
+		},
+		{
+			name:   "description must be an object",
+			nibble: `{"title":"c","description":"just a string","visual":` + testVisual + `,"refs":[]}`,
+			want:   "nibble.description",
+		},
+		{
+			name: "empty overview rejected",
+			nibble: `{"title":"c","description":{"overview":""},
+				"visual":` + testVisual + `,"refs":[]}`,
+			want: "nibble.description",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p, err := ParsePlate(writePlate(t, testHeader, tc.nibble))
+			if got := ErrCode(err); got != tc.want {
+				t.Fatalf("error code = %q (%v), want %q", got, err, tc.want)
+			}
+			if tc.want == "" && p.Nibbles[0].Title == "" {
+				t.Fatalf("parsed nibble has empty title")
+			}
+		})
+	}
+	// the rename is taught in the message
+	_, err := ParsePlate(writePlate(t, testHeader, `{"caption":"c","visual":`+testVisual+`,"refs":[]}`))
+	if err == nil || !strings.Contains(err.Error(), "title") {
+		t.Fatalf("rename message should name title: %v", err)
+	}
+}
+
+// TestPlateHeaderDescriptionAndBecause covers the plate-level description and
+// the over-budget reason on the header.
+func TestPlateHeaderDescriptionAndBecause(t *testing.T) {
+	nibble := `{"title":"c","visual":` + testVisual + `,"refs":[]}`
+	base := `{"version":1,"title":"t","repo":"/r","head_sha":"abc","about":"code","created_at":"2026-11-01T10:00:00Z"`
+
+	p, err := ParsePlate(writePlate(t, base+`,"description":{"overview":"the gist","standard":"the full story"},"because":"room needed"}`, nibble))
+	if err != nil {
+		t.Fatalf("ParsePlate: %v", err)
+	}
+	if p.Header.Description == nil || p.Header.Description.Overview != "the gist" || p.Header.Description.Standard != "the full story" {
+		t.Fatalf("header description = %+v", p.Header.Description)
+	}
+	if p.Header.Because != "room needed" {
+		t.Fatalf("header because = %q", p.Header.Because)
+	}
+
+	_, err = ParsePlate(writePlate(t, base+`,"description":"just a string"}`, nibble))
+	if got := ErrCode(err); got != "plate.description" {
+		t.Fatalf("string description: code = %q (%v), want plate.description", got, err)
+	}
+	_, err = ParsePlate(writePlate(t, base+`,"description":{"standard":"only long"}}`, nibble))
+	if got := ErrCode(err); got != "plate.description" {
+		t.Fatalf("standard-only: code = %q (%v), want plate.description", got, err)
+	}
+}
+
 func TestPlateUnknownHeaderFieldsPreserved(t *testing.T) {
 	dir := t.TempDir()
 	header := `{"version":1,"title":"t","repo":"/r","head_sha":"abc","about":"code","created_at":"2026-11-01T10:00:00Z","x_custom":"keep me"}`
 	if err := os.WriteFile(filepath.Join(dir, "plate.json"), []byte(header), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	nibble := `{"caption":"c","visual":{"kind":"map","title":"m","nodes":[{"id":"a","label":"A"}]},"refs":[]}`
+	nibble := `{"title":"c","visual":{"kind":"map","title":"m","nodes":[{"id":"a","label":"A"}]},"refs":[]}`
 	if err := os.WriteFile(filepath.Join(dir, "n1.json"), []byte(nibble), 0o644); err != nil {
 		t.Fatal(err)
 	}

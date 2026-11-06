@@ -1,0 +1,17 @@
+{
+  "kind": "map",
+  "title": "Why checkout slows down every hour",
+  "nodes": [
+    { "id": "checkout", "label": "checkout-api", "detail": "src/api/checkout.ts", "tier": "service" },
+    { "id": "cache", "label": "price cache", "detail": "ttl 3600s · no jitter", "tier": "data", "focus": true },
+    { "id": "db", "label": "postgres", "detail": "pool 20", "tier": "data" },
+    { "id": "warmer", "label": "cache warmer", "detail": "cron, hourly", "tier": "service", "level": "standard" },
+    { "id": "metrics", "label": "metrics sink", "tier": "data", "level": "standard" }
+  ],
+  "edges": [
+    { "from": "checkout", "to": "cache", "label": "getPrice", "style": "flow" },
+    { "from": "cache", "to": "db", "label": "miss", "style": "miss" },
+    { "from": "warmer", "to": "cache", "label": "refresh", "style": "weak", "level": "standard" },
+    { "from": "checkout", "to": "metrics", "label": "latency", "style": "weak", "level": "standard" }
+  ]
+}

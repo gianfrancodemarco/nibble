@@ -1,0 +1,16 @@
+{
+  "kind": "sequence",
+  "title": "One getPrice call, hot and cold",
+  "actors": [
+    { "id": "api", "label": "checkout-api" },
+    { "id": "cache", "label": "price cache" },
+    { "id": "db", "label": "postgres" }
+  ],
+  "steps": [
+    { "id": "s1", "from": "api", "to": "cache", "label": "getPrice(sku)", "kind": "call" },
+    { "id": "s2", "from": "cache", "to": "db", "label": "SELECT price (miss)", "kind": "call" },
+    { "id": "s3", "from": "db", "to": "cache", "label": "row", "kind": "return", "level": "standard" },
+    { "id": "s4", "from": "cache", "to": "cache", "label": "store, ttl 3600s", "kind": "async", "level": "standard" },
+    { "id": "s5", "from": "cache", "to": "api", "label": "price", "kind": "return" }
+  ]
+}

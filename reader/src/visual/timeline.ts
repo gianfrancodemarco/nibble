@@ -33,6 +33,20 @@ function tlAxis(v: TimelineVisual): { min: number; max: number } {
   return { min, max: max > min ? max : min + 1 };
 }
 
+// tlDrawnLanes: the lanes drawn at a dial level. Lane rows keep the full
+// document's positions; a hidden lane leaves its row empty.
+function tlDrawnLanes(v: TimelineVisual, level: DialLevel): TimelineVisual["lanes"] {
+  return v.lanes.filter((l) => visibleAt(level, l.level)) as TimelineVisual["lanes"];
+}
+
+// tlDrawnEvents: the events of one event set drawn at a dial level — the
+// event's own level, and its lane, must be visible. The scrubber and space
+// stepping walk these only.
+function tlDrawnEvents(v: TimelineVisual, events: TimelineEvents, level: DialLevel): TimelineEvents {
+  const hiddenLanes = new Set(v.lanes.filter((l) => !visibleAt(level, l.level)).map((l) => l.id));
+  return events.filter((e) => visibleAt(level, e.level) && !hiddenLanes.has(e.lane));
+}
+
 function tlWeightR(weight: number | undefined, maxWeight: number): number {
   const FLOOR = 4;
   if (!weight || weight <= 0 || maxWeight <= 0) return FLOOR;
@@ -51,8 +65,12 @@ function tlFmt(seconds: number, clock: boolean): string {
 // --- rendering ---
 
 function renderTimelineVisual(v: TimelineVisual, ctx: RenderCtx): Element {
+  const level = ctx.level ?? "standard";
   const { states, defaultIndex } = tlStatesOf(v);
+  // Geometry (axis, lane rows) comes from the full document, so nothing
+  // moves when the dial turns; the level only filters what is drawn.
   const axis = tlAxis(v);
+  const drawnLaneIds = new Set(tlDrawnLanes(v, level).map((l) => l.id));
   const clock = states.some((s) => s.events.some((e) => typeof e.at === "string" && e.at.includes(":")));
   const maxWeight = Math.max(0, ...states.flatMap((s) => s.events.map((e) => e.weight ?? 0)));
 
@@ -98,6 +116,7 @@ function renderTimelineVisual(v: TimelineVisual, ctx: RenderCtx): Element {
   // lanes
   const lanesG = svgEl("g");
   v.lanes.forEach((l) => {
+    if (!drawnLaneIds.has(l.id)) return; // hidden at this dial level
     const y = laneY.get(l.id)!;
     lanesG.appendChild(svgEl("line", { x1: PADL + labelW, y1: y, x2: PADL + labelW + plotW, y2: y, class: "lane" }));
     lanesG.appendChild(svgEl("text", { x: PADL, y: y + 4, class: "lane-label" }, l.label));
@@ -120,7 +139,7 @@ function renderTimelineVisual(v: TimelineVisual, ctx: RenderCtx): Element {
 
   function drawEvents(): void {
     eventsG.innerHTML = "";
-    for (const e of states[stateIdx].events) {
+    for (const e of tlDrawnEvents(v, states[stateIdx].events, level)) {
       const y = laneY.get(e.lane);
       if (y === undefined) continue; // validation forbids dangling lanes
       const ex = x(tlParseAt(e.at));
@@ -172,7 +191,7 @@ function renderTimelineVisual(v: TimelineVisual, ctx: RenderCtx): Element {
   // space steps the cursor between distinct event times
   wrap.addEventListener("stepvisual", (e) => {
     const delta = (e as CustomEvent<{ delta: number }>).detail.delta;
-    const times = [...new Set(states[stateIdx].events.map((ev) => tlParseAt(ev.at)))].sort((a, b) => a - b);
+    const times = [...new Set(tlDrawnEvents(v, states[stateIdx].events, level).map((ev) => tlParseAt(ev.at)))].sort((a, b) => a - b);
     const next = delta > 0 ? times.find((t) => t > cursor) : [...times].reverse().find((t) => t < cursor);
     cursor = next ?? (delta > 0 ? axis.max : axis.min);
     applyCursor();

@@ -15,10 +15,43 @@ import (
 // Authoring budgets. The protocol transports `because`; the CLI owns the
 // numbers (see design.md: constants with tests, not architecture).
 const (
-	captionWordBudget = 40
-	nibbleBudgetSmall = 7  // code and worktree plates
-	nibbleBudgetLarge = 12 // range (PR chapter) plates
+	titleWordBudget        = 40
+	descOverviewWordBudget = 100
+	descStandardWordBudget = 250
+	nibbleBudgetSmall      = 7  // code and worktree plates
+	nibbleBudgetLarge      = 12 // range (PR chapter) plates
 )
+
+// descriptionValue builds the levelled description object from the two flags,
+// or rejects a standard variant without an overview (code names where it
+// sits: plate.description or nibble.description).
+func descriptionValue(overview, standard, code string) (map[string]any, error) {
+	if overview == "" && standard == "" {
+		return nil, nil
+	}
+	if overview == "" {
+		return nil, errf(code, "--description-standard without --description: the overview variant is the skim that makes a description readable at a glance")
+	}
+	d := map[string]any{"overview": overview}
+	if standard != "" {
+		d["standard"] = standard
+	}
+	return d, nil
+}
+
+// checkDescriptionBudgets enforces the description word budgets (overview
+// ≤ 100, standard ≤ 250); callers skip it when --because is given.
+func checkDescriptionBudgets(overview, standard string) error {
+	if n := wordCount(overview); n > descOverviewWordBudget {
+		return errf(CodeBudget,
+			"description overview is %d words (budget %d): the skim must skim — move the detail into the standard variant, or state a reason with --because", n, descOverviewWordBudget)
+	}
+	if n := wordCount(standard); n > descStandardWordBudget {
+		return errf(CodeBudget,
+			"description standard is %d words (budget %d): tighten it, move detail into visuals, or state a reason with --because", n, descStandardWordBudget)
+	}
+	return nil
+}
 
 type stringSlice []string
 
@@ -40,7 +73,10 @@ func RunAdd(ctx Ctx, args []string) int {
 	plateDir, args := popArg(args)
 	fs := flag.NewFlagSet("add", flag.ContinueOnError)
 	fs.SetOutput(ctx.Stderr)
-	caption := fs.String("caption", "", "the claim (markdown, ≤40 words)")
+	title := fs.String("title", "", "the claim (markdown, ≤40 words)")
+	caption := fs.String("caption", "", "renamed: use --title")
+	description := fs.String("description", "", "overview description (markdown, ≤100 words)")
+	descStandard := fs.String("description-standard", "", "standard-level description (markdown, ≤250 words)")
 	visualPath := fs.String("visual", "", "visual JSON file (required)")
 	because := fs.String("because", "", "reason for exceeding a budget")
 	jsonOut := fs.Bool("json", false, "machine output")
@@ -52,9 +88,17 @@ func RunAdd(ctx Ctx, args []string) int {
 	if plateDir == "" {
 		plateDir = fs.Arg(0)
 	}
-	if plateDir == "" || *caption == "" || *visualPath == "" {
-		fmt.Fprintln(ctx.Stderr, "nibble add: <plate>, --caption and --visual are required")
+	if *caption != "" {
+		fmt.Fprintln(ctx.Stderr, "nibble add: --caption was renamed --title (same claim, same 40-word budget)")
 		return 2
+	}
+	if plateDir == "" || *title == "" || *visualPath == "" {
+		fmt.Fprintln(ctx.Stderr, "nibble add: <plate>, --title and --visual are required")
+		return 2
+	}
+	desc, err := descriptionValue(*description, *descStandard, "nibble.description")
+	if err != nil {
+		return fail(ctx, *jsonOut, err)
 	}
 
 	plate, err := protocol.ParsePlate(plateDir)
@@ -110,9 +154,12 @@ func RunAdd(ctx Ctx, args []string) int {
 		budget = nibbleBudgetLarge
 	}
 	if *because == "" {
-		if n := wordCount(*caption); n > captionWordBudget {
+		if n := wordCount(*title); n > titleWordBudget {
 			return fail(ctx, *jsonOut, errf(CodeBudget,
-				"caption is %d words (budget %d): tighten it, move detail into the visual, or state a reason with --because", n, captionWordBudget))
+				"title is %d words (budget %d): tighten it, move detail into the description or the visual, or state a reason with --because", n, titleWordBudget))
+		}
+		if err := checkDescriptionBudgets(*description, *descStandard); err != nil {
+			return fail(ctx, *jsonOut, err)
 		}
 		if len(plate.Nibbles)+1 > budget {
 			return fail(ctx, *jsonOut, errf(CodeBudget,
@@ -135,9 +182,12 @@ func RunAdd(ctx Ctx, args []string) int {
 	n := len(fresh.Nibbles) + 1
 
 	nib := map[string]any{
-		"caption": *caption,
-		"visual":  json.RawMessage(visualRaw),
-		"refs":    stored,
+		"title":  *title,
+		"visual": json.RawMessage(visualRaw),
+		"refs":   stored,
+	}
+	if desc != nil {
+		nib["description"] = desc
 	}
 	if *because != "" {
 		nib["because"] = *because

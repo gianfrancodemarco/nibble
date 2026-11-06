@@ -1,5 +1,5 @@
 {
-  "caption": "Every key expires **on the hour**.",
+  "title": "Every key expires **on the hour**.",
   "refs": [
     {
       "ref": "src/pool.ts:1 @db pool size",

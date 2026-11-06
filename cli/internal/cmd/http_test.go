@@ -19,12 +19,19 @@ func apiFixture(t *testing.T) (repo, plate string, ts *httptest.Server) {
 	t.Helper()
 	repo = gitInit(t)
 	visual := writeFile(t, t.TempDir(), "map.json", testMap)
-	ctx, plate := newTestPlate(t, repo)
+	ctx := Ctx{Dir: repo, Home: t.TempDir()}
+	code, out, errb := run(t, ctx, "new", "--title", "t",
+		"--description", "the gist", "--description-standard", "the full story")
+	if code != 0 {
+		t.Fatalf("new failed: %s", errb)
+	}
+	plate = strings.TrimSpace(out)
 
 	adds := [][]string{
-		{"add", plate, "--caption", "The **cache** sets the TTL.",
+		{"add", plate, "--title", "The **cache** sets the TTL.",
+			"--description", "skim text", "--description-standard", "standard text",
 			"--visual", visual, "--ref", "src/prices.ts:3-4 @cache the ttl lines"},
-		{"add", plate, "--caption", "The pool was doubled on `main`.",
+		{"add", plate, "--title", "The pool was doubled on `main`.",
 			"--visual", visual,
 			"--ref", "diff:src/pool.ts@main..feat#head:1",
 			"--ref", "src/pool.ts:2 @db idle timeout"},
@@ -57,15 +64,22 @@ func getJSON(t *testing.T, url string, into any) int {
 	return resp.StatusCode
 }
 
+type apiDescription struct {
+	Overview string `json:"overview"`
+	Standard string `json:"standard"`
+}
+
 type apiPlate struct {
-	Title   string          `json:"title"`
-	Open    bool            `json:"open"`
-	Total   int             `json:"total"`
-	Review  *map[string]any `json:"review"`
-	Nibbles []struct {
-		N       int             `json:"n"`
-		Caption string          `json:"caption"`
-		Visual  json.RawMessage `json:"visual"`
+	Title       string          `json:"title"`
+	Description *apiDescription `json:"description"`
+	Open        bool            `json:"open"`
+	Total       int             `json:"total"`
+	Review      *map[string]any `json:"review"`
+	Nibbles     []struct {
+		N           int             `json:"n"`
+		Title       string          `json:"title"`
+		Description *apiDescription `json:"description"`
+		Visual      json.RawMessage `json:"visual"`
 		Refs    []struct {
 			Ref    string   `json:"ref"`
 			Path   string   `json:"path"`
@@ -87,7 +101,16 @@ func TestAPIPlate(t *testing.T) {
 	if p.Title != "t" || !p.Open || len(p.Nibbles) != 2 {
 		t.Fatalf("plate = %+v", p)
 	}
+	if p.Description == nil || p.Description.Overview != "the gist" || p.Description.Standard != "the full story" {
+		t.Fatalf("plate description = %+v", p.Description)
+	}
 	n1, n2 := p.Nibbles[0], p.Nibbles[1]
+	if n1.Description == nil || n1.Description.Overview != "skim text" || n1.Description.Standard != "standard text" {
+		t.Fatalf("n1 description = %+v", n1.Description)
+	}
+	if n2.Description != nil {
+		t.Fatalf("n2 should carry no description: %+v", n2.Description)
+	}
 	if n1.N != 1 || n1.Refs[0].Path != "src/prices.ts" || n1.Refs[0].Start != 3 ||
 		n1.Refs[0].End != 4 || n1.Refs[0].Anchor != "cache" {
 		t.Fatalf("n1 ref = %+v", n1.Refs[0])
@@ -272,7 +295,7 @@ func TestAPIEvents(t *testing.T) {
 	// A third nibble lands while a client is connected.
 	visual := writeFile(t, t.TempDir(), "map.json", testMap)
 	ctx := Ctx{Dir: repo, Home: filepath.Dir(filepath.Dir(plate))}
-	if code, _, errb := run(t, ctx, "add", plate, "--caption", "c3", "--visual", visual); code != 0 {
+	if code, _, errb := run(t, ctx, "add", plate, "--title", "c3", "--visual", visual); code != 0 {
 		t.Fatal(errb)
 	}
 	waitEvent(t, ch, `nibble {"n":3}`)
@@ -366,9 +389,9 @@ func degradedFixture(t *testing.T) (plate, root string) {
 	visual := writeFile(t, t.TempDir(), "map.json", testMap)
 	ctx, plate := newTestPlate(t, repo)
 	adds := [][]string{
-		{"add", plate, "--caption", "plain", "--visual", visual,
+		{"add", plate, "--title", "plain", "--visual", visual,
 			"--ref", "src/prices.ts:3-4 @cache"},
-		{"add", plate, "--caption", "needs git", "--visual", visual,
+		{"add", plate, "--title", "needs git", "--visual", visual,
 			"--ref", "diff:src/pool.ts@main..feat#head:1",
 			"--ref", "diff:src/prices.ts@worktree:3 @db"},
 	}

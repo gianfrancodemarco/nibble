@@ -38,9 +38,9 @@ switch output modes.
 ## The loop
 
 ```
-nibble new   --title <t> [--about code|worktree|<base>..<head>]   # prints the plate path
+nibble new   --title <t> [--description <md>] [--description-standard <md>] [--about code|worktree|<base>..<head>]
 nibble serve <plate> [--timeout <dur>] &                          # start serving now, in the background
-nibble add   <plate> --caption <md> --visual <file.json> [--ref <ref>]...
+nibble add   <plate> --title <md> [--description <md>] [--description-standard <md>] --visual <file.json> [--ref <ref>]...
 nibble done  <plate>                                              # seals it; serve keeps waiting for the verdict
 ```
 
@@ -69,30 +69,33 @@ transcript below is what you actually run. Write each visual to a file
 first, then `add` it.
 
 ```
-$ nibble new --title "Image resize moved off the upload request" --about worktree
+$ nibble new --title "Image resize moved off the upload request" --about worktree \
+    --description "Resizing leaves the request path: the handler stores, enqueues and returns, and a new worker makes the sizes." \
+    --description-standard "The upload handler used to resize three sizes in-request, holding the connection for ~6 s. This PR stores the original, enqueues a job and returns 201 in 0.4 s; a new resize-worker drains the queue and writes the sizes about 2 s later. The trade is a short window where a thumbnail GET can 404."
 /Users/me/.nibble/plates/2026-11-04-image-resize-moved-off-the-upload-request
 
 $ nibble serve <plate> --timeout 45m &
 reader: http://127.0.0.1:52314
 
 $ nibble add <plate> \
-    --caption "The upload handler no longer resizes anything. It stores the original, enqueues a job and returns. The new resize-worker drains the queue. The red edge is the window where a thumbnail GET can 404." \
+    --title "The upload handler no longer resizes anything — the red edge is the window where a thumbnail GET can 404." \
+    --description "It stores the original, enqueues a job and returns. The new resize-worker drains the queue." \
     --visual map.json \
     --ref "diff:src/upload/handler.ts@worktree:8-21 @api store, enqueue, return" \
     --ref "src/worker/resize.ts:1-18 @worker the whole worker"
 
 $ nibble add <plate> \
-    --caption "One upload, end to end. The request returns at s5, before any resize happens. Everything after that arrow is the worker's problem." \
+    --title "One upload, end to end. The request returns at s5, before any resize happens. Everything after that arrow is the worker's problem." \
     --visual sequence.json \
     --ref "diff:src/upload/handler.ts@worktree:15-19 @s4 the enqueue call"
 
 $ nibble add <plate> \
-    --caption "Same upload, both worlds. Inline resize holds the request open for 6.2 s. Queued, the client gets its 201 in 0.4 s and the sizes land about 2 s later." \
+    --title "Same upload, both worlds. Inline resize holds the request open for 6.2 s. Queued, the client gets its 201 in 0.4 s and the sizes land about 2 s later." \
     --visual timeline.json \
     --ref "src/worker/resize.ts:6-14 @queued the loop that drains the queue"
 
 $ nibble add <plate> \
-    --caption "The trade, in numbers: p95 upload drops from 6.2 s to 0.4 s, and thumbnails arrive about 3 s after the 201 instead of immediately." \
+    --title "The trade, in numbers: p95 upload drops from 6.2 s to 0.4 s, and thumbnails arrive about 3 s after the 201 instead of immediately." \
     --visual compare.json \
     --ref "diff:src/upload/handler.ts@worktree:8-21 @after the handler that buys this"
 
@@ -111,11 +114,23 @@ The visuals: [examples/map.json](examples/map.json),
 [examples/timeline.json](examples/timeline.json),
 [examples/compare.json](examples/compare.json).
 
-## Captions
+## Titles and descriptions
 
-One or two sentences of markdown, 40 words or fewer. The caption is the
-claim; the visual is the evidence; the refs are the proof in the code. Don't
+Plates and nibbles carry the same text model: a **title** (one level) and an
+optional **description** (two levels, following the dial).
+
+The title is the claim: one or two sentences of markdown, 40 words or fewer.
+The visual is the evidence; the refs are the proof in the code. Don't
 describe the visual ("this diagram shows...") — say the thing it shows.
+
+The description is the prose behind the claim. `--description` is the
+overview variant (≤ 100 words): what someone skimming needs. Add
+`--description-standard` (≤ 250 words) when the full story earns the room —
+the reader sees it at the dial's standard level, and the overview text
+otherwise (`--description-standard` alone is rejected). Give the plate a
+description when the plate needs framing; give a nibble one when its claim
+needs context the title can't hold. Many nibbles need none — the title and
+the visual carry it.
 
 ## Choosing the visual
 
@@ -142,6 +157,31 @@ Declare meaning only. There are no colours, coordinates or sizes in a visual
 — a field like `x` or `color` is rejected (`visual.field.unknown`). The
 reader owns the pixels.
 
+## Layer the detail (the dial)
+
+The reader has a detail dial: **overview** for a skim, **standard** for the
+full picture (plates open at standard; `d` flips it). Both levels live on the
+same canvas — nothing moves, the overview just draws less.
+
+You author the layers with one optional field: `"level": "standard"` on a map
+node or edge, a sequence step, or a timeline lane or event marks it
+standard-only. No `level` means the element is part of the overview and is
+always drawn. `"standard"` is the only value (`"deep"` is reserved).
+
+Put the **claim** in the overview and the **mechanism** at standard. In
+[examples/map.json](examples/map.json) the overview is upload → queue and
+the 404-window edge — the point of the PR — while `store original`, `poll`
+and `write 3 sizes` are standard-only plumbing. In
+[examples/timeline.json](examples/timeline.json) the whole `upload-api` lane
+is standard-only: the overview is just "POST, then 201 — 6.2 s before,
+0.4 s after".
+
+A small visual may need no levels at all — then both views are identical.
+The rules the CLI enforces: an overview edge may not touch a standard-only
+node (`map.edge.level`), an overview event may not sit in a standard-only
+lane (`timeline.event.level`), and marking *everything* standard is rejected
+(`visual.overview.empty`) — the overview must still make the claim.
+
 ## Refs and anchors
 
 A ref points a nibble at real lines. Three forms:
@@ -162,8 +202,9 @@ range fails fast instead of shipping a broken link.
 ## Budgets
 
 7 nibbles for a `code` or `worktree` plate, 12 for a range plate, 40 words
-per caption, 12 nodes per map. The budgets are the product's respect for the
-reader's attention: a plate is a guided walk, not a data dump.
+per title, 100 per overview description, 250 per standard description, 12
+nodes per map. The budgets are the product's respect for the reader's
+attention: a plate is a guided walk, not a data dump.
 
 `--because "<reason>"` overrides a budget and prints the reason on the
 plate, where the reader sees it. Use it when the content genuinely needs the
@@ -183,11 +224,11 @@ Rejections are machine-readable and nothing is written. Read the code and
 message, fix the input, run the same command again:
 
 ```
-$ nibble add <plate> --caption "..." --visual map.json \
+$ nibble add <plate> --title "..." --visual map.json \
     --ref "src/worker/resize.ts:1-80 @worker the whole worker"
 error ref.range.beyond-eof: src/worker/resize.ts has 18 lines, ref ends at 80
 
-$ nibble add <plate> --caption "..." --visual map.json \
+$ nibble add <plate> --title "..." --visual map.json \
     --ref "src/worker/resize.ts:1-18 @worker the whole worker"
 ✓ n1
 ```

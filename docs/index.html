@@ -103,7 +103,7 @@ footer a { color: var(--muted); }
     <a class="b" href="roadmap.html">Roadmap</a>
   </div>
   <div class="shot">
-    <img src="assets/hero.svg" alt="The nibble reader: a service map of checkout-api, price cache and postgres above a scrubbable timeline of a cache stampede, with a caption and the code drawer open at the TTL lines">
+    <img src="assets/hero.svg" alt="The nibble reader: a service map of checkout-api, price cache and postgres above a scrubbable timeline of a cache stampede, with a title and the code drawer open at the TTL lines">
     <div class="cap">The agent claims every cached price expires on the hour. You scrub the timeline, watch Postgres saturate at 12:00, flip the fix on, and click any box to see the lines behind it.</div>
   </div>
   <p class="tagline"><b>nibble: so you can ruminate.</b></p>
@@ -126,7 +126,7 @@ footer a { color: var(--muted); }
   <p class="note">It writes a <b>plate</b> — a folder of small JSON files — through the <span class="mono">nibble</span> CLI, which validates every reference against the real code and refuses what doesn't exist. Then it blocks on <span class="mono">nibble serve</span> until you've read, poked and answered. Works with Claude Code, Codex, Cursor — anything that can run a command.</p>
   <div class="flow"><img src="assets/flow.svg" alt="Component diagram: the agent and its skill talk to the Go CLI, which owns the plate folders and serves the TypeScript reader; the reader is hosted in a browser tab, the Tauri pill, or later an editor panel; everything shares the protocol"></div>
 <pre class="cli"><span class="p">$</span> nibble new   --title "PR 1247 · ch 1: payments" --about pr:1247
-<span class="p">$</span> nibble add   &lt;plate&gt; --caption "…" --visual timeline.json --ref "src/cache/prices.ts:43-45 @cache"
+<span class="p">$</span> nibble add   &lt;plate&gt; --title "…" --visual timeline.json --ref "src/cache/prices.ts:43-45 @cache"
 <span class="p">$</span> nibble done  &lt;plate&gt;
 <span class="p">$</span> nibble serve &lt;plate&gt;     <span class="d"># blocks until your review; its exit wakes the agent</span></pre>
 </section>
@@ -135,7 +135,7 @@ footer a { color: var(--muted); }
   <h2>Opinions</h2>
   <h3>Opinionated on purpose</h3>
   <div class="cards">
-    <div class="card"><b><span>01</span>Picture first, prose last</b><p>Captions are one or two sentences, never a paragraph.</p></div>
+    <div class="card"><b><span>01</span>Picture first, prose last</b><p>Titles are one or two sentences, never a paragraph — depth lives in the levelled description.</p></div>
     <div class="card"><b><span>02</span>Interactive, not animated</b><p>Every visual has something to do: scrub, toggle, step, compare.</p></div>
     <div class="card"><b><span>03</span>One canvas per plate</b><p>Nibbles move a camera across one shared map, not a slideshow.</p></div>
     <div class="card"><b><span>04</span>Code is evidence, on demand</b><p>Click anything to open the validated lines behind it.</p></div>

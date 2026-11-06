@@ -1,0 +1,6 @@
+{
+  "title": "the claim",
+  "description": { "standard": "only the long form, no overview" },
+  "visual": { "kind": "map", "title": "m", "nodes": [{ "id": "a", "label": "A" }] },
+  "refs": []
+}

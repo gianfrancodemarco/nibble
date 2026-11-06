@@ -21,6 +21,8 @@
     "sequence.test.ts",
     "timeline.test.ts",
     "compare.test.ts",
+    "dial.test.ts",
+    "descriptions.test.ts",
     "wiring.test.ts",
     "types.test.ts",
     "run.ts"

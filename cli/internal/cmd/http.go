@@ -173,16 +173,17 @@ func (s *apiServer) servePlate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type nibbleOut struct {
-		N       int             `json:"n"`
-		Caption string          `json:"caption"`
-		Because string          `json:"because,omitempty"`
-		Visual  json.RawMessage `json:"visual"`
-		Refs    []apiRef        `json:"refs"`
+		N           int                   `json:"n"`
+		Title       string                `json:"title"`
+		Description *protocol.Description `json:"description,omitempty"`
+		Because     string                `json:"because,omitempty"`
+		Visual      json.RawMessage       `json:"visual"`
+		Refs        []apiRef              `json:"refs"`
 	}
 	nibbles := make([]nibbleOut, 0, len(p.Nibbles))
 	for i, n := range p.Nibbles {
 		out := nibbleOut{
-			N: i + 1, Caption: n.Caption, Because: n.Because,
+			N: i + 1, Title: n.Title, Description: n.Description, Because: n.Because,
 			Visual: n.Visual, Refs: make([]apiRef, 0, len(n.Refs)),
 		}
 		for _, nr := range n.Refs {
@@ -202,7 +203,7 @@ func (s *apiServer) servePlate(w http.ResponseWriter, r *http.Request) {
 	if p.Header.About.Range != "" {
 		about["range"] = p.Header.About.Range
 	}
-	writeJSON(w, map[string]any{
+	out := map[string]any{
 		"title":    p.Header.Title,
 		"repo":     p.Header.Repo,
 		"head_sha": p.Header.HeadSHA,
@@ -216,7 +217,14 @@ func (s *apiServer) servePlate(w http.ResponseWriter, r *http.Request) {
 			"found": s.root != "",
 			"git":   s.git != nil,
 		},
-	})
+	}
+	if p.Header.Description != nil {
+		out["description"] = p.Header.Description
+	}
+	if p.Header.Because != "" {
+		out["because"] = p.Header.Because
+	}
+	writeJSON(w, out)
 }
 
 // --- GET /api/code?n=<N>&ref=<I> ---
