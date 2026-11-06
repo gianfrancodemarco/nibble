@@ -1,0 +1,24 @@
+{
+  "kind": "map",
+  "title": "Blast radius: tightening the connection pool",
+  "nodes": [
+    { "id": "pool", "label": "db/pool.ts", "detail": "max 20 → 10, new acquire timeout", "ring": "changed", "focus": true },
+    { "id": "dbcfg", "label": "config/database.yaml", "detail": "pool section rewritten", "ring": "changed" },
+    { "id": "orders", "label": "orders-api", "detail": "imports getPool()", "ring": "dependent", "group": "callers" },
+    { "id": "billing", "label": "billing worker", "detail": "long-held connections", "ring": "dependent", "group": "callers" },
+    { "id": "retry", "label": "retry helper", "detail": "wraps acquire()", "ring": "dependent", "group": "callers", "level": "standard" },
+    { "id": "pooltest", "label": "pool.test.ts", "detail": "asserts the old limits", "ring": "dependent", "group": "tests" },
+    { "id": "chart", "label": "helm chart", "detail": "reads database.yaml", "ring": "dependent", "group": "configs" },
+    { "id": "auth", "label": "auth-api", "detail": "own connection pool", "ring": "rest" },
+    { "id": "docs", "label": "runbook", "ring": "rest" }
+  ],
+  "edges": [
+    { "from": "orders", "to": "pool", "label": "getPool", "style": "flow" },
+    { "from": "billing", "to": "pool", "label": "acquire", "style": "flow" },
+    { "from": "retry", "to": "pool", "label": "acquire", "style": "flow", "level": "standard" },
+    { "from": "pooltest", "to": "pool", "label": "covers", "style": "weak" },
+    { "from": "chart", "to": "dbcfg", "label": "templates", "style": "weak" },
+    { "from": "pool", "to": "dbcfg", "label": "reads" },
+    { "from": "auth", "to": "docs", "label": "links", "style": "weak" }
+  ]
+}

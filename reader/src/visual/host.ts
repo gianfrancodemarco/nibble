@@ -45,6 +45,44 @@ interface RenderCtx {
   anchored: Map<string, number>; // anchor id → nibble ref index
   refs: readonly AnchoredRef[];
   level?: DialLevel; // absent means standard
+  visited?: ReadonlySet<string>; // the host's per-session visited element ids
+}
+
+// --- visited dependents: session state, never persisted, never posted ---
+
+// One set for the whole session: the same element id on two nibbles is the
+// same thing looked at once. Renderers read it through RenderCtx.visited and
+// re-badge in place on the "visitedchange" event; it never reaches the plate
+// or the review.
+const hostVisited = new Set<string>();
+
+// markVisited records that the reader looked at an element. Returns whether
+// that changed anything, so callers only re-badge on first visits.
+function markVisited(id: string): boolean {
+  if (hostVisited.has(id)) return false;
+  hostVisited.add(id);
+  return true;
+}
+
+// selectAndVisit: the selection click path. Selecting an element counts as
+// looking at it — even a toggle-off looked first.
+function selectAndVisit(cur: VisualSelection | null, card: number, id: string): VisualSelection | null {
+  markVisited(id);
+  return nextSelection(cur, card, id);
+}
+
+// openAndVisit: the code-chip path. Opening an element's code counts as
+// looking at it; an id without code resolves to nothing and visits nothing.
+function openAndVisit(ctx: RenderCtx, id: string): { n: number; ref: number } | null {
+  const act = codeActivation(ctx, id);
+  if (act) markVisited(id);
+  return act;
+}
+
+// reviewBody builds the exact JSON the review POST sends: verdict and
+// comments, nothing else — visited state stays in this tab.
+function reviewBody(verdict: string, comments: readonly { target?: string; text: string }[]): string {
+  return JSON.stringify({ verdict, comments });
 }
 
 type RendererOf<K extends Visual["kind"]> = (v: Extract<Visual, { kind: K }>, ctx: RenderCtx) => Element;
@@ -191,6 +229,14 @@ function applySelection(strip: HTMLElement): void {
   });
 }
 
+// applyVisited: tell every rendered visual to re-badge in place — class
+// toggles on fixed positions, never a re-render.
+function applyVisited(strip: HTMLElement): void {
+  strip.querySelectorAll(".visual-body").forEach((body) => {
+    body.dispatchEvent(new CustomEvent("visitedchange", { detail: { visited: hostVisited as ReadonlySet<string> } }));
+  });
+}
+
 function clearVisualSelection(strip: HTMLElement, wiring: HostWiring): void {
   if (!hostSelection) return;
   hostSelection = null;
@@ -205,6 +251,8 @@ function wireVisualHost(strip: HTMLElement, wiring: HostWiring): void {
     const chip = t.closest("[data-code]");
     if (chip) {
       e.stopPropagation();
+      const anchorId = chip.closest("[data-anchor]")?.getAttribute("data-anchor");
+      if (anchorId && markVisited(anchorId)) applyVisited(strip);
       wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
       return;
     }
@@ -214,8 +262,10 @@ function wireVisualHost(strip: HTMLElement, wiring: HostWiring): void {
     if (el) {
       const id = el.getAttribute("data-anchor");
       if (id) {
-        hostSelection = nextSelection(hostSelection, Number(card.dataset.i), id);
+        const first = !hostVisited.has(id);
+        hostSelection = selectAndVisit(hostSelection, Number(card.dataset.i), id);
         applySelection(strip);
+        if (first) applyVisited(strip);
         wiring.onTarget();
       }
     } else if (hostSelection && hostSelection.card === Number(card.dataset.i)) {
@@ -228,6 +278,8 @@ function wireVisualHost(strip: HTMLElement, wiring: HostWiring): void {
     const chip = (e.target as Element | null)?.closest?.("[data-code]");
     if (chip) {
       e.preventDefault();
+      const anchorId = chip.closest("[data-anchor]")?.getAttribute("data-anchor");
+      if (anchorId && markVisited(anchorId)) applyVisited(strip);
       wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
     }
   });

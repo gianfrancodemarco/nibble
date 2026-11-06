@@ -117,29 +117,25 @@ function render(): void {
     : `${plate.nibbles.length} of ${plate.total}`;
 
   const strip = $("#strip");
+  // Each card is the visual on the left and a lateral bar on the right: the
+  // nibble number, the title (the claim) and its description. Code is reached
+  // through the visual's </> chips, so there is no separate ref list.
   strip.innerHTML = plate.nibbles
     .map((nb, i) => {
       const vs = visualSummary(nb.visual);
-      const refs = nb.refs
-        .map(
-          (r, ri) => `<button class="ref" data-n="${nb.n}" data-ref="${ri}">
-            <span>${esc(r.path)}</span><span class="range">:${r.start}${r.end > r.start ? "-" + r.end : ""}</span>
-            ${r.anchor ? `<span class="anchor">@${esc(r.anchor)}</span>` : ""}
-            ${trustBadge(r.trust)}</button>`,
-        )
-        .join("");
       const desc = descriptionAt(nb.description, dialLevel);
       return `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
-        <h2>nibble ${nb.n}</h2>
         <div class="visual">
           <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
           <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
           ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
         </div>
-        <p class="ntitle">${mdLite(nb.title)}</p>
-        ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
-        ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
-        <div class="refs">${refs}</div>
+        <aside class="nside">
+          <h2>nibble ${nb.n}</h2>
+          <p class="ntitle">${mdLite(nb.title)}</p>
+          ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
+          ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
+        </aside>
       </article>`;
     })
     .join("");
@@ -151,7 +147,7 @@ function render(): void {
   strip.querySelectorAll<HTMLElement>(".nibble").forEach((card) => {
     card.addEventListener("click", () => setActive(Number(card.dataset.i)));
     const nb = plate!.nibbles[Number(card.dataset.i)];
-    const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel });
+    const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel, visited: hostVisited });
     if (!body) return;
     const slot = card.querySelector(".visual");
     if (!slot) return;
@@ -161,13 +157,6 @@ function render(): void {
     body.classList.add("visual-body");
     slot.appendChild(body);
   });
-  strip.querySelectorAll<HTMLButtonElement>(".ref").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      void openDrawer(Number(btn.dataset.n), Number(btn.dataset.ref));
-    });
-  });
-
   applySelection(strip);
   updateCommentTarget();
   renderReviewBar();
@@ -298,7 +287,7 @@ async function submit(verdict: string): Promise<void> {
     resp = await fetch("api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ verdict, comments: pending }),
+      body: reviewBody(verdict, pending),
     });
   } catch {
     flash("⚠ could not submit — serve has exited; re-run nibble serve and reload");

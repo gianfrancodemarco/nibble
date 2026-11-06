@@ -64,27 +64,36 @@ button:hover { border-color: var(--accent); }
 }
 
 /* One card in view at a time: the active card takes the canvas, neighbours
-   sit fully off-screen; the camera slides between them. The card is a column
-   where the visual flexes — it shrinks before the title or description can
-   leave the view. */
+   sit fully off-screen; the camera slides between them. The card is a row:
+   the visual takes the space, the lateral bar carries the words. */
 .nibble {
   flex: 0 0 calc(100% - 48px);
-  display: flex; flex-direction: column;
+  display: flex; flex-direction: row; gap: 20px;
   background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-  padding: 18px 22px; max-height: 100%; overflow: auto;
+  padding: 18px 22px; max-height: 100%; height: 100%; overflow: hidden;
   opacity: .45; transform: scale(.96);
   transition: opacity .3s, transform .3s, border-color .3s;
 }
-.nibble:has(.visual.rendered) { height: 100%; }
 .nibble.active { opacity: 1; transform: scale(1); border-color: var(--accent); }
-.nibble h2 { margin: 0 0 4px; font-size: 13px; color: var(--muted); font-weight: 600; }
-.nibble .ntitle { margin: 12px 0 0; font-size: 17px; }
+.nibble h2 { margin: 0 0 10px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.nibble .ntitle { margin: 0; font-size: 17px; line-height: 1.45; }
 .nibble .ntitle code { font-family: var(--mono); font-size: 14px; background: var(--accent-soft); padding: 1px 4px; border-radius: 4px; }
-.nibble .because { font-size: 13px; color: var(--muted); font-style: italic; margin: 6px 0 0; }
+.nibble .because { font-size: 13px; color: var(--muted); font-style: italic; margin: 10px 0 0; }
+
+/* the lateral bar: the claim and its story, scrolling on its own if long */
+.nside {
+  flex: 0 0 300px; min-width: 0; overflow-y: auto;
+  border-left: 1px solid var(--line); padding-left: 20px;
+  align-self: stretch;
+}
+@media (max-width: 880px) {
+  .nibble { flex-direction: column; overflow: auto; }
+  .nside { flex: 0 0 auto; border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
+}
 
 .visual {
   border: 1px dashed var(--line); border-radius: 10px;
-  padding: 12px 14px; margin-bottom: 12px;
+  padding: 12px 14px; flex: 1; min-width: 0;
 }
 .visual .kind {
   display: inline-block; font-size: 11px; font-weight: 700;
@@ -102,8 +111,8 @@ button:hover { border-color: var(--accent); }
   flex: 1; min-height: 0; display: flex; flex-direction: column;
 }
 .visual.rendered .visual-body {
-  display: block; width: 100%;
-  flex: 1; min-height: 220px;
+  display: block; width: 100%; height: 100%;
+  flex: 1 1 0; min-height: 0;
   margin-top: 8px;
 }
 .visual-body text { font-family: var(--sans); fill: var(--ink); }
@@ -117,6 +126,21 @@ button:hover { border-color: var(--accent); }
 .code-chip:hover text, .code-chip:focus text { fill: #fff; }
 
 /* map */
+.vis-map .zone rect { fill: none; stroke: var(--line); stroke-width: 1.2; }
+.vis-map .zone.rest rect { stroke-dasharray: 2 5; }
+.vis-map .zone.dependent rect { stroke-dasharray: 7 5; }
+.vis-map .zone.changed rect { fill: var(--accent-soft); stroke: var(--accent); opacity: .85; }
+.vis-map .zone .zlabel {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em;
+  text-transform: uppercase; fill: var(--muted);
+}
+.vis-map .zone.changed .zlabel { fill: var(--accent); }
+.vis-map .zone .zcount { font-family: var(--mono); font-size: 10.5px; fill: var(--accent); }
+.vis-map .zone .zcount.done { fill: var(--ok); }
+.vis-map .node .badge { display: none; }
+.vis-map .node.unvisited .badge { display: initial; }
+.vis-map .node .badge circle { fill: var(--accent); stroke: var(--paper); stroke-width: 1.5; }
+.vis-map .node.unvisited rect { stroke-dasharray: 4 3; }
 .vis-map .node rect { fill: var(--card); stroke: var(--line); stroke-width: 1.2; }
 .vis-map .node text { font-size: 13px; }
 .vis-map .node.focus rect { stroke: var(--accent); stroke-width: 2; }
@@ -213,12 +237,6 @@ button:hover { border-color: var(--accent); }
   border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px;
 }
 
-.refs { display: flex; flex-direction: column; gap: 6px; }
-.ref {
-  display: flex; align-items: center; gap: 8px; text-align: left;
-  font-family: var(--mono); font-size: 12.5px; padding: 6px 10px;
-}
-.ref .range { color: var(--muted); }
 .trust {
   font-family: var(--sans); font-size: 11px; font-weight: 700;
   border-radius: 999px; padding: 1px 8px; margin-left: auto;

@@ -1,0 +1,11 @@
+{
+  "expect": "map.ring.unknown",
+  "visual": {
+    "kind": "map",
+    "title": "ring value outside the enum",
+    "nodes": [
+      { "id": "pool", "label": "db/pool.ts", "ring": "blast" },
+      { "id": "orders", "label": "orders-api", "ring": "dependent" }
+    ]
+  }
+}

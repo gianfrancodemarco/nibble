@@ -1,0 +1,23 @@
+{
+  "kind": "map",
+  "title": "The blast radius of moving resize off the request",
+  "nodes": [
+    { "id": "handler", "label": "upload handler", "detail": "src/upload/handler.ts — stores, enqueues, returns", "ring": "changed", "focus": true },
+    { "id": "worker", "label": "resize-worker", "detail": "src/worker/resize.ts — new in this PR", "ring": "changed" },
+    { "id": "gallery", "label": "gallery uploader", "detail": "calls POST /images", "ring": "dependent", "group": "callers" },
+    { "id": "avatar", "label": "avatar form", "detail": "calls POST /images", "ring": "dependent", "group": "callers" },
+    { "id": "e2e", "label": "upload.e2e.ts", "detail": "asserts thumbnails exist right after the 201", "ring": "dependent", "group": "tests" },
+    { "id": "unit", "label": "handler.test.ts", "detail": "mocks the old inline resize", "ring": "dependent", "group": "tests", "level": "standard" },
+    { "id": "queuecfg", "label": "queue config", "detail": "deploy/queues.yaml — the new queue must exist", "ring": "dependent", "group": "configs" },
+    { "id": "auth", "label": "auth-api", "detail": "untouched by this PR", "ring": "rest" },
+    { "id": "billing", "label": "billing", "ring": "rest" }
+  ],
+  "edges": [
+    { "from": "gallery", "to": "handler", "label": "POST /images", "style": "flow" },
+    { "from": "avatar", "to": "handler", "label": "POST /images", "style": "flow" },
+    { "from": "e2e", "to": "handler", "label": "asserts timing", "style": "miss" },
+    { "from": "unit", "to": "handler", "label": "covers", "style": "weak", "level": "standard" },
+    { "from": "queuecfg", "to": "worker", "label": "declares the queue", "style": "weak" },
+    { "from": "handler", "to": "worker", "label": "enqueue resize", "style": "flow" }
+  ]
+}

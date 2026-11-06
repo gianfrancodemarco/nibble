@@ -29,6 +29,7 @@
         "detail": { "type": "string" },
         "group": { "type": "string" },
         "tier": { "enum": ["edge", "service", "data"] },
+        "ring": { "enum": ["changed", "dependent", "rest"] },
         "focus": { "type": "boolean" },
         "level": { "enum": ["standard"] }
       }

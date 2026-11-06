@@ -1,0 +1,13 @@
+{
+  "expect": "map.ring.partial",
+  "visual": {
+    "kind": "map",
+    "title": "a node left out of the rings",
+    "nodes": [
+      { "id": "pool", "label": "db/pool.ts", "ring": "changed" },
+      { "id": "orders", "label": "orders-api", "ring": "dependent" },
+      { "id": "auth", "label": "auth-api" }
+    ],
+    "edges": [ { "from": "orders", "to": "pool", "label": "getPool" } ]
+  }
+}

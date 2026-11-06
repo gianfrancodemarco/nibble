@@ -140,7 +140,7 @@ JSON Schema each under [`schemas/`](schemas/), draft 2020-12, fixtures under
 
 | kind | declares | reader interaction |
 | --- | --- | --- |
-| `map` | nodes (id, label, `group`/`tier`/`focus` hints), edges | click for code, highlight paths |
+| `map` | nodes (id, label, `group`/`tier`/`focus`/`ring` hints), edges | click for code, highlight paths |
 | `sequence` | actors, ordered steps (`call`/`return`/`async`, `alt`) | step through |
 | `timeline` | lanes, events (`at`, `weight`), named `states` | scrub; toggle precomputed states |
 | `compare` | `before`/`after`, same content type: `ref`, `map` or `metrics` | flip, slide |
@@ -167,6 +167,24 @@ every level-capable element is standard-only is rejected
 at both levels. Compare sides and sequence actors take no `level`; a map
 nested in a compare side is free-form content, as before.
 
+**Rings — blast radius**: a map node may declare `ring`, placing it relative
+to the change the plate is about: `"changed"` (the node changed),
+`"dependent"` (unchanged, but depends on something that changed — a caller,
+importer, test or config), or `"rest"` (everything else in view). The *agent*
+computes what belongs in each ring — it has the repo; nibble never runs
+dependency analysis, it validates and draws. Like every hint, `ring` says
+what the node is, never how the rings look (anything else is
+`map.ring.unknown`). Rings are **all-or-nothing per map**: one ringed node
+makes every unringed node an error (`map.ring.partial`, naming them) — a
+forgotten node must never silently read as "unaffected". A ringed map needs
+at least one `changed` node (`map.ring.empty`): rings only mean something
+anchored on a change. A map with no `ring` fields at all is simply not a
+ringed map and stays valid. `ring` composes with the other hints — `group`
+is the natural way to cluster dependents into callers / importers / tests /
+configs — and ring coherence is checked against the full document regardless
+of `level`. Fixture:
+[`golden/visuals/map/valid/ringed-blast-radius.json`](golden/visuals/map/valid/ringed-blast-radius.json).
+
 ## Error code index
 
 Codes are the stable API; messages are not. Every code the implementation
@@ -188,6 +206,9 @@ can return:
 | `visual.level.unknown` | `level` is not `"standard"` (`"deep"` reserved; overview is the default) |
 | `visual.overview.empty` | every level-capable element is standard-only, so overview would draw nothing |
 | `map.node.duplicate` | node id declared twice |
+| `map.ring.unknown` | `ring` is not `changed`, `dependent` or `rest` |
+| `map.ring.partial` | some nodes declare `ring` and some don't (named) |
+| `map.ring.empty` | a ringed map has no `changed` node |
 | `map.edge.dangling` | edge references a missing node |
 | `map.edge.level` | overview edge touches a standard-only node |
 | `map.nodes.budget` | more than 12 nodes |

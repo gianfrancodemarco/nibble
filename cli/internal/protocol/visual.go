@@ -97,6 +97,9 @@ func ValidateVisual(raw []byte) error {
 			if hasLevelViolation(verr) {
 				return errf(CodeVisualLevelUnknown, "level must be %q (the only v1 level; %q is reserved, and overview is the default — just omit the field)", "standard", "deep")
 			}
+			if hasRingViolation(verr) {
+				return errf(CodeMapRingUnknown, "ring must be one of changed, dependent, rest — what the node is to the change, never how it looks")
+			}
 			return errf(CodeVisualSchema, "%v", verr)
 		}
 		return errf(CodeVisualSchema, "%v", err)
@@ -130,6 +133,22 @@ func hasLevelViolation(v *jsonschema.ValidationError) bool {
 	return false
 }
 
+// hasRingViolation walks a validation error tree looking for a failure at a
+// `ring` property — with unknown fields already handled, that is always a bad
+// enum value on a map node.
+func hasRingViolation(v *jsonschema.ValidationError) bool {
+	loc := v.InstanceLocation
+	if len(loc) > 0 && loc[len(loc)-1] == "ring" {
+		return true
+	}
+	for _, c := range v.Causes {
+		if hasRingViolation(c) {
+			return true
+		}
+	}
+	return false
+}
+
 // findUnknownFields walks a validation error tree looking for
 // additionalProperties violations and returns the offending field names.
 func findUnknownFields(v *jsonschema.ValidationError) []string {
@@ -148,6 +167,7 @@ type mapDoc struct {
 		ID    string `json:"id"`
 		Label string `json:"label"`
 		Level string `json:"level"`
+		Ring  string `json:"ring"`
 	} `json:"nodes"`
 	Edges []struct {
 		From  string `json:"from"`
@@ -167,6 +187,9 @@ func validateMap(raw []byte) error {
 	ids := map[string]bool{}
 	standardOnly := map[string]bool{}
 	allStandard := true
+	ringed := 0
+	changed := 0
+	var unringed []string
 	for _, n := range d.Nodes {
 		if ids[n.ID] {
 			return errf(CodeMapNodeDuplicate, "node id %q declared twice", n.ID)
@@ -176,6 +199,22 @@ func validateMap(raw []byte) error {
 			standardOnly[n.ID] = true
 		} else {
 			allStandard = false
+		}
+		if n.Ring == "" {
+			unringed = append(unringed, n.ID)
+		} else {
+			ringed++
+			if n.Ring == "changed" {
+				changed++
+			}
+		}
+	}
+	if ringed > 0 {
+		if len(unringed) > 0 {
+			return errf(CodeMapRingPartial, "rings are all-or-nothing: node(s) %s declare no ring; place every node in changed, dependent or rest", strings.Join(unringed, ", "))
+		}
+		if changed == 0 {
+			return errf(CodeMapRingEmpty, "a ringed map needs at least one changed node: rings only mean something anchored on a change")
 		}
 	}
 	for _, e := range d.Edges {
