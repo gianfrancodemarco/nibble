@@ -16,6 +16,7 @@ they never guess.
   plate.json     the header (required)
   n1.json        nibbles, numbered from 1, contiguous
   n2.json
+  ledger.json    the not-shown ledger (diff plates, written at seal)
   done           seals the plate: {"total": N}
   review.json    the human's answer
 ```
@@ -73,11 +74,46 @@ enforced by the CLI at authoring time, not by the protocol.
 `{"total": N}` — the final nibble count. A nibble file numbered beyond
 `total` makes the plate invalid: sealing is a promise.
 
+### ledger.json — the not-shown ledger
+
+The diff hunks no nibble referenced, so nothing slips by unreviewed. Only a
+plate whose `about` names a diff (`worktree`, `{"range": …}`, `{"pr": …}`)
+may carry one — on an `about: code` plate it is `plate.ledger`; a diff plate
+without one stays valid. The **CLI** computes and writes it when the plate is
+sealed (`nibble done`); the agent never computes coverage itself.
+
+```json
+{ "shown": 1, "total": 2, "hunks": [
+    { "path": "src/pool.ts", "side": "head",
+      "start": 1, "end": 1, "added": 1, "removed": 1, "covered": true },
+    { "path": "src/retry.ts", "side": "head",
+      "start": 10, "end": 14, "added": 5, "removed": 2 } ] }
+```
+
+`hunks` is the whole diff in diff order, each hunk a nibble referenced
+flagged `"covered": true`, so the reader can show what was reviewed next to
+what was not. `shown`/`total` are stored rather than derived, and must agree
+with the hunks: `total` equals the hunk count, `shown` the covered count
+(full coverage is every hunk flagged; an empty `hunks` is only an empty
+diff). Each hunk: `path` (repo-relative, same rules as ref paths),
+`side` — `"head"` for added or changed lines (the worktree, or the range's
+head), `"base"` for removed lines (they only exist on the base side) —
+`start`/`end` (`1 ≤ start ≤ end`) and `added`/`removed` line counts, not
+both zero unless the hunk declares `"binary": true` (a binary file has no
+lines to count). Mismatched counts or anything else is `plate.ledger`;
+unknown fields are
+preserved by tools that rewrite the file. Fixtures:
+[`golden/plates/worktree-ledger/`](golden/plates/worktree-ledger/),
+[`golden/plates/ledger-covered/`](golden/plates/ledger-covered/).
+
 ### review.json
 
 `verdict` is one of `approve`, `changes`, `question`, `closed`, plus
 `comments`: `[{"target": "n2:cache", "text": "…"}]`, each pinned to a nibble
-and optionally an element or line.
+and optionally an element or line. A plate with a ledger also takes comments
+targeted `ledger` (the ledger as a whole) or `ledger:<path>` (one
+uncovered file; `ledger:<path>#base` when the uncovered lines are deletions,
+living on the diff's base side).
 
 ## Refs
 
@@ -220,6 +256,7 @@ can return:
 | `compare.sides.mismatch` | sides hold different content types |
 | `plate.header` | plate.json unreadable or a field malformed |
 | `plate.description` | plate description is not `{overview, standard?}` with a non-empty overview |
+| `plate.ledger` | ledger.json malformed, or present on a plate whose `about` names no diff |
 | `nibble.title.missing` | nibble has no `title` (or still carries the pre-rename `caption`) |
 | `nibble.description` | nibble description is not `{overview, standard?}` with a non-empty overview |
 | `plate.version.missing` | no `version` field |
@@ -238,6 +275,7 @@ The CLI adds codes of its own, same contract:
 | `cli.repo.missing` | command run outside a git repository |
 | `cli.budget` | title, description or nibble count over budget, and no `--because` |
 | `cli.plate.empty` | sealing a plate that has no nibbles |
+| `cli.ledger` | the coverage check could not compute the diff (git failed, a range side is gone) |
 
 ## The CLI, briefly
 

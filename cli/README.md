@@ -22,7 +22,17 @@ nibble add   <plate> --title <md> [--description <md>] [--description-standard <
              # writes n<N>.json atomically; rejections are fix-its with
              # protocol error codes and nothing gets written
 
-nibble done  <plate>          # seals: writes {"total": N}; idempotent
+nibble done  <plate> [--check] [--json]
+             # the coverage check, then the seal. On a worktree/range plate
+             # it computes the diff via git, matches every hunk against every
+             # nibble's refs, writes the not-shown ledger (ledger.json), then
+             # seals with {"total": N} and reports the not-shown count
+             # (--json carries the full ledger); a failed check (git gone, a
+             # range side unresolvable) is cli.ledger and seals nothing.
+             # --check prints the would-be ledger and writes NOTHING, so an
+             # agent can still add a covering nibble; idempotent re-seal
+             # leaves the sealed ledger alone
+
 nibble lint  <visual.json>    # validate a visual standalone
 nibble serve <plate> [--timeout <dur>] [--addr <host:port>] [--no-ui] [--json]
              # serves the reader on 127.0.0.1 (random port; the one

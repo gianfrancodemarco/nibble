@@ -89,8 +89,8 @@ footer a { color: var(--muted); }
   <p class="goal">The PRD, the design mockups with a live reader demo, and every initial open question settled — among them: the CLI is written in Go, v1 gets the Tauri pill, agents describe layout by meaning rather than pixels, and plates live in <span class="mono">~/.nibble</span>.</p>
 </div>
 
-<div class="stage now">
-  <span class="tag">in progress · v0.1</span>
+<div class="stage done">
+  <span class="tag">done · 2026-11</span>
   <h2>The MVP: PR review, worktree review, explain</h2>
   <p class="goal">The full loop working end to end in a browser tab, dogfooded on real PRs.</p>
   <div class="items">
@@ -102,19 +102,21 @@ footer a { color: var(--muted); }
     <div class="it done"><b>Visual kinds</b> <span>— the four visual types: map, sequence, timeline and side-by-side compare, rendered as interactive SVG</span></div>
     <div class="it done"><b>Detail dial</b> <span>— every plate readable at two levels: a quick overview, or the full standard view</span></div>
     <div class="it done"><b>Blast radius</b> <span>— a map of the PR in three rings: files that changed, files that depend on them, everything else — marking what you haven't looked at yet</span></div>
-    <div class="it"><b>Not-shown ledger</b> <span>— each plate ends with a list of the diff changes the walkthrough never covered, so nothing slips by unreviewed</span></div>
+    <div class="it done"><b>Not-shown ledger</b> <span>— each plate ends with a list of the diff changes the walkthrough never covered, so nothing slips by unreviewed</span></div>
   </div>
 </div>
 
-<div class="stage">
-  <span class="tag">v0.2</span>
+<div class="stage now">
+  <span class="tag">in progress · v0.2</span>
   <h2>Depth and breadth</h2>
   <p class="goal">You can ask for more without leaving the plate, and bigger reviews get structure.</p>
   <div class="items">
     <div class="it"><b>UI improvement &amp; design adherence</b> <span>— polish the reader's UI and bring it in line with the design mockups</span></div>
+    <div class="it"><b>Live-reading polish</b> <span>— refine the reader while nibbles are streaming in: smooth animations for arriving cards, and fix the bugs around the nibble count and progress</span></div>
+    <div class="it"><b>Syntax highlighting</b> <span>— code in the reader's drawer gets highlighted per language, so diffs and excerpts read like they do in an editor</span></div>
+    <div class="it"><b>Prose ↔ visual links</b> <span>— hover a phrase in a nibble's text and the matching part of the visual lights up, and the other way round</span></div>
     <div class="it"><b>Deep layer + visuals on demand</b> <span>— select anything and ask the agent for more; the answer appears right there as a new visual</span></div>
     <div class="it"><b>Chapter flow</b> <span>— big PRs split into chapters you approve before the walkthrough starts</span></div>
-    <div class="it"><b>Prose ↔ visual links</b> <span>— hover a phrase in a nibble's text and the matching part of the visual lights up, and the other way round</span></div>
     <div class="it"><b>state · data · chart</b> <span>— three more visual types: state machines, data structures and charts</span></div>
     <div class="it"><b>What-if toggles</b> <span>— flip a switch to see the same picture under a different scenario, precomputed by the agent</span></div>
     <div class="it"><b>More agents</b> <span>— Codex and Cursor learn to build plates too, via <span class="mono">nibble setup</span></span></div>

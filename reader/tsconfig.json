@@ -2,7 +2,11 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "none",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2020",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "strict": true,
     "noUnusedLocals": true,
     "newLine": "lf",
@@ -15,6 +19,7 @@
     "src/visual/sequence.ts",
     "src/visual/timeline.ts",
     "src/visual/compare.ts",
+    "src/visual/ledger.ts",
     "src/app.ts"
   ]
 }

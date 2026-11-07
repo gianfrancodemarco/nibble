@@ -1,0 +1,10 @@
+diff --git a/oldbig.txt b/newbig.txt
+similarity index 97%
+rename from oldbig.txt
+rename to newbig.txt
+index cb5cfbe..8f60127 100644
+--- a/oldbig.txt
++++ b/newbig.txt
+@@ -20 +20 @@ line 19 of the renamed module
+-line 20 of the renamed module
++line twenty, edited

@@ -13,6 +13,7 @@ const (
 	CodeRepoMissing = "cli.repo.missing"
 	CodeBudget      = "cli.budget"
 	CodePlateEmpty  = "cli.plate.empty"
+	CodeLedger      = "cli.ledger"
 )
 
 func errf(code, format string, a ...any) *protocol.Error {

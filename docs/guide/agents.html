@@ -50,7 +50,8 @@
 <span class="p">$</span> nibble add   &lt;plate&gt; --title "…" --visual timeline.json \
                --ref "src/cache/prices.ts:43-45 @cache"
 <span class="y">✗ rejected: src/cache/prices.ts has 41 lines, ref ends at 45</span>      <span class="d"># validation is strict, errors are fix-its</span>
-<span class="p">$</span> nibble done  &lt;plate&gt;                                              <span class="d"># seals it; coverage gaps reported</span>
+<span class="p">$</span> nibble done  &lt;plate&gt; --check                                      <span class="d"># the would-be ledger, nothing written</span>
+<span class="p">$</span> nibble done  &lt;plate&gt;                                              <span class="d"># coverage check, writes ledger.json, seals</span>
 <span class="p">$</span> nibble lint  &lt;visual.json&gt;                                        <span class="d"># validate a visual standalone</span>
 <span class="p">$</span> nibble serve &lt;plate&gt;                                              <span class="d"># blocks; exits with your review</span></pre>
 <p><span class="mono">serve</span> prints one <span class="mono">reader: http://127.0.0.1:…</span> line to stderr. The agent relays that link to the human, then sleeps until the verdict comes back as its exit code.</p>

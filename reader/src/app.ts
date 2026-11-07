@@ -19,7 +19,8 @@ interface Plate {
   title: string; description?: LevelledText; repo: string; head_sha: string;
   about: { kind: string; pr?: number; range?: string };
   source: { path: string; found: boolean; git: boolean };
-  open: boolean; total: number; review: Review | null; nibbles: NibbleData[];
+  open: boolean; total: number; review: Review | null; ledger?: LedgerData | null;
+  nibbles: NibbleData[];
 }
 interface CodeLine { no: number; text: string; in: boolean; }
 interface CodeResponse { ref: string; path: string; missing: boolean; why?: string; trust: Trust; lines: CodeLine[]; }
@@ -45,6 +46,9 @@ let dialLevel: DialLevel = DIAL_DEFAULT;
 const pending: ReviewComment[] = [];
 
 const visualOfCard = (card: number): Visual | null => plate?.nibbles[card]?.visual ?? null;
+// cards: the nibbles plus the ledger card when the plate carries a ledger
+const cards = (): number => (plate ? cardCount(plate.nibbles.length, plate.ledger) : 0);
+const isLedgerCard = (i: number): boolean => plate?.ledger != null && i === plate.nibbles.length;
 
 // --- tiny markdown: titles and descriptions get bold/code/italic only ---
 
@@ -140,13 +144,38 @@ function render(): void {
     })
     .join("");
 
+  // The not-shown ledger ends a diff plate: one last card after the nibbles.
+  if (plate.ledger) {
+    const card = document.createElement("article");
+    card.className = "nibble ledger" + (active === plate.nibbles.length ? " active" : "");
+    card.dataset.i = String(plate.nibbles.length);
+    const slot = document.createElement("div");
+    slot.className = "visual rendered";
+    const body = renderLedgerBody(plate.ledger);
+    body.classList.add("visual-body");
+    slot.appendChild(body);
+    card.appendChild(slot);
+    const side = document.createElement("aside");
+    side.className = "nside";
+    side.innerHTML = `<h2>not-shown ledger</h2>
+      <p class="ntitle">${plate.ledger.hunks.length === 0
+        ? "Every hunk of the diff was shown."
+        : "What this walkthrough never showed — the rest of the diff, open to comments."}</p>`;
+    card.appendChild(side);
+    strip.appendChild(card);
+  }
+
   // Per-kind rendering: swap each card's fallback summary for the rendered
   // visual when a renderer for its kind is registered. A selection survives
   // the rebuild only while its element is drawn at the dial level.
-  hostSelection = selectionAfterDial(hostSelection, visualOfCard, dialLevel);
+  // (a ledger-card selection has no dial levels to survive — it stays)
+  hostSelection = hostSelection && isLedgerCard(hostSelection.card)
+    ? hostSelection
+    : selectionAfterDial(hostSelection, visualOfCard, dialLevel);
   strip.querySelectorAll<HTMLElement>(".nibble").forEach((card) => {
     card.addEventListener("click", () => setActive(Number(card.dataset.i)));
     const nb = plate!.nibbles[Number(card.dataset.i)];
+    if (!nb) return; // the ledger card renders its own body above
     const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel, visited: hostVisited });
     if (!body) return;
     const slot = card.querySelector(".visual");
@@ -177,18 +206,20 @@ function setDial(level: DialLevel): void {
 // --- camera: an animated transform, never a navigation ---
 
 function updateCommentTarget(): void {
-  if (!plate || plate.nibbles.length === 0) return;
-  $("#comment-target").textContent = commentTarget(plate.nibbles[active].n, hostSelection, active);
+  if (!plate || cards() === 0) return;
+  $("#comment-target").textContent = isLedgerCard(active)
+    ? ledgerCommentTarget(hostSelection, active)
+    : commentTarget(plate.nibbles[active].n, hostSelection, active);
 }
 
 function setActive(i: number): void {
   if (!plate) return;
-  active = Math.max(0, Math.min(plate.nibbles.length - 1, i));
+  active = Math.max(0, Math.min(cards() - 1, i));
   document.querySelectorAll<HTMLElement>(".nibble").forEach((card, idx) => {
     card.classList.toggle("active", idx === active);
   });
   updateCommentTarget();
-  $("#pos").textContent = `${active + 1} / ${plate.nibbles.length}`;
+  $("#pos").textContent = `${active + 1} / ${cards()}`;
   camera();
 }
 
@@ -199,7 +230,7 @@ function camera(): void {
   const canvas = $("#canvas");
   const x = canvas.clientWidth / 2 - card.offsetLeft - card.offsetWidth / 2;
   strip.style.transform = `translateX(${x}px)`;
-  $("#pos").textContent = plate ? `${active + 1} / ${plate.nibbles.length}` : "";
+  $("#pos").textContent = plate ? `${active + 1} / ${cards()}` : "";
 }
 
 // --- code drawer ---
@@ -234,6 +265,48 @@ async function openDrawer(n: number, ref: number): Promise<void> {
   }
   $("#drawer-code").innerHTML = c.lines
     .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${esc(l.text) || " "}</span></div>`)
+    .join("");
+  ($("#drawer") as HTMLElement).hidden = false;
+}
+
+// openLedgerDrawer shows one file's not-shown hunks, served by /api/ledger
+// from the side (worktree, base rev, range revs) the hunks live on, with the
+// hunk lines highlighted and the stretches between distant hunks elided.
+async function openLedgerDrawer(path: string, side: string): Promise<void> {
+  let resp: Response;
+  try {
+    resp = await fetch(`api/ledger?file=${encodeURIComponent(path)}&side=${encodeURIComponent(side)}`);
+  } catch {
+    flash("⚠ the plate’s server is gone — serve has exited; re-run nibble serve and reload");
+    return;
+  }
+  if (!resp.ok) return;
+  const c = (await resp.json()) as { path: string; side: string; missing: boolean; why?: string; lines: CodeLine[] };
+  $("#drawer-path").textContent = c.path;
+  $("#drawer-trust").outerHTML = `<span id="drawer-trust" class="trust unverified">not shown · ${esc(c.side)}</span>`;
+  const note = $("#drawer-note");
+  if (c.why) {
+    note.hidden = false;
+    note.textContent = `⚠ ${c.why}`;
+  } else if (c.missing) {
+    note.hidden = false;
+    note.textContent = "⚠ this file is no longer there";
+  } else {
+    note.hidden = false;
+    const anyIn = c.lines.some((l) => l.in);
+    note.textContent = !anyIn
+      ? "every changed line in this file was shown by the walkthrough"
+      : c.side === "base"
+        ? "removed code, shown as it was on the base side"
+        : "no nibble referenced the highlighted lines";
+  }
+  let prev = 0;
+  $("#drawer-code").innerHTML = c.lines
+    .map((l) => {
+      const gap = prev > 0 && l.no > prev + 1 ? `<div class="ln gap"><span class="no">⋯</span><span></span></div>` : "";
+      prev = l.no;
+      return `${gap}<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${esc(l.text) || " "}</span></div>`;
+    })
     .join("");
   ($("#drawer") as HTMLElement).hidden = false;
 }
@@ -276,7 +349,10 @@ function addComment(): void {
     input.focus();
     return;
   }
-  pending.push({ target: plate ? commentTarget(plate.nibbles[active].n, hostSelection, active) : `n${active + 1}`, text });
+  const target = !plate ? `n${active + 1}`
+    : isLedgerCard(active) ? ledgerCommentTarget(hostSelection, active)
+    : commentTarget(plate.nibbles[active].n, hostSelection, active);
+  pending.push({ target, text });
   input.value = "";
   renderReviewBar();
 }
@@ -311,7 +387,7 @@ async function loadPlate(): Promise<void> {
   const resp = await fetch("api/plate");
   if (!resp.ok) return;
   plate = (await resp.json()) as Plate;
-  active = Math.min(active, Math.max(0, plate.nibbles.length - 1));
+  active = Math.min(active, Math.max(0, cards() - 1));
   render();
 }
 
@@ -378,6 +454,15 @@ const hostWiring: HostWiring = {
   openRef: (n, ref) => void openDrawer(n, ref),
   onTarget: updateCommentTarget,
 };
+// Ledger chips open the ledger drawer; registered before the host wiring so
+// stopImmediatePropagation keeps a chip click from toggling the row's
+// selection, mirroring how code chips behave inside visuals.
+$("#strip").addEventListener("click", (e) => {
+  const chip = (e.target as Element | null)?.closest?.("[data-ledger-path]");
+  if (!chip) return;
+  e.stopImmediatePropagation();
+  void openLedgerDrawer(chip.getAttribute("data-ledger-path")!, chip.getAttribute("data-ledger-side") ?? "head");
+});
 wireVisualHost($("#strip"), hostWiring);
 
 void loadPlate();

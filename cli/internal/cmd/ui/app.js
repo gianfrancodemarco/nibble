@@ -1028,6 +1028,172 @@ function renderCompareVisual(v, ctx) {
     return wrap;
 }
 visualRenderers.compare = renderCompareVisual;
+// The not-shown ledger card — the last card of a diff plate: the hunks no
+// nibble referenced, grouped by file, each openable in the drawer and open
+// to review comments. Pure seam functions up top (covered by
+// test/ledger.test.ts); DOM rendering below, used by the shell only.
+// fileRowId is a row's stable id on the card — also the second half of its
+// comment target, so the agent reads `ledger:src/b.ts` straight back to a
+// file of the diff. Deleted-lines rows carry #base: same file, other side.
+function fileRowId(row) {
+    return row.side === "base" ? `${row.path}#base` : row.path;
+}
+// ledgerFileLabel is the row's summary: side, the uncovered hunks' line
+// ranges (first three, then a count), summed +/− over the whole file. A
+// fully covered row lists no ranges; binary files have no lines to range.
+function ledgerFileLabel(row) {
+    if (row.binary)
+        return `${row.side} · binary`;
+    const range = (h) => h.end > h.start ? `${h.start}–${h.end}` : `${h.start}`;
+    const unshown = row.hunks.filter((h) => !h.covered);
+    let ranges = unshown.slice(0, 3).map(range).join(", ");
+    if (unshown.length > 3)
+        ranges += ` +${unshown.length - 3} more`;
+    const where = ranges ? ` ${ranges}` : "";
+    return `${row.side}${where} · +${row.added} −${row.removed}`;
+}
+// ledgerBadge marks how much of a row the walkthrough showed: everything,
+// a part, or nothing (no badge — the row speaks for itself).
+function ledgerBadge(row) {
+    if (row.coveredCount === row.hunks.length)
+        return "shown";
+    if (row.coveredCount > 0)
+        return `${row.coveredCount}/${row.hunks.length} shown`;
+    return "";
+}
+// ledgerTree nests the file rows under their directories, first-appearance
+// order, collapsing every directory that holds nothing but one directory.
+function ledgerTree(rows) {
+    const root = { name: "", dirs: [], files: [] };
+    for (const row of rows) {
+        const parts = row.path.split("/");
+        let dir = root;
+        for (const part of parts.slice(0, -1)) {
+            let next = dir.dirs.find((d) => d.name === part);
+            if (!next) {
+                next = { name: part, dirs: [], files: [] };
+                dir.dirs.push(next);
+            }
+            dir = next;
+        }
+        dir.files.push({ name: parts[parts.length - 1], row });
+    }
+    const collapse = (dir) => {
+        while (dir.dirs.length === 1 && dir.files.length === 0 && dir.name !== "") {
+            dir = { ...dir.dirs[0], name: `${dir.name}/${dir.dirs[0].name}` };
+        }
+        dir.dirs = dir.dirs.map(collapse);
+        return dir;
+    };
+    root.dirs = root.dirs.map(collapse);
+    return root;
+}
+// ledgerFileRows groups hunks into one row per (path, side) pair,
+// first-appearance order.
+function ledgerFileRows(hunks) {
+    const rows = [];
+    const byKey = new Map();
+    for (const hunk of hunks) {
+        const key = `${hunk.side}\n${hunk.path}`;
+        let row = byKey.get(key);
+        if (!row) {
+            row = { path: hunk.path, side: hunk.side, binary: false, added: 0, removed: 0, coveredCount: 0, hunks: [] };
+            byKey.set(key, row);
+            rows.push(row);
+        }
+        row.hunks.push(hunk);
+        row.added += hunk.added;
+        row.removed += hunk.removed;
+        row.binary = row.binary || hunk.binary === true;
+        if (hunk.covered)
+            row.coveredCount++;
+    }
+    return rows;
+}
+function ledgerFullyCovered(l) {
+    return l.shown === l.total;
+}
+// cardCount: the strip's cards — the nibbles, plus the ledger card when the
+// plate carries a ledger (even an empty one: full coverage is still said).
+function cardCount(nibbles, ledger) {
+    return nibbles + (ledger ? 1 : 0);
+}
+// ledgerCommentTarget: comments pin to the ledger as a whole, or to one
+// file row selected on the ledger card.
+function ledgerCommentTarget(sel, ledgerCard) {
+    return sel && sel.card === ledgerCard ? `ledger:${sel.id}` : "ledger";
+}
+// --- rendering (DOM; the shell appends the result to the strip) ---
+// renderLedgerBody builds the ledger card's content. File rows carry
+// data-anchor (the host's selection/comment wiring picks them up) and a
+// data-ledger-path chip the shell wires to the ledger drawer.
+function renderLedgerBody(l) {
+    const body = document.createElement("div");
+    body.className = "ledger-body";
+    const count = document.createElement("p");
+    count.className = "ledger-count";
+    if (ledgerFullyCovered(l)) {
+        count.textContent = l.total === 0
+            ? "the diff was empty — nothing to show"
+            : `every hunk of the diff was shown (${l.shown} of ${l.total})`;
+        count.classList.add("covered");
+        body.appendChild(count);
+        if (l.hunks.length > 0) {
+            body.appendChild(renderLedgerDir(ledgerTree(ledgerFileRows(l.hunks)), true));
+        }
+        return body;
+    }
+    count.textContent = `${l.total - l.shown} of ${l.total} hunks never came up — worth a look before the verdict`;
+    body.appendChild(count);
+    body.appendChild(renderLedgerDir(ledgerTree(ledgerFileRows(l.hunks)), true));
+    return body;
+}
+// renderLedgerDir renders one directory of the ledger tree: its name, its
+// subdirectories, then its file rows.
+function renderLedgerDir(dir, root) {
+    const el = document.createElement("div");
+    el.className = root ? "ledger-tree" : "ledger-dir";
+    if (!root) {
+        const name = document.createElement("div");
+        name.className = "ledger-dirname mono";
+        name.textContent = dir.name + "/";
+        el.appendChild(name);
+    }
+    for (const sub of dir.dirs)
+        el.appendChild(renderLedgerDir(sub, false));
+    for (const f of dir.files) {
+        const row = document.createElement("div");
+        row.className = "ledger-file";
+        row.setAttribute("data-anchor", fileRowId(f.row));
+        row.setAttribute("role", "button");
+        row.setAttribute("tabindex", "0");
+        const name = document.createElement("span");
+        name.className = "ledger-path mono";
+        name.textContent = f.name + (f.row.side === "base" ? " (deleted lines)" : "");
+        row.appendChild(name);
+        const badge = ledgerBadge(f.row);
+        if (badge) {
+            const b = document.createElement("span");
+            b.className = "ledger-badge" + (badge === "shown" ? " covered" : "");
+            b.textContent = badge;
+            row.appendChild(b);
+        }
+        const label = document.createElement("span");
+        label.className = "ledger-meta";
+        label.textContent = ledgerFileLabel(f.row);
+        row.appendChild(label);
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "code-chip-h";
+        chip.dataset.ledgerPath = f.row.path;
+        chip.dataset.ledgerSide = f.row.side;
+        chip.textContent = "</>";
+        chip.title = "open this file's hunks";
+        row.appendChild(chip);
+        el.appendChild(row);
+    }
+    return el;
+}
 // nibble reader shell — pure presentation over the Go server's JSON API.
 // Protocol logic (refs, trust, validation) never happens here: the server
 // hands us computed trust and resolved code. Hand-written types below cover
@@ -1053,6 +1219,9 @@ let justSent = false;
 let dialLevel = DIAL_DEFAULT;
 const pending = [];
 const visualOfCard = (card) => plate?.nibbles[card]?.visual ?? null;
+// cards: the nibbles plus the ledger card when the plate carries a ledger
+const cards = () => (plate ? cardCount(plate.nibbles.length, plate.ledger) : 0);
+const isLedgerCard = (i) => plate?.ledger != null && i === plate.nibbles.length;
 // --- tiny markdown: titles and descriptions get bold/code/italic only ---
 function esc(s) {
     return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -1146,13 +1315,38 @@ function render() {
       </article>`;
     })
         .join("");
+    // The not-shown ledger ends a diff plate: one last card after the nibbles.
+    if (plate.ledger) {
+        const card = document.createElement("article");
+        card.className = "nibble ledger" + (active === plate.nibbles.length ? " active" : "");
+        card.dataset.i = String(plate.nibbles.length);
+        const slot = document.createElement("div");
+        slot.className = "visual rendered";
+        const body = renderLedgerBody(plate.ledger);
+        body.classList.add("visual-body");
+        slot.appendChild(body);
+        card.appendChild(slot);
+        const side = document.createElement("aside");
+        side.className = "nside";
+        side.innerHTML = `<h2>not-shown ledger</h2>
+      <p class="ntitle">${plate.ledger.hunks.length === 0
+            ? "Every hunk of the diff was shown."
+            : "What this walkthrough never showed — the rest of the diff, open to comments."}</p>`;
+        card.appendChild(side);
+        strip.appendChild(card);
+    }
     // Per-kind rendering: swap each card's fallback summary for the rendered
     // visual when a renderer for its kind is registered. A selection survives
     // the rebuild only while its element is drawn at the dial level.
-    hostSelection = selectionAfterDial(hostSelection, visualOfCard, dialLevel);
+    // (a ledger-card selection has no dial levels to survive — it stays)
+    hostSelection = hostSelection && isLedgerCard(hostSelection.card)
+        ? hostSelection
+        : selectionAfterDial(hostSelection, visualOfCard, dialLevel);
     strip.querySelectorAll(".nibble").forEach((card) => {
         card.addEventListener("click", () => setActive(Number(card.dataset.i)));
         const nb = plate.nibbles[Number(card.dataset.i)];
+        if (!nb)
+            return; // the ledger card renders its own body above
         const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel, visited: hostVisited });
         if (!body)
             return;
@@ -1182,19 +1376,21 @@ function setDial(level) {
 }
 // --- camera: an animated transform, never a navigation ---
 function updateCommentTarget() {
-    if (!plate || plate.nibbles.length === 0)
+    if (!plate || cards() === 0)
         return;
-    $("#comment-target").textContent = commentTarget(plate.nibbles[active].n, hostSelection, active);
+    $("#comment-target").textContent = isLedgerCard(active)
+        ? ledgerCommentTarget(hostSelection, active)
+        : commentTarget(plate.nibbles[active].n, hostSelection, active);
 }
 function setActive(i) {
     if (!plate)
         return;
-    active = Math.max(0, Math.min(plate.nibbles.length - 1, i));
+    active = Math.max(0, Math.min(cards() - 1, i));
     document.querySelectorAll(".nibble").forEach((card, idx) => {
         card.classList.toggle("active", idx === active);
     });
     updateCommentTarget();
-    $("#pos").textContent = `${active + 1} / ${plate.nibbles.length}`;
+    $("#pos").textContent = `${active + 1} / ${cards()}`;
     camera();
 }
 function camera() {
@@ -1205,7 +1401,7 @@ function camera() {
     const canvas = $("#canvas");
     const x = canvas.clientWidth / 2 - card.offsetLeft - card.offsetWidth / 2;
     strip.style.transform = `translateX(${x}px)`;
-    $("#pos").textContent = plate ? `${active + 1} / ${plate.nibbles.length}` : "";
+    $("#pos").textContent = plate ? `${active + 1} / ${cards()}` : "";
 }
 // --- code drawer ---
 async function openDrawer(n, ref) {
@@ -1247,6 +1443,51 @@ async function openDrawer(n, ref) {
         .join("");
     $("#drawer").hidden = false;
 }
+// openLedgerDrawer shows one file's not-shown hunks, served by /api/ledger
+// from the side (worktree, base rev, range revs) the hunks live on, with the
+// hunk lines highlighted and the stretches between distant hunks elided.
+async function openLedgerDrawer(path, side) {
+    let resp;
+    try {
+        resp = await fetch(`api/ledger?file=${encodeURIComponent(path)}&side=${encodeURIComponent(side)}`);
+    }
+    catch {
+        flash("⚠ the plate’s server is gone — serve has exited; re-run nibble serve and reload");
+        return;
+    }
+    if (!resp.ok)
+        return;
+    const c = (await resp.json());
+    $("#drawer-path").textContent = c.path;
+    $("#drawer-trust").outerHTML = `<span id="drawer-trust" class="trust unverified">not shown · ${esc(c.side)}</span>`;
+    const note = $("#drawer-note");
+    if (c.why) {
+        note.hidden = false;
+        note.textContent = `⚠ ${c.why}`;
+    }
+    else if (c.missing) {
+        note.hidden = false;
+        note.textContent = "⚠ this file is no longer there";
+    }
+    else {
+        note.hidden = false;
+        const anyIn = c.lines.some((l) => l.in);
+        note.textContent = !anyIn
+            ? "every changed line in this file was shown by the walkthrough"
+            : c.side === "base"
+                ? "removed code, shown as it was on the base side"
+                : "no nibble referenced the highlighted lines";
+    }
+    let prev = 0;
+    $("#drawer-code").innerHTML = c.lines
+        .map((l) => {
+        const gap = prev > 0 && l.no > prev + 1 ? `<div class="ln gap"><span class="no">⋯</span><span></span></div>` : "";
+        prev = l.no;
+        return `${gap}<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${esc(l.text) || " "}</span></div>`;
+    })
+        .join("");
+    $("#drawer").hidden = false;
+}
 // --- review ---
 function renderReviewBar() {
     if (!plate)
@@ -1284,7 +1525,10 @@ function addComment() {
         input.focus();
         return;
     }
-    pending.push({ target: plate ? commentTarget(plate.nibbles[active].n, hostSelection, active) : `n${active + 1}`, text });
+    const target = !plate ? `n${active + 1}`
+        : isLedgerCard(active) ? ledgerCommentTarget(hostSelection, active)
+            : commentTarget(plate.nibbles[active].n, hostSelection, active);
+    pending.push({ target, text });
     input.value = "";
     renderReviewBar();
 }
@@ -1319,7 +1563,7 @@ async function loadPlate() {
     if (!resp.ok)
         return;
     plate = (await resp.json());
-    active = Math.min(active, Math.max(0, plate.nibbles.length - 1));
+    active = Math.min(active, Math.max(0, cards() - 1));
     render();
 }
 function listen() {
@@ -1393,6 +1637,16 @@ const hostWiring = {
     openRef: (n, ref) => void openDrawer(n, ref),
     onTarget: updateCommentTarget,
 };
+// Ledger chips open the ledger drawer; registered before the host wiring so
+// stopImmediatePropagation keeps a chip click from toggling the row's
+// selection, mirroring how code chips behave inside visuals.
+$("#strip").addEventListener("click", (e) => {
+    const chip = e.target?.closest?.("[data-ledger-path]");
+    if (!chip)
+        return;
+    e.stopImmediatePropagation();
+    void openLedgerDrawer(chip.getAttribute("data-ledger-path"), chip.getAttribute("data-ledger-side") ?? "head");
+});
 wireVisualHost($("#strip"), hostWiring);
 void loadPlate();
 listen();

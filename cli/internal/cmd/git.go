@@ -15,6 +15,14 @@ type gitRepo interface {
 	// Show returns the content of path at rev. ok is false when the path
 	// does not exist at that rev (which is an answer, not an error).
 	Show(rev, path string) (content []byte, ok bool, err error)
+	// DiffWorktree is the uncommitted diff (staged + unstaged, HEAD → disk)
+	// as -U0 unified diff text; untracked files are not in it.
+	DiffWorktree() ([]byte, error)
+	// DiffRange is the -U0 unified diff between two revs, renames detected.
+	DiffRange(base, head string) ([]byte, error)
+	// Untracked lists files git does not know, .gitignore respected,
+	// repo-relative.
+	Untracked() ([]string, error)
 }
 
 // realGit shells out to git, anchored at a directory.
@@ -51,6 +59,37 @@ func (g realGit) Head() (string, error) {
 		return "", fmt.Errorf("git rev-parse HEAD: %v: %s", err, errb)
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+func (g realGit) DiffWorktree() ([]byte, error) {
+	out, errb, err := g.run("diff", "-U0", "--no-color", "-M", "HEAD")
+	if err != nil {
+		return nil, errf(CodeLedger, "git diff HEAD failed: %v: %s", err, strings.TrimSpace(string(errb)))
+	}
+	return out, nil
+}
+
+func (g realGit) DiffRange(base, head string) ([]byte, error) {
+	out, errb, err := g.run("diff", "-U0", "--no-color", "-M", base, head)
+	if err != nil {
+		return nil, errf(CodeLedger, "git diff %s %s failed: %v: %s", base, head, err, strings.TrimSpace(string(errb)))
+	}
+	return out, nil
+}
+
+func (g realGit) Untracked() ([]string, error) {
+	out, errb, err := g.run("ls-files", "--others", "--exclude-standard")
+	if err != nil {
+		return nil, errf(CodeLedger, "git ls-files failed: %v: %s", err, strings.TrimSpace(string(errb)))
+	}
+	fields := strings.Split(strings.TrimRight(string(out), "\n"), "\n")
+	var files []string
+	for _, f := range fields {
+		if f != "" {
+			files = append(files, f)
+		}
+	}
+	return files, nil
 }
 
 func (g realGit) Show(rev, path string) ([]byte, bool, error) {

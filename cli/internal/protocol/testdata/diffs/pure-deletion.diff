@@ -1,0 +1,7 @@
+diff --git a/delete-lines.txt b/delete-lines.txt
+index 3c3103c..6caf933 100644
+--- a/delete-lines.txt
++++ b/delete-lines.txt
+@@ -2,2 +1,0 @@ d1
+-d2
+-d3

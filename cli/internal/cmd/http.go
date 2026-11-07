@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gianfrancodemarco/nibble/cli/internal/protocol"
@@ -72,6 +73,7 @@ func (s *apiServer) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/plate", s.servePlate)
 	mux.HandleFunc("GET /api/code", s.serveCode)
+	mux.HandleFunc("GET /api/ledger", s.serveLedger)
 	mux.HandleFunc("POST /api/review", s.serveReview)
 	mux.HandleFunc("GET /api/events", s.serveEvents)
 	ui, err := fs.Sub(uiFS, "ui")
@@ -211,6 +213,7 @@ func (s *apiServer) servePlate(w http.ResponseWriter, r *http.Request) {
 		"open":     p.Open,
 		"total":    p.Total,
 		"review":   p.Review,
+		"ledger":   p.Ledger,
 		"nibbles":  nibbles,
 		"source": map[string]any{
 			"path":  p.Header.Repo,
@@ -230,6 +233,13 @@ func (s *apiServer) servePlate(w http.ResponseWriter, r *http.Request) {
 // --- GET /api/code?n=<N>&ref=<I> ---
 
 const drawerContext = 3
+
+// lineOut is one drawer line: numbered, marked in/out of the shown range.
+type lineOut struct {
+	No   int    `json:"no"`
+	Text string `json:"text"`
+	In   bool   `json:"in"`
+}
 
 func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 	p, err := protocol.ParsePlate(s.plateDir)
@@ -252,11 +262,6 @@ func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err)
 		return
-	}
-	type lineOut struct {
-		No   int    `json:"no"`
-		Text string `json:"text"`
-		In   bool   `json:"in"`
 	}
 	var why string
 	if pref, err := protocol.ParseRef(refs[ri].Ref); err == nil {
@@ -286,6 +291,104 @@ func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 		}
 		out["lines"] = lines
 	}
+	writeJSON(w, out)
+}
+
+// --- GET /api/ledger?file=<path>&side=<head|base> ---
+
+// ledgerHunkRef synthesizes the ref-shaped address of a ledger hunk, so the
+// drawer resolves and degrades exactly like a nibble ref: head-side hunks of
+// a worktree plate read the file on disk, base-side hunks read the recorded
+// base commit, range plates read their two revs through git.
+func ledgerHunkRef(hdr protocol.PlateHeader, h protocol.LedgerHunk) protocol.Ref {
+	ref := protocol.Ref{Path: h.Path, Start: h.Start, End: h.End}
+	switch hdr.About.Kind {
+	case "worktree":
+		if h.Side == "base" {
+			ref.Diff = &protocol.DiffSpec{Base: hdr.HeadSHA, Head: hdr.HeadSHA, Side: "base"}
+		}
+	case "range":
+		base, head, _ := strings.Cut(hdr.About.Range, "..")
+		ref.Diff = &protocol.DiffSpec{Base: base, Head: head, Side: h.Side}
+	}
+	return ref
+}
+
+func (s *apiServer) serveLedger(w http.ResponseWriter, r *http.Request) {
+	p, err := protocol.ParsePlate(s.plateDir)
+	if err != nil {
+		httpError(w, http.StatusConflict, err)
+		return
+	}
+	if p.Ledger == nil {
+		httpError(w, http.StatusNotFound, errf(protocol.CodePlateLedger, "this plate has no ledger"))
+		return
+	}
+	path := r.URL.Query().Get("file")
+	side := r.URL.Query().Get("side")
+	if side == "" {
+		side = "head"
+	}
+	var hunks []protocol.LedgerHunk
+	if side == "head" || side == "base" {
+		for _, h := range p.Ledger.Hunks {
+			if h.Path == path && h.Side == side {
+				hunks = append(hunks, h)
+			}
+		}
+	}
+	if len(hunks) == 0 {
+		httpError(w, http.StatusNotFound, errf(protocol.CodePlateLedger,
+			"the ledger has no %s-side hunks for %q", side, path))
+		return
+	}
+	out := map[string]any{
+		"path": path, "side": side, "hunks": len(hunks),
+		"missing": false, "lines": []lineOut{},
+	}
+	if hunks[0].Binary {
+		out["why"] = "binary file — no lines to show"
+		writeJSON(w, out)
+		return
+	}
+	ref := ledgerHunkRef(p.Header, hunks[0])
+	if why := s.unverifiable(ref); why != "" {
+		out["why"] = "code unavailable — " + why
+		writeJSON(w, out)
+		return
+	}
+	content, err := loadRefContent(s.root, s.git, ref)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if content == nil {
+		out["missing"] = true
+		writeJSON(w, out)
+		return
+	}
+	// One segment of ±drawerContext per hunk, merged where they meet; a line
+	// is in-range when an uncovered hunk holds it — covered hunks show as
+	// plain context. Hunks arrive in diff order.
+	in := func(n int) bool {
+		for _, h := range hunks {
+			if !h.Covered && n >= h.Start && n <= h.End {
+				return true
+			}
+		}
+		return false
+	}
+	var lines []lineOut
+	last := 0
+	for _, h := range hunks {
+		lo := max(max(1, h.Start-drawerContext), last+1)
+		hi := min(len(content.Lines), h.End+drawerContext)
+		for n := lo; n <= hi; n++ {
+			lines = append(lines, lineOut{No: n, Text: content.Lines[n-1], In: in(n)})
+		}
+		last = max(last, hi)
+	}
+	out["lines"] = lines
 	writeJSON(w, out)
 }
 

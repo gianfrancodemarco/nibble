@@ -3,9 +3,11 @@ package cmd
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -515,5 +517,241 @@ func TestGoldenPlateServes(t *testing.T) {
 				t.Errorf("golden ref %q trust = %q, want exact", r.Ref, r.Trust.Level)
 			}
 		}
+	}
+}
+
+// ledgeredFixture builds a sealed worktree plate whose ledger holds two
+// uncovered hunks: a pure deletion in src/prices.ts (base side) and an
+// untracked note.txt (head side); the src/pool.ts edit is covered.
+func ledgeredFixture(t *testing.T) (repo, plate string) {
+	t.Helper()
+	repo = gitInit(t) // uncommitted edit on src/pool.ts line 1
+	writeFile(t, repo, "src/prices.ts", "a\nb\nttl: 3600\ncache.set()\n") // line 5 ("e") deleted
+	writeFile(t, repo, "note.txt", "todo\nnote two\n")
+	visual := writeFile(t, t.TempDir(), "map.json", testMap)
+	ctx := Ctx{Dir: repo, Home: t.TempDir()}
+	code, out, errb := run(t, ctx, "new", "--title", "t", "--about", "worktree")
+	if code != 0 {
+		t.Fatalf("new: %s", errb)
+	}
+	plate = strings.TrimSpace(out)
+	if code, _, errb := run(t, ctx, "add", plate, "--title", "c", "--visual", visual,
+		"--ref", "src/pool.ts:1 @cache the pool"); code != 0 {
+		t.Fatalf("add: %s", errb)
+	}
+	if code, _, errb := run(t, ctx, "done", plate); code != 0 {
+		t.Fatalf("done: %s", errb)
+	}
+	return repo, plate
+}
+
+type apiLedger struct {
+	Shown int `json:"shown"`
+	Total int `json:"total"`
+	Hunks []struct {
+		Path    string `json:"path"`
+		Side    string `json:"side"`
+		Start   int    `json:"start"`
+		End     int    `json:"end"`
+		Added   int    `json:"added"`
+		Removed int    `json:"removed"`
+		Covered bool   `json:"covered"`
+	} `json:"hunks"`
+}
+
+func TestAPILedger(t *testing.T) {
+	_, plate := ledgeredFixture(t)
+	api, err := newAPIServer(plate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(api.handler())
+	defer ts.Close()
+
+	// /api/plate carries the ledger.
+	var p struct {
+		Ledger *apiLedger `json:"ledger"`
+	}
+	getJSON(t, ts.URL+"/api/plate", &p)
+	if p.Ledger == nil || p.Ledger.Shown != 1 || p.Ledger.Total != 3 || len(p.Ledger.Hunks) != 3 {
+		t.Fatalf("plate ledger = %+v", p.Ledger)
+	}
+	if h := p.Ledger.Hunks[0]; h.Path != "src/pool.ts" || !h.Covered {
+		t.Fatalf("hunk 0 = %+v", h)
+	}
+	if h := p.Ledger.Hunks[1]; h.Path != "src/prices.ts" || h.Side != "base" || h.Start != 5 || h.End != 5 || h.Covered {
+		t.Fatalf("hunk 1 = %+v", h)
+	}
+	if h := p.Ledger.Hunks[2]; h.Path != "note.txt" || h.Side != "head" || h.Start != 1 || h.End != 2 || h.Covered {
+		t.Fatalf("hunk 2 = %+v", h)
+	}
+
+	// A base-side file serves the removed line from the recorded base rev.
+	var c apiCode
+	if status := getJSON(t, ts.URL+"/api/ledger?file=src/prices.ts&side=base", &c); status != 200 {
+		t.Fatalf("ledger prices.ts base: %d", status)
+	}
+	if c.Path != "src/prices.ts" || len(c.Lines) == 0 {
+		t.Fatalf("prices.ts drawer = %+v", c)
+	}
+	var inText []string
+	for _, l := range c.Lines {
+		if l.In {
+			inText = append(inText, l.Text)
+		}
+	}
+	if len(inText) != 1 || inText[0] != "e" {
+		t.Fatalf("prices.ts in-range lines = %v, want the deleted \"e\"", inText)
+	}
+
+	// A head-side file serves from the worktree; side defaults to head.
+	if status := getJSON(t, ts.URL+"/api/ledger?file=note.txt", &c); status != 200 {
+		t.Fatalf("ledger note.txt: %d", status)
+	}
+	if c.Path != "note.txt" || len(c.Lines) != 2 || !c.Lines[0].In || c.Lines[0].Text != "todo" {
+		t.Fatalf("note.txt drawer = %+v", c)
+	}
+
+	// A fully covered file still serves, with nothing marked in-range.
+	if status := getJSON(t, ts.URL+"/api/ledger?file=src/pool.ts", &c); status != 200 {
+		t.Fatalf("covered file: %d, want 200", status)
+	}
+	if len(c.Lines) == 0 {
+		t.Fatalf("covered file served no lines: %+v", c)
+	}
+	for _, l := range c.Lines {
+		if l.In {
+			t.Fatalf("covered file has an in-range line: %+v", c.Lines)
+		}
+	}
+
+	// A file the ledger has no hunks for, or a side it has none on → 404.
+	var e map[string]any
+	if status := getJSON(t, ts.URL+"/api/ledger?file=unrelated.ts", &e); status != 404 {
+		t.Fatalf("unknown file: %d, want 404", status)
+	}
+	if status := getJSON(t, ts.URL+"/api/ledger?file=note.txt&side=base", &e); status != 404 {
+		t.Fatalf("wrong side: %d, want 404", status)
+	}
+	if status := getJSON(t, ts.URL+"/api/ledger?file=note.txt&side=up", &e); status != 404 {
+		t.Fatalf("unknown side: %d, want 404", status)
+	}
+}
+
+// TestAPILedgerFileSegments: a file with two distant uncovered hunks is one
+// ledger entry whose code view holds both hunks' segments, hunk lines marked,
+// with the stretch between them left out.
+func TestAPILedgerFileSegments(t *testing.T) {
+	repo := gitInit(t)
+	git := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t",
+			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	long := make([]string, 25)
+	for i := range long {
+		long[i] = fmt.Sprintf("line %d", i+1)
+	}
+	writeFile(t, repo, "src/long.ts", strings.Join(long, "\n")+"\n")
+	git("add", "src/long.ts")
+	git("commit", "-q", "-m", "long")
+	long[1] = "line 2 changed"
+	long[19] = "line 20 changed"
+	writeFile(t, repo, "src/long.ts", strings.Join(long, "\n")+"\n")
+
+	visual := writeFile(t, t.TempDir(), "map.json", testMap)
+	ctx := Ctx{Dir: repo, Home: t.TempDir()}
+	code, out, errb := run(t, ctx, "new", "--title", "t", "--about", "worktree")
+	if code != 0 {
+		t.Fatalf("new: %s", errb)
+	}
+	plate := strings.TrimSpace(out)
+	if code, _, errb := run(t, ctx, "add", plate, "--title", "c", "--visual", visual,
+		"--ref", "src/pool.ts:1 @cache the pool"); code != 0 {
+		t.Fatalf("add: %s", errb)
+	}
+	if code, _, errb := run(t, ctx, "done", plate); code != 0 {
+		t.Fatalf("done: %s", errb)
+	}
+
+	api, err := newAPIServer(plate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(api.handler())
+	defer ts.Close()
+
+	var c apiCode
+	if status := getJSON(t, ts.URL+"/api/ledger?file=src/long.ts", &c); status != 200 {
+		t.Fatalf("ledger long.ts: %d", status)
+	}
+	var nos []int
+	var inNos []int
+	for _, l := range c.Lines {
+		nos = append(nos, l.No)
+		if l.In {
+			inNos = append(inNos, l.No)
+		}
+	}
+	want := []int{1, 2, 3, 4, 5, 17, 18, 19, 20, 21, 22, 23}
+	if fmt.Sprint(nos) != fmt.Sprint(want) {
+		t.Fatalf("segment lines = %v, want %v", nos, want)
+	}
+	if fmt.Sprint(inNos) != fmt.Sprint([]int{2, 20}) {
+		t.Fatalf("in-range lines = %v, want [2 20]", inNos)
+	}
+}
+
+func TestAPILedgerAbsent(t *testing.T) {
+	_, _, ts := apiFixture(t) // a code plate: no ledger at all
+	var p struct {
+		Ledger *apiLedger `json:"ledger"`
+	}
+	getJSON(t, ts.URL+"/api/plate", &p)
+	if p.Ledger != nil {
+		t.Fatalf("code plate serves a ledger: %+v", p.Ledger)
+	}
+	var e map[string]any
+	if status := getJSON(t, ts.URL+"/api/ledger?file=note.txt", &e); status != 404 {
+		t.Fatalf("ledger endpoint without a ledger: %d, want 404", status)
+	}
+}
+
+func TestAPILedgerDegraded(t *testing.T) {
+	// Detach the plate from git: a plain directory serves head-side hunks
+	// from the files and answers base-side hunks with a reason.
+	repo, plate := ledgeredFixture(t)
+	snap := filepath.Join(filepath.Dir(plate), "snapshot")
+	copyTree(t, repo, snap)
+	if err := os.RemoveAll(filepath.Join(snap, ".git")); err != nil {
+		t.Fatal(err)
+	}
+	setPlateRepo(t, plate, snap)
+	api, err := newAPIServer(plate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(api.handler())
+	defer ts.Close()
+
+	var cw struct {
+		Why   string `json:"why"`
+		Lines []any  `json:"lines"`
+	}
+	if status := getJSON(t, ts.URL+"/api/ledger?file=src/prices.ts&side=base", &cw); status != 200 {
+		t.Fatalf("base file without git: %d", status)
+	}
+	if cw.Why == "" || len(cw.Lines) != 0 {
+		t.Fatalf("base file without git = %+v, want a why and no lines", cw)
+	}
+	var c apiCode
+	getJSON(t, ts.URL+"/api/ledger?file=note.txt", &c)
+	if len(c.Lines) != 2 || c.Lines[0].Text != "todo" {
+		t.Fatalf("head file from plain files = %+v", c)
 	}
 }
