@@ -187,6 +187,93 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: v
   .caption { font-size: 15.5px; }
 }
 
+/* nibble card: visual left, lateral bar right (the shipped reader layout) */
+.ncard { display: flex; align-items: stretch; }
+.ncard .nvis { flex: 1 1 auto; min-width: 0; padding: 20px; background:
+  radial-gradient(circle, var(--grid) 1px, transparent 1.2px) 0 0 / 22px 22px, var(--surface); }
+.ncard .nvis svg { display: block; width: 100%; height: auto; }
+.ncard .nbar { flex: 0 0 280px; border-left: 1px solid var(--border); padding: 20px 18px; }
+.nbar .nn { font-size: 11.5px; color: var(--accent); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.nbar .nt { font-size: 16.5px; line-height: 1.45; margin: 6px 0 0; }
+.nbar .nd { font-size: 13.5px; color: var(--muted); line-height: 1.55; margin: 10px 0 0; }
+@media (max-width: 760px) { .ncard { flex-direction: column; } .ncard .nbar { border-left: 0; border-top: 1px solid var(--border); flex-basis: auto; } }
+
+/* the plate: the whole window — description, legend, strip, review bar */
+.nbar mark, .pbar mark { background: var(--lit); box-shadow: inset 0 -2px 0 var(--lit-edge); color: inherit; border-radius: 3px; padding: 0 2px; }
+.pdesc { padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--muted); }
+.platewrap { display: flex; }
+.plegend { flex: none; border-right: 1px solid var(--border); padding: 14px 10px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.pcanvas { flex: 1; min-width: 0; overflow: hidden; padding: 22px 0; background: var(--bg); }
+.platestrip { display: flex; gap: 18px; will-change: transform; transition: transform .45s cubic-bezier(.22, 1, .36, 1); }
+@media (prefers-reduced-motion: reduce) { .platestrip { transition: none; } }
+.pcard { flex: 0 0 72%; display: flex; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; opacity: .45; transform: scale(.96); transition: opacity .3s, transform .3s, border-color .3s; cursor: pointer; }
+.pcard.on { opacity: 1; transform: none; border-color: var(--accent); cursor: default; }
+.pcard .pvis { flex: 1 1 auto; min-width: 0; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: radial-gradient(circle, var(--grid) 1px, transparent 1.2px) 0 0 / 22px 22px, var(--surface); }
+.pcard .pvis svg { display: block; width: 100%; height: auto; }
+.pcard .pbar { flex: 0 0 190px; border-left: 1px solid var(--border); padding-left: 14px; }
+.pbar .nn { font-size: 10.5px; color: var(--accent); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.pbar .nt { font-size: 14px; line-height: 1.45; margin: 5px 0 0; }
+.pbar .nd { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 8px 0 0; }
+.pvis .pn rect { fill: var(--surface); stroke: var(--border); stroke-width: 1.5; }
+.pvis .pn text { fill: var(--text); font: 600 12px Inter, sans-serif; }
+.pvis .psub { fill: var(--muted); font: 400 10px "JetBrains Mono", monospace; }
+.pvis .pnum { fill: var(--text); font: 700 12px "JetBrains Mono", monospace; text-anchor: end; }
+.pvis .pe { stroke: var(--muted); fill: none; stroke-width: 1.5; }
+.pvis .pe.warn { stroke: var(--warn); stroke-dasharray: 5 4; }
+.prevu { border-top: 1px solid var(--border); padding: 10px 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.ppin { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; display: inline-flex; gap: 6px; align-items: center; }
+.ppin b { color: var(--sel); font-family: "JetBrains Mono", monospace; font-weight: 600; }
+.ppin .px { color: var(--muted); }
+.pinput { flex: 1 1 180px; min-width: 140px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); padding: 7px 10px; color: var(--muted); }
+@media (max-width: 760px) { .pcard { flex-direction: column; } .pcard .pbar { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 10px; flex-basis: auto; } .plegend { display: none; } }
+
+/* detail dial: overview draws less of the same picture; nothing moves */
+#dialwin [data-lvl] { transition: opacity .25s; }
+#dialwin.ov [data-lvl="standard"] { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { #dialwin [data-lvl] { transition: none; } }
+
+/* blast radius: three ring zones, badges on unvisited dependents */
+.ring .zone rect { fill: none; stroke: var(--border); stroke-width: 1.5; }
+.ring .zone.rest rect { stroke-dasharray: 2 6; }
+.ring .zone.dependent rect { stroke-dasharray: 8 6; }
+.ring .zone.changed rect { fill: var(--accent-soft); stroke: var(--accent); }
+.ring .zlabel { fill: var(--muted); font: 700 10.5px Inter, sans-serif; letter-spacing: .07em; text-transform: uppercase; }
+.ring .zone.changed .zlabel { fill: var(--accent); }
+.ring .zcount { fill: var(--accent); font: 500 11.5px "JetBrains Mono", monospace; }
+.ring .zcount.done { fill: var(--ok); }
+.ring .node text { font: 500 12.5px "JetBrains Mono", monospace; }
+.ring .node.unv rect { stroke: var(--accent); stroke-dasharray: 5 4; }
+.ring .vbadge { fill: var(--accent); stroke: var(--surface); stroke-width: 1.5; }
+.ring .node:not(.unv) .vbadge { display: none; }
+.ring .edge { opacity: .6; }
+
+/* not-shown ledger: the diff as a tree, shown badges, lg-meta per row */
+.lg-count { margin: 0 0 14px; font-size: 14px; color: var(--muted); }
+.lg-dirname { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--muted); margin: 8px 0 2px; }
+.lg-dir { margin-left: 16px; }
+.lg-file { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 6px 10px; margin: 4px 0; font-size: 12px; color: var(--muted); cursor: pointer; }
+.lg-file:hover { border-color: var(--accent); }
+.lg-file.sel { border-color: var(--accent); background: var(--accent-soft); }
+.lg-path { font-family: "JetBrains Mono", monospace; font-size: 13px; color: var(--text); }
+.lg-badge { font-size: 10.5px; border: 1px solid var(--border); border-radius: 999px; padding: 0 7px; white-space: nowrap; }
+.lg-badge.covered { color: var(--ok); border-color: var(--ok); }
+.lg-meta { margin-left: auto; white-space: nowrap; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+.trust.unv { color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent); }
+.ln.gap { color: var(--muted); }
+
+/* streaming: mini cards slide into the strip while the agent writes */
+.livestrip { display: flex; gap: 14px; padding: 22px; overflow-x: auto; background:
+  radial-gradient(circle, var(--grid) 1px, transparent 1.2px) 0 0 / 22px 22px, var(--surface); }
+.mcard { flex: 0 0 210px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; transition: transform .45s ease, opacity .45s ease; }
+.mcard.active { border-color: var(--sel); }
+.mcard.in { transform: translateX(26px); opacity: 0; }
+.mcard .mk { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--accent); }
+.mcard p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+.mcard svg { width: 100%; height: 56px; background: var(--surface-2); border-radius: 6px; display: block; margin-bottom: 8px; }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 6px; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .pulse { animation: none; } .mcard { transition: none; } }
+
 .layout { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 44px; align-items: start; margin-top: 18px; }
 .layout > .content { min-width: 0; }
 aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
@@ -228,7 +315,7 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
   <a href="mockups.html" aria-current="page">Mockups</a>
 </aside>
 <div class="content">
-<p class="lede">Design mockups v0.2. Picture first, prose last: the agent's explanation becomes an interactive model of your code, served in small nibbles. Section 02 is live, so try it.</p>
+<p class="lede">Design mockups v0.2. Picture first, prose last: the agent's explanation becomes an interactive model of your code, served in small nibbles. Sections 02–03 and 05–08 are live, so try them.</p>
 
 <section>
   <h2>Opinions</h2>
@@ -348,7 +435,101 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 </section>
 
 <section>
-  <h2>03 · Visual vocabulary</h2>
+  <h2>03 · The plate (live)</h2>
+  <h3>The whole window, not one card</h3>
+  <p class="note">Everything else on this page zooms into one card. The plate is the whole window: its own title and levelled description up top, the keyboard legend on the left, and one strip of cards the camera glides across — neighbours stay in sight, so moving is a <b>camera move, not a page swap</b>. The stepper, the dial and the review bar frame every card. <b>Use ← →</b>, or click a neighbour.</p>
+  <div class="win">
+    <div class="chrome">
+      <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="title">Why checkout slows down every hour</div>
+      <div class="rail" id="pRail" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
+      <div class="meta">code · 79e700f</div>
+    </div>
+    <div class="pdesc">Checkout p99 jumps to 4.2 s on the hour. The cause is one flat cache TTL — and the fix is one line of jitter.</div>
+    <div class="platewrap">
+      <div class="plegend" aria-hidden="true"><kbd>←→</kbd><kbd>⎵</kbd><kbd>d</kbd><kbd>⏎</kbd><kbd>s</kbd><kbd>?</kbd></div>
+      <div class="pcanvas" id="pCanvas">
+        <div class="platestrip" id="pStrip">
+          <div class="pcard on">
+            <div class="pvis">
+              <svg viewBox="0 0 440 150" aria-hidden="true">
+                <path class="pe" d="M118 75 H168"/><path class="pe warn" d="M286 75 H336"/>
+                <g class="pn"><rect x="14" y="52" width="104" height="46" rx="9"/><text x="28" y="72">checkout-api</text><text class="psub" x="28" y="88">api/checkout.ts</text></g>
+                <g class="pn"><rect x="168" y="52" width="118" height="46" rx="9"/><text x="182" y="72">price cache</text><text class="psub" x="182" y="88">ttl 3600s</text></g>
+                <g class="pn"><rect x="336" y="52" width="92" height="46" rx="9"/><text x="350" y="72">postgres</text><text class="psub" x="350" y="88">pool 20</text></g>
+              </svg>
+            </div>
+            <aside class="pbar">
+              <span class="nn">Nibble 1</span>
+              <p class="nt">One <span class="mono">getPrice</span> call touches three things; the <mark>cache</mark> is where the trouble starts.</p>
+              <p class="nd">Misses go straight through to the shared 20-connection pool.</p>
+            </aside>
+          </div>
+          <div class="pcard">
+            <div class="pvis">
+              <svg viewBox="0 0 440 150" aria-hidden="true">
+                <path d="M20 120 H420" stroke="var(--border)" stroke-width="1.5"/>
+                <path d="M20 66 H420" stroke="var(--warn)" stroke-dasharray="4 4" opacity=".6"/>
+                <text class="psub" x="352" y="60" style="fill:var(--warn)">pool limit</text>
+                <rect x="60" y="104" width="8" height="16" fill="var(--accent)" opacity=".45"/>
+                <rect x="100" y="106" width="8" height="14" fill="var(--accent)" opacity=".45"/>
+                <rect x="140" y="103" width="8" height="17" fill="var(--accent)" opacity=".45"/>
+                <rect x="208" y="28" width="8" height="92" fill="var(--warn)"/>
+                <rect x="260" y="105" width="8" height="15" fill="var(--accent)" opacity=".45"/>
+                <rect x="310" y="104" width="8" height="16" fill="var(--accent)" opacity=".45"/>
+                <rect x="360" y="106" width="8" height="14" fill="var(--accent)" opacity=".45"/>
+                <line x1="212" y1="18" x2="212" y2="126" stroke="var(--text)" stroke-width="1.5"/>
+                <text class="psub" x="198" y="140">12:00</text>
+              </svg>
+            </div>
+            <aside class="pbar">
+              <span class="nn">Nibble 2</span>
+              <p class="nt">Every cached price expires <mark>on the hour</mark>, so every miss hits Postgres in the same second.</p>
+              <p class="nd">41 keys die together; the misses race the 20-connection pool.</p>
+            </aside>
+          </div>
+          <div class="pcard">
+            <div class="pvis">
+              <svg viewBox="0 0 440 150" aria-hidden="true">
+                <g class="pn"><rect x="16" y="18" width="195" height="114" rx="9"/><text x="30" y="40">today</text></g>
+                <text class="psub" x="30" y="66">p99 checkout</text><text class="pnum" x="196" y="66">4.2 s</text>
+                <text class="psub" x="30" y="90">db queries @ 12:00</text><text class="pnum" x="196" y="90">847/s</text>
+                <text class="psub" x="30" y="114">carts dropped</text><text class="pnum" x="196" y="114">31/h</text>
+                <g class="pn"><rect x="229" y="18" width="195" height="114" rx="9" style="stroke:var(--accent)"/><text x="243" y="40">with jitter</text></g>
+                <text class="psub" x="243" y="66">p99 checkout</text><text class="pnum" x="409" y="66">0.26 s</text>
+                <text class="psub" x="243" y="90">db queries @ 12:00</text><text class="pnum" x="409" y="90">75/s</text>
+                <text class="psub" x="243" y="114">carts dropped</text><text class="pnum" x="409" y="114">0/h</text>
+              </svg>
+            </div>
+            <aside class="pbar">
+              <span class="nn">Nibble 3</span>
+              <p class="nt">Jitter spreads the expiries; the spike becomes a <mark>plateau</mark>.</p>
+              <p class="nd"><span class="mono">ttl: 3600 + jitter(600)</span> — same picture, no stampede.</p>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="controls" style="justify-content:center">
+      <button class="play" id="pPrev" type="button" aria-label="previous nibble">←</button>
+      <span class="clock" id="pPos" style="min-width:48px;text-align:center">1 / 3</span>
+      <button class="play" id="pNext" type="button" aria-label="next nibble">→</button>
+      <span class="seg" role="group" aria-label="detail dial">
+        <button type="button" aria-pressed="false">overview</button>
+        <button type="button" aria-pressed="true">standard</button>
+      </span>
+    </div>
+    <div class="prevu">
+      <span class="ppin"><b>n2:cache</b> Why not refresh-ahead? <span class="px">×</span></span>
+      <span class="pinput">comment on this nibble…</span>
+      <span class="b" id="pPinBtn">pin to n1</span>
+      <span class="b primary">send 1 comment</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>04 · Visual vocabulary</h2>
   <h3>Seven kinds, each with built-in interactions</h3>
   <p class="note">The agent writes structure as JSON, and nibble draws it and wires up the controls. P0 kinds ship in the MVP.</p>
   <div class="gallery">
@@ -413,7 +594,172 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 </section>
 
 <section>
-  <h2>04 · Comment</h2>
+  <h2>05 · Detail dial (live)</h2>
+  <h3>Same picture, drawing less</h3>
+  <p class="note">Every plate reads at two depths — <b>overview</b> to decide whether to care, <b>standard</b> to read everything (deep arrives in v0.2). <b>Flip the dial</b>: elements marked standard fade out, but nothing moves — the overview is the same picture drawing less, so what you located at a skim stays exactly where it was. Prose follows the dial too: the description swaps between the skim text and the fuller story. In the reader, <kbd>d</kbd> flips it; a selection that isn't drawn at overview falls back to the whole nibble.</p>
+  <div class="win" id="dialwin">
+    <div class="chrome">
+      <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="title">Why checkout slows down every hour</div>
+      <div class="rail" aria-label="nibble 2 of 4"><i class="read"></i><i class="on"></i><i></i><i></i></div>
+      <div class="meta">2 / 4 · main@4f2a91c</div>
+    </div>
+    <div class="ncard">
+      <div class="nvis">
+        <svg viewBox="0 0 580 290" role="img" aria-label="Service map: three boxes always drawn, two more plus their edges only at standard">
+          <path class="edge" d="M174 67 H234" stroke-width="2"/>
+          <text class="elabel" x="177" y="56">getPrice</text>
+          <path class="edge" d="M384 67 H444" stroke-width="2"/>
+          <text class="elabel" x="398" y="56">miss</text>
+          <g data-lvl="standard">
+            <path class="edge" d="M309 200 V98" stroke-width="2"/>
+            <text class="elabel" x="316" y="155">warms</text>
+            <path class="edge" d="M95 98 V200" stroke-width="2"/>
+            <text class="elabel" x="102" y="155">emit</text>
+          </g>
+          <g class="node"><rect x="16" y="36" width="158" height="62" rx="12"/><text x="30" y="62">checkout-api</text><text class="sub" x="30" y="82">src/api/checkout.ts</text></g>
+          <g class="node"><rect x="234" y="36" width="150" height="62" rx="12"/><text x="248" y="62">price cache</text><text class="sub" x="248" y="82">ttl 3600s</text></g>
+          <g class="node"><rect x="444" y="36" width="120" height="62" rx="12"/><text x="458" y="62">postgres</text><text class="sub" x="458" y="82">pool 20</text></g>
+          <g class="node" data-lvl="standard"><rect x="234" y="200" width="150" height="62" rx="12"/><text x="248" y="226">sku-sync</text><text class="sub" x="248" y="246">cron hourly</text></g>
+          <g class="node" data-lvl="standard"><rect x="16" y="200" width="158" height="62" rx="12"/><text x="30" y="226">metrics</text><text class="sub" x="30" y="246">p95 checkout</text></g>
+        </svg>
+      </div>
+      <aside class="nbar">
+        <span class="nn">Nibble 2</span>
+        <p class="nt">Every cached price expires <mark>on the hour</mark>, so every miss hits Postgres in the same second.</p>
+        <p class="nd" id="dialDesc">Every cache.set uses the same ttl: 3600, so keys written all through the hour expire together at the top of it. The misses stampede Postgres as one, and sku-sync makes it worse by rewriting every key on its hourly cron.</p>
+      </aside>
+    </div>
+    <div class="controls">
+      <span class="seg" role="group" aria-label="detail dial">
+        <button type="button" id="dOv" aria-pressed="false">overview</button>
+        <button type="button" id="dStd" aria-pressed="true">standard</button>
+      </span>
+      <span style="font-size:12.5px;color:var(--muted)">in the reader: <kbd>d</kbd> · budgets 100 / 250 chars per description</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>06 · Blast radius (live)</h2>
+  <h3>The whole PR in three rings</h3>
+  <p class="note">A PR plate opens with a ringed map, read inside-out: what <b>changed</b>, the <b>dependents</b> that didn't change but rely on it, and the <b>rest</b> for orientation. Every dependent you haven't looked at carries a badge — <b>click the three badged files</b> and the counter ticks down to done. The count lives in this tab only: nothing about what you did or didn't open is ever sent.</p>
+  <div class="win">
+    <div class="chrome">
+      <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="title">Spread cache expiry with TTL jitter</div>
+      <div class="rail" aria-label="nibble 1 of 5"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+      <div class="meta">1 / 5 · pr #12</div>
+    </div>
+    <div class="stage">
+      <svg class="ring" id="ringsvg" viewBox="0 0 900 416" role="img" aria-label="Ring map: two changed files in the centre, three dependents around them, the rest outside">
+        <g class="zone rest"><rect x="20" y="12" width="860" height="392" rx="14"/><text class="zlabel" x="34" y="32">rest</text></g>
+        <g class="zone dependent"><rect x="90" y="96" width="720" height="240" rx="14"/><text class="zlabel" x="104" y="116">dependents</text><text class="zcount" id="zcount" x="796" y="116" text-anchor="end">3 of 3 unvisited</text></g>
+        <g class="zone changed"><rect x="240" y="174" width="420" height="92" rx="12"/><text class="zlabel" x="254" y="193">changed</text></g>
+        <path class="edge" d="M337 162 C337 182 342 182 342 202" stroke-width="1.5"/>
+        <path class="edge" d="M562 162 C562 182 557 182 557 202" stroke-width="1.5"/>
+        <path class="edge" d="M450 280 C450 262 342 268 342 246" stroke-width="1.5"/>
+        <g class="node"><rect x="355" y="36" width="190" height="44" rx="10"/><text x="371" y="63">src/metrics/latency.ts</text></g>
+        <g class="node dep unv" tabindex="0" role="button" aria-label="src/api/checkout.ts — not looked at yet"><rect x="250" y="118" width="175" height="44" rx="10"/><text x="266" y="145">src/api/checkout.ts</text><circle class="vbadge" cx="425" cy="118" r="5.5"/></g>
+        <g class="node dep unv" tabindex="0" role="button" aria-label="test/prices.test.ts — not looked at yet"><rect x="475" y="118" width="175" height="44" rx="10"/><text x="491" y="145">test/prices.test.ts</text><circle class="vbadge" cx="650" cy="118" r="5.5"/></g>
+        <g class="node"><rect x="255" y="202" width="175" height="44" rx="10"/><text x="271" y="229">src/cache/prices.ts</text></g>
+        <g class="node"><rect x="470" y="202" width="175" height="44" rx="10"/><text x="486" y="229">src/cache/jitter.ts</text></g>
+        <g class="node dep unv" tabindex="0" role="button" aria-label="src/workers/pricing.ts — not looked at yet"><rect x="355" y="280" width="190" height="44" rx="10"/><text x="371" y="307">src/workers/pricing.ts</text><circle class="vbadge" cx="545" cy="280" r="5.5"/></g>
+        <g class="node"><rect x="400" y="348" width="100" height="44" rx="10"/><text x="416" y="375">README.md</text></g>
+      </svg>
+    </div>
+    <div class="caption">
+      <span class="k">Nibble 1</span>
+      <span>Two cache files changed; <mark>three dependents</mark> call them. Visit all three before you call it done.</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>07 · Not-shown ledger (live)</h2>
+  <h3>What the walkthrough never showed</h3>
+  <p class="note">A diff plate ends with one more card: every changed file of the diff as a tree, computed by nibble from git — never by the agent — so the walkthrough cannot quietly skip anything. Covered files carry a <b>shown</b> badge; the rest spell out their unshown line ranges. <b>Click a file</b> to read its hunks in the drawer — the never-shown lines highlighted, gaps elided, removed code as it was on the base side — and comment on it like anything else: the target reaches the agent as <span class="mono">ledger:path</span>.</p>
+  <div class="win" id="ledgerwin">
+    <div class="chrome">
+      <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="title">Spread cache expiry with TTL jitter</div>
+      <div class="rail" aria-label="ledger card, after 4 nibbles"><i class="read"></i><i class="read"></i><i class="read"></i><i class="read"></i><i class="on"></i></div>
+      <div class="meta">5 / 5 · pr #12</div>
+    </div>
+    <div class="ncard">
+      <div class="nvis">
+        <p class="lg-count">4 of 8 hunks never came up — worth a look before you answer</p>
+        <div class="lg-dirname">src/</div>
+        <div class="lg-dir">
+          <div class="lg-dirname">api/</div>
+          <div class="lg-dir">
+            <div class="lg-file" data-an="src/api/checkout.ts" role="button" tabindex="0"><span class="lg-path">checkout.ts</span><span class="lg-badge">1/2 shown</span><span class="lg-meta">head 52–55 · +22 −6</span><button class="mini" type="button">&lt;/&gt;</button></div>
+          </div>
+          <div class="lg-dirname">cache/</div>
+          <div class="lg-dir">
+            <div class="lg-file" data-an="src/cache/jitter.ts" role="button" tabindex="0"><span class="lg-path">jitter.ts</span><span class="lg-badge covered">shown</span><span class="lg-meta">head · +31 −0</span><button class="mini" type="button">&lt;/&gt;</button></div>
+            <div class="lg-file" data-an="src/cache/prices.ts" role="button" tabindex="0"><span class="lg-path">prices.ts</span><span class="lg-badge covered">shown</span><span class="lg-meta">head · +18 −2</span><button class="mini" type="button">&lt;/&gt;</button></div>
+          </div>
+          <div class="lg-dirname">db/</div>
+          <div class="lg-dir">
+            <div class="lg-file" data-an="src/db/pool.ts" role="button" tabindex="0"><span class="lg-path">pool.ts</span><span class="lg-meta">head 12–15, 31–34 · +9 −3</span><button class="mini" type="button">&lt;/&gt;</button></div>
+          </div>
+          <div class="lg-dirname">legacy/</div>
+          <div class="lg-dir">
+            <div class="lg-file" data-an="src/legacy/discount.ts#base" role="button" tabindex="0"><span class="lg-path">discount.ts (deleted lines)</span><span class="lg-meta">base 5–44 · +0 −40</span><button class="mini" type="button">&lt;/&gt;</button></div>
+          </div>
+        </div>
+      </div>
+      <aside class="nbar">
+        <span class="nn">Not-shown ledger</span>
+        <p class="nt">What this walkthrough never showed — the rest of the diff, open to comments.</p>
+        <p class="nd">comment target: <b class="mono" id="lgTarget" style="color:var(--text);font-weight:500">ledger</b></p>
+        <p class="nd">A fully covered diff still shows the card, saying so.</p>
+      </aside>
+    </div>
+    <div class="drawer">
+      <div class="drawer-head">
+        <span>▾</span><b id="lgFile">src/db/pool.ts</b><span class="trust unv" id="lgSide">not shown · head</span>
+        <span id="lgNote">no nibble referenced the highlighted lines</span>
+        <span class="sp"></span><button class="mini" type="button">Comment <kbd>c</kbd></button>
+      </div>
+      <div class="code" id="lgCode"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>08 · Streaming (live)</h2>
+  <h3>Nibbles arrive while you read</h3>
+  <p class="note">A plate opens as soon as its first nibble lands, and the agent keeps writing. New cards <b>slide into the end of the strip</b> — the camera never moves, the count stays honest — and when the agent seals the plate, the ledger card arrives last. <b>Press the button</b> to watch.</p>
+  <div class="win">
+    <div class="chrome">
+      <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="title">Spread cache expiry with TTL jitter</div>
+      <div class="rail" id="liveRail" aria-hidden="true"><i class="read"></i><i class="on"></i></div>
+      <div class="meta" id="liveMeta"><span class="pulse"></span>2 nibbles · still being written</div>
+    </div>
+    <div class="livestrip" id="livestrip">
+      <div class="mcard">
+        <svg viewBox="0 0 180 56" aria-hidden="true"><rect class="g-box" x="18" y="20" width="36" height="16" rx="4"/><rect class="g-box" x="72" y="20" width="36" height="16" rx="4" style="stroke:var(--accent);stroke-width:2"/><rect class="g-box" x="126" y="20" width="36" height="16" rx="4"/><path class="g-line" d="M54 28h18M108 28h18"/></svg>
+        <span class="mk">map · nibble 1</span>
+        <p>The change in three rings: two cache files, three dependents.</p>
+      </div>
+      <div class="mcard active">
+        <svg viewBox="0 0 180 56" aria-hidden="true"><path class="g-line" d="M14 44H166"/><rect x="30" y="34" width="6" height="10" class="g-acc" opacity=".5"/><rect x="60" y="34" width="6" height="10" class="g-acc" opacity=".5"/><rect x="92" y="12" width="6" height="32" class="g-warn"/><rect x="130" y="34" width="6" height="10" class="g-acc" opacity=".5"/></svg>
+        <span class="mk">timeline · nibble 2</span>
+        <p>Expiries spread over ten minutes; the spike stays under the pool limit.</p>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="chipbtn" id="arrive" type="button">a nibble arrives</button>
+      <span style="font-size:12.5px;color:var(--muted)">arrivals never steal the camera — you keep reading</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>09 · Comment</h2>
   <h3>Disagree on the thing itself</h3>
   <p class="note">Select a node, an edge, a moment on the timeline or a line of code, and press <kbd>c</kbd>. <b>Ask now</b> ends the agent's wait with a question; <b>Hold for review</b> keeps it until you submit.</p>
   <div class="win comment-stage">
@@ -439,13 +785,13 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 </section>
 
 <section>
-  <h2>05 · Submit</h2>
+  <h2>10 · Submit</h2>
   <h3>The review, with thumbnails</h3>
   <p class="note">Every comment shows a crop of what it is pinned to, so you and the agent are looking at the same thing.</p>
   <div class="desk">
     <div class="sheet">
       <h4>Send review to Claude Code</h4>
-      <div class="sub">4 nibbles explored · 9 interactions · 2 comments</div>
+      <div class="sub">4 nibbles explored · 9 interactions · 3 comments</div>
       <div class="cm-item">
         <svg viewBox="0 0 54 38" aria-hidden="true"><rect x="10" y="10" width="34" height="18" rx="4" fill="none" stroke="var(--sel)" stroke-width="2"/></svg>
         <div><div class="where">nibble 2 · node price cache @ 12:00:00 <span class="trust ok">exact</span></div>
@@ -456,20 +802,20 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
         <div><div class="where">nibble 3 · src/db/pool.ts:12 <span class="trust shift">shifted +3</span></div>
         <p>Pool size is 40 since last week, so this chart's limit line is wrong.</p></div>
       </div>
-      <div class="verdicts">
-        <div class="v">Approve<small>go ahead</small></div>
-        <div class="v on">Changes<small>address comments</small></div>
-        <div class="v">Discuss<small>answer first</small></div>
+      <div class="cm-item">
+        <svg viewBox="0 0 54 38" aria-hidden="true"><rect x="8" y="8" width="38" height="5" rx="2" fill="var(--muted)" opacity=".4"/><rect x="8" y="17" width="38" height="5" rx="2" fill="var(--warn)"/><rect x="8" y="26" width="28" height="5" rx="2" fill="var(--muted)" opacity=".4"/></svg>
+        <div><div class="where">ledger:src/legacy/discount.ts#base <span class="trust unv">never shown</span></div>
+        <p>The whole discount module is deleted and no nibble mentions it — intentional?</p></div>
       </div>
       <div style="display:flex;justify-content:flex-end;gap:8px">
-        <span class="b">Cancel</span><span class="b primary">Send <small>⌘↵</small></span>
+        <span class="b">Cancel</span><span class="b primary">Send 3 comments <small>⌘↵</small></span>
       </div>
     </div>
   </div>
 </section>
 
 <section>
-  <h2>06 · Agent side</h2>
+  <h2>11 · Agent side</h2>
   <h3>Strict in, structured out</h3>
   <p class="note">The CLI enforces the opinions with fix-it messages. The blocked <span class="mono">nibble serve</span> exits with the review.</p>
 <pre class="term"><span class="p">$</span> nibble add $P --title "…" --ref "src/cache/prices.ts:43-45 @cache"
@@ -479,15 +825,26 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 <span class="p">$</span> nibble add $P --title "Every cached price expires on the hour…" \
     --visual stampede.json --ref "src/cache/prices.ts:43-45 @cache"
 <span class="g">✓ nibble 2 added (timeline, 3 nodes, 1 control)</span>
+<span class="p">$</span> nibble done $P --check   <span class="d"># a diff plate: the ledger, before sealing</span>
+<span class="y">ledger: 4 of 8 hunks not shown</span>
+<span class="d">  src/db/pool.ts:12-15 (+4 −1, head)
+  src/db/pool.ts:31-34 (+5 −2, head)
+  src/legacy/discount.ts:5-44 (+0 −40, base)
+  …</span>
+<span class="p">$</span> nibble done $P           <span class="d"># cover them, or the ledger card discloses them</span>
+<span class="g">✓ sealed at 4 nibbles</span>
 <span class="p">$</span> nibble serve $P      <span class="d"># blocked until you answer</span>
 
-<span class="g">verdict: changes</span>   <span class="d">(exit 2)</span>
+<span class="g">comments: 3</span>   <span class="d">(exit 2 — none would be done, exit 0)</span>
 
 ## nibble 2 · node `cache` @ 12:00:00 · src/cache/prices.ts:43-45 (exact)
 &gt; Wouldn't jitter just smear the spike over a few minutes? Why not refresh-ahead?
 
 ## nibble 3 · src/db/pool.ts:12 (shifted +3)
-&gt; Pool size is 40 since last week, so this chart's limit line is wrong.</pre>
+&gt; Pool size is 40 since last week, so this chart's limit line is wrong.
+
+## ledger:src/legacy/discount.ts#base (never shown)
+&gt; The whole discount module is deleted and no nibble mentions it — intentional?</pre>
 </section>
 
 <section>
@@ -614,7 +971,7 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
     document.getElementById('drange').textContent = c.range;
     var tr = document.getElementById('dtrust'); tr.className = 'trust ' + c.trust[0]; tr.textContent = c.trust[1];
     document.getElementById('dcode').innerHTML = c.lines.map(function (l) {
-      return '<div class="ln' + (c.lit.indexOf(l[0]) >= 0 ? ' lit' : '') + '"><span class="n">' + l[0] + '</span>' + l[1] + '</div>';
+      return '<div class="ln' + (c.lit.indexOf(l[0]) >= 0 ? ' lit' : '') + '"><span class="n">' + l[0] + '</span><span>' + l[1] + '</span></div>';
     }).join('');
     nodes.forEach(function (n) { n.classList.toggle('open', n.getAttribute('data-k') === k); });
   }
@@ -624,6 +981,143 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
   });
 
   drawBars(); update(); openCode('cache');
+
+  // --- 03 the plate: the camera glides across the strip ---
+  var pCards = document.querySelectorAll('#pStrip .pcard');
+  var pActive = 0;
+  var pRead = { 0: true };
+  function pGo(i) {
+    pActive = Math.max(0, Math.min(pCards.length - 1, i));
+    pRead[pActive] = true;
+    pCards.forEach(function (c, idx) { c.classList.toggle('on', idx === pActive); });
+    var canvas = document.getElementById('pCanvas');
+    var card = pCards[pActive];
+    var x = canvas.clientWidth / 2 - card.offsetLeft - card.offsetWidth / 2;
+    document.getElementById('pStrip').style.transform = 'translateX(' + x + 'px)';
+    document.getElementById('pPos').textContent = (pActive + 1) + ' / ' + pCards.length;
+    document.getElementById('pPinBtn').textContent = 'pin to n' + (pActive + 1);
+    var segs = document.getElementById('pRail').children;
+    for (var r = 0; r < segs.length; r++) segs[r].className = r === pActive ? 'on' : (pRead[r] ? 'read' : '');
+  }
+  document.getElementById('pPrev').onclick = function () { pGo(pActive - 1); };
+  document.getElementById('pNext').onclick = function () { pGo(pActive + 1); };
+  pCards.forEach(function (c, idx) { c.addEventListener('click', function () { pGo(idx); }); });
+  window.addEventListener('resize', function () { pGo(pActive); });
+  pGo(0);
+
+  // --- 05 detail dial ---
+  var dialWin = document.getElementById('dialwin');
+  var DIAL_DESC = {
+    overview: 'Fixed TTLs synchronise expiry: at 12:00 the whole cache refills at once.',
+    standard: 'Every cache.set uses the same ttl: 3600, so keys written all through the hour expire together at the top of it. The misses stampede Postgres as one, and sku-sync makes it worse by rewriting every key on its hourly cron.'
+  };
+  function setMockDial(level) {
+    dialWin.classList.toggle('ov', level === 'overview');
+    document.getElementById('dialDesc').textContent = DIAL_DESC[level];
+    document.getElementById('dOv').setAttribute('aria-pressed', level === 'overview');
+    document.getElementById('dStd').setAttribute('aria-pressed', level === 'standard');
+  }
+  document.getElementById('dOv').onclick = function () { setMockDial('overview'); };
+  document.getElementById('dStd').onclick = function () { setMockDial('standard'); };
+
+  // --- 06 blast radius ---
+  var deps = document.querySelectorAll('#ringsvg .node.dep');
+  var zcount = document.getElementById('zcount');
+  function visit(n) {
+    n.classList.remove('unv');
+    var un = document.querySelectorAll('#ringsvg .node.dep.unv').length;
+    if (un === 0) { zcount.textContent = 'all visited ✓'; zcount.classList.add('done'); }
+    else zcount.textContent = un + ' of ' + deps.length + ' unvisited';
+  }
+  deps.forEach(function (n) {
+    n.addEventListener('click', function () { visit(n); });
+    n.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); visit(n); } });
+  });
+
+  // --- 07 not-shown ledger ---
+  var LG = {
+    'src/db/pool.ts': { file: 'src/db/pool.ts', side: 'head', note: 'no nibble referenced the highlighted lines', lines: [
+      [11, '<span class="kw">export</span> <span class="kw">const</span> pool = <span class="kw">new</span> <span class="fn">Pool</span>({', 0],
+      [12, '  max: <span class="num">40</span>, <span class="cm">// was 20</span>', 1],
+      [13, '  maxUses: <span class="num">7_500</span>,', 1],
+      [14, '  idleTimeoutMillis: <span class="num">30_000</span>,', 1],
+      [15, '})', 1],
+      [30, '<span class="kw">export</span> <span class="kw">async</span> <span class="kw">function</span> <span class="fn">drain</span>() {', 0],
+      [31, '  metrics.<span class="fn">flush</span>()', 1],
+      [32, '  <span class="kw">await</span> pool.<span class="fn">end</span>()', 1],
+      [33, '  log.<span class="fn">info</span>(<span class="str">\'pool drained\'</span>)', 1],
+      [34, '}', 1]] },
+    'src/legacy/discount.ts#base': { file: 'src/legacy/discount.ts', side: 'base', note: 'removed code, shown as it was on the base side', lines: [
+      [5, '<span class="kw">export</span> <span class="kw">function</span> <span class="fn">discount</span>(cart: Cart): number {', 1],
+      [6, '  <span class="kw">const</span> code = cart.coupon?.<span class="fn">toUpperCase</span>()', 1],
+      [7, '  <span class="kw">if</span> (!code) <span class="kw">return</span> <span class="num">0</span>', 1],
+      [8, '  <span class="kw">return</span> TABLE[code] ?? <span class="num">0</span>', 1],
+      [9, '}', 1],
+      [43, '<span class="kw">export</span> <span class="kw">const</span> TABLE = { SAVE10: <span class="num">0.1</span> }', 1]] },
+    'src/api/checkout.ts': { file: 'src/api/checkout.ts', side: 'head', note: 'no nibble referenced the highlighted lines', lines: [
+      [51, '  <span class="kw">const</span> lines = <span class="kw">await</span> Promise.<span class="fn">all</span>(', 0],
+      [52, '    cart.items.<span class="fn">map</span>((i) =&gt; <span class="fn">getPrice</span>(i.sku, { fresh: i.pinned })),', 1],
+      [53, '  )', 1],
+      [54, '  <span class="kw">if</span> (lines.<span class="fn">some</span>(stale)) <span class="kw">return</span> <span class="fn">retry</span>(cart)', 1],
+      [55, '  <span class="kw">return</span> <span class="fn">total</span>(lines)', 1]] },
+    'src/cache/prices.ts': { file: 'src/cache/prices.ts', side: 'head', note: 'every changed line in this file was shown by the walkthrough', lines: [
+      [43, '  <span class="kw">await</span> cache.<span class="fn">set</span>(<span class="str">`price:${sku}`</span>, price, {', 0],
+      [44, '    ttl: <span class="num">3600</span> + <span class="fn">jitter</span>(<span class="num">600</span>),', 0],
+      [45, '  })', 0],
+      [46, '  <span class="kw">return</span> price', 0]] },
+    'src/cache/jitter.ts': { file: 'src/cache/jitter.ts', side: 'head', note: 'every changed line in this file was shown by the walkthrough', lines: [
+      [1, '<span class="kw">export</span> <span class="kw">function</span> <span class="fn">jitter</span>(max: number): number {', 0],
+      [2, '  <span class="kw">return</span> Math.<span class="fn">floor</span>(Math.<span class="fn">random</span>() * max)', 0],
+      [3, '}', 0]] }
+  };
+  function openLedgerFile(id) {
+    var f = LG[id];
+    if (!f) return;
+    document.getElementById('lgFile').textContent = f.file;
+    document.getElementById('lgSide').textContent = 'not shown · ' + f.side;
+    document.getElementById('lgNote').textContent = f.note;
+    var prev = 0;
+    document.getElementById('lgCode').innerHTML = f.lines.map(function (l) {
+      var gap = prev > 0 && l[0] > prev + 1 ? '<div class="ln gap"><span class="n">⋯</span></div>' : '';
+      prev = l[0];
+      return gap + '<div class="ln' + (l[2] ? ' lit' : '') + '"><span class="n">' + l[0] + '</span><span>' + l[1] + '</span></div>';
+    }).join('');
+    document.getElementById('lgTarget').textContent = 'ledger:' + id;
+    document.querySelectorAll('#ledgerwin .lg-file').forEach(function (r) {
+      r.classList.toggle('sel', r.getAttribute('data-an') === id);
+    });
+  }
+  document.querySelectorAll('#ledgerwin .lg-file').forEach(function (r) {
+    var open = function () { openLedgerFile(r.getAttribute('data-an')); };
+    r.addEventListener('click', open);
+    r.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  });
+  openLedgerFile('src/db/pool.ts');
+
+  // --- 08 streaming ---
+  var liveStep = 0;
+  var liveBtn = document.getElementById('arrive');
+  function arriveCard(html) {
+    var el = document.createElement('div');
+    el.className = 'mcard in';
+    el.innerHTML = html;
+    document.getElementById('livestrip').appendChild(el);
+    requestAnimationFrame(function () { requestAnimationFrame(function () { el.classList.remove('in'); }); });
+    document.getElementById('liveRail').appendChild(document.createElement('i'));
+  }
+  liveBtn.onclick = function () {
+    if (liveStep === 0) {
+      arriveCard('<svg viewBox="0 0 180 56" aria-hidden="true"><path class="g-line" d="M40 8V48M90 8V48M140 8V48" stroke-dasharray="3 4"/><path class="g-accs" d="M40 18H90M90 30H140"/><path class="g-line" d="M140 40H90"/></svg><span class="mk">sequence · nibble 3</span><p>The worker re-warms keys ten minutes before they expire.</p>');
+      document.getElementById('liveMeta').innerHTML = '<span class="pulse"></span>3 nibbles · still being written';
+      liveBtn.textContent = 'the agent seals the plate';
+    } else if (liveStep === 1) {
+      arriveCard('<svg viewBox="0 0 180 56" aria-hidden="true"><rect x="16" y="10" width="110" height="7" rx="3" fill="var(--muted)" opacity=".35"/><rect x="16" y="24" width="140" height="7" rx="3" fill="var(--warn)" opacity=".8"/><rect x="16" y="38" width="90" height="7" rx="3" fill="var(--muted)" opacity=".35"/></svg><span class="mk">not-shown ledger</span><p>4 of 8 hunks never came up — worth a look before you answer.</p>');
+      document.getElementById('liveMeta').textContent = '3 of 3 · sealed';
+      liveBtn.disabled = true;
+      liveBtn.textContent = 'sealed — the ledger card arrived';
+    }
+    liveStep++;
+  };
 })();
 </script>
 </body>
