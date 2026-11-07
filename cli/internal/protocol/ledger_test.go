@@ -184,21 +184,27 @@ func TestCoverage(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			l := Coverage(tc.hunks, mustRefs(t, tc.refs...))
-			if l.Total != len(tc.hunks) {
-				t.Fatalf("total = %d, want %d", l.Total, len(tc.hunks))
+			if l.Total != len(tc.hunks) || len(l.Hunks) != len(tc.hunks) {
+				t.Fatalf("ledger lists %d of %d hunks (total %d): %+v", len(l.Hunks), len(tc.hunks), l.Total, l)
 			}
-			covered := len(l.Hunks) == 0
-			if covered != tc.covered {
+			coveredCount := 0
+			for _, h := range l.Hunks {
+				if h.Covered {
+					coveredCount++
+				}
+			}
+			if l.Shown != coveredCount {
+				t.Fatalf("shown = %d with %d covered hunks", l.Shown, coveredCount)
+			}
+			if covered := l.Shown == l.Total; covered != tc.covered {
 				t.Fatalf("covered = %v (ledger %+v), want %v", covered, l, tc.covered)
-			}
-			if l.Shown != l.Total-len(l.Hunks) {
-				t.Fatalf("shown = %d with %d of %d uncovered", l.Shown, len(l.Hunks), l.Total)
 			}
 		})
 	}
 }
 
-// TestCoverageLedgerShape pins the uncovered hunks' stored form.
+// TestCoverageLedgerShape pins the hunks' stored form: every hunk of the
+// diff in order, covered ones flagged.
 func TestCoverageLedgerShape(t *testing.T) {
 	hunks := []DiffHunk{
 		{Path: "src/a.ts", BasePath: "src/a.ts", BaseStart: 10, BaseLines: 2, HeadStart: 10, HeadLines: 5}, // covered
@@ -208,10 +214,11 @@ func TestCoverageLedgerShape(t *testing.T) {
 		{Path: "logo.png", BasePath: "logo.png", Binary: true},                                             // binary
 	}
 	l := Coverage(hunks, mustRefs(t, "src/a.ts:12"))
-	if l.Shown != 1 || l.Total != 5 || len(l.Hunks) != 4 {
+	if l.Shown != 1 || l.Total != 5 || len(l.Hunks) != 5 {
 		t.Fatalf("ledger = %+v", l)
 	}
 	want := []LedgerHunk{
+		{Path: "src/a.ts", Side: "head", Start: 10, End: 14, Added: 5, Removed: 2, Covered: true},
 		{Path: "src/b.ts", Side: "head", Start: 3, End: 4, Added: 2, Removed: 1},
 		{Path: "src/c.ts", Side: "base", Start: 20, End: 22, Added: 0, Removed: 3},
 		{Path: "src/gone.ts", Side: "base", Start: 1, End: 8, Added: 0, Removed: 8},

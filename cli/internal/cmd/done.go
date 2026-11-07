@@ -55,7 +55,9 @@ func RunDone(ctx Ctx, args []string) int {
 		}
 		human := ledgerLine(ledger)
 		for _, h := range ledger.Hunks {
-			human += "\n  " + hunkLine(h)
+			if !h.Covered {
+				human += "\n  " + hunkLine(h)
+			}
 		}
 		emit(ctx, *jsonOut, map[string]any{"sealed": !plate.Open, "ledger": ledger}, human)
 		return 0
@@ -104,14 +106,14 @@ func RunDone(ctx Ctx, args []string) int {
 
 // ledgerLine is the one-line human summary of a ledger.
 func ledgerLine(l *protocol.Ledger) string {
-	if len(l.Hunks) == 0 {
+	if l.Shown == l.Total {
 		return fmt.Sprintf("ledger: every hunk of the diff was shown (%d of %d)", l.Shown, l.Total)
 	}
-	return fmt.Sprintf("ledger: %d of %d hunks not shown", len(l.Hunks), l.Total)
+	return fmt.Sprintf("ledger: %d of %d hunks not shown", l.Total-l.Shown, l.Total)
 }
 
-// hunkLine is one hunk of --check output, in the comment-target spelling the
-// reader will use (`<path>:<start>[-<end>]`).
+// hunkLine is one hunk of --check output: `<path>:<start>[-<end>]` plus the
+// counts and side, precise enough to write a covering ref from.
 func hunkLine(h protocol.LedgerHunk) string {
 	loc := fmt.Sprintf("%s:%d", h.Path, h.Start)
 	if h.End > h.Start {

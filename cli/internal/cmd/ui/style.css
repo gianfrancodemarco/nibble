@@ -341,15 +341,24 @@ kbd {
 .ledger-body { width: 100%; height: 100%; overflow: auto; padding: 4px 2px; }
 .ledger-count { margin: 0 0 12px; font-size: 14px; color: var(--muted); }
 .ledger-count.covered { color: var(--ok); font-size: 15px; }
-.ledger-file { margin-bottom: 14px; }
-.ledger-path { font-family: var(--mono); font-size: 13px; color: var(--ink); margin-bottom: 4px; }
-.ledger-hunk {
+.ledger-file {
   display: flex; align-items: center; gap: 10px;
-  padding: 5px 10px; margin: 2px 0; border-radius: 8px;
+  padding: 5px 10px; margin: 4px 0; border-radius: 8px;
   border: 1px solid var(--line); font-size: 13px; color: var(--muted);
   cursor: pointer;
 }
-.ledger-hunk:hover { border-color: var(--accent); }
-.ledger-hunk.sel { border-color: var(--accent); color: var(--ink); background: var(--accent-soft); }
-.ledger-hunk .code-chip-h { margin-left: auto; }
+.ledger-file:hover { border-color: var(--accent); }
+.ledger-file.sel { border-color: var(--accent); color: var(--ink); background: var(--accent-soft); }
+.ledger-path { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+.ledger-meta { white-space: nowrap; }
+.ledger-dir { margin: 2px 0 2px 14px; }
+.ledger-tree > .ledger-dir { margin-left: 0; }
+.ledger-dirname { font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 8px 0 2px; }
+.ledger-badge {
+  font-size: 11px; padding: 1px 7px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); white-space: nowrap;
+}
+.ledger-badge.covered { color: var(--ok); border-color: var(--ok); }
+.ledger-file .code-chip-h { margin-left: auto; }
+#drawer-code .ln.gap { color: var(--muted); user-select: none; }
 .nibble.ledger .visual-body { display: block; }

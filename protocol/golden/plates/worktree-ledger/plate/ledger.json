@@ -3,6 +3,15 @@
   "total": 3,
   "hunks": [
     {
+      "path": "src/cache/prices.ts",
+      "side": "head",
+      "start": 40,
+      "end": 44,
+      "added": 5,
+      "removed": 2,
+      "covered": true
+    },
+    {
       "path": "src/cache/invalidate.ts",
       "side": "head",
       "start": 12,

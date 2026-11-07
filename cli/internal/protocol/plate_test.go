@@ -210,6 +210,7 @@ func TestPlateLedger(t *testing.T) {
 	const worktreeHeader = `{"version":1,"title":"t","repo":"/r","head_sha":"abc","about":"worktree","created_at":"2026-11-01T10:00:00Z"}`
 	nibble := `{"title":"c","visual":` + testVisual + `,"refs":[]}`
 	goodHunk := `{"path":"src/retry.ts","side":"head","start":10,"end":14,"added":5,"removed":2}`
+	coveredHunk := `{"path":"src/pool.ts","side":"head","start":1,"end":1,"added":1,"removed":1,"covered":true}`
 
 	writeLedger := func(t *testing.T, header, ledger string) string {
 		t.Helper()
@@ -227,14 +228,19 @@ func TestPlateLedger(t *testing.T) {
 		want   string // error code, "" means valid
 	}{
 		{
-			name:   "valid ledger with hunks",
+			name:   "valid ledger, partly covered",
 			header: worktreeHeader,
-			ledger: `{"shown":4,"total":6,"hunks":[` + goodHunk + `]}`,
+			ledger: `{"shown":1,"total":2,"hunks":[` + coveredHunk + `,` + goodHunk + `]}`,
 		},
 		{
 			name:   "fully covered ledger",
 			header: worktreeHeader,
-			ledger: `{"shown":6,"total":6,"hunks":[]}`,
+			ledger: `{"shown":1,"total":1,"hunks":[` + coveredHunk + `]}`,
+		},
+		{
+			name:   "empty diff",
+			header: worktreeHeader,
+			ledger: `{"shown":0,"total":0,"hunks":[]}`,
 		},
 		{
 			name:   "binary hunk may count no lines",
@@ -266,9 +272,15 @@ func TestPlateLedger(t *testing.T) {
 			want:   "plate.ledger",
 		},
 		{
-			name:   "shown beyond total",
+			name:   "total not matching the hunks",
 			header: worktreeHeader,
 			ledger: `{"shown":7,"total":6,"hunks":[]}`,
+			want:   "plate.ledger",
+		},
+		{
+			name:   "shown not matching the covered hunks",
+			header: worktreeHeader,
+			ledger: `{"shown":1,"total":1,"hunks":[` + goodHunk + `]}`,
 			want:   "plate.ledger",
 		},
 		{
@@ -303,21 +315,24 @@ func TestPlateLedger(t *testing.T) {
 	}
 
 	// Exposure: the parsed ledger carries what the file said.
-	p, err := ParsePlate(writeLedger(t, worktreeHeader, `{"shown":4,"total":6,"hunks":[`+goodHunk+`]}`))
+	p, err := ParsePlate(writeLedger(t, worktreeHeader, `{"shown":1,"total":2,"hunks":[`+coveredHunk+`,`+goodHunk+`]}`))
 	if err != nil {
 		t.Fatalf("ParsePlate: %v", err)
 	}
-	if p.Ledger.Shown != 4 || p.Ledger.Total != 6 || len(p.Ledger.Hunks) != 1 {
+	if p.Ledger.Shown != 1 || p.Ledger.Total != 2 || len(p.Ledger.Hunks) != 2 {
 		t.Fatalf("ledger = %+v", p.Ledger)
 	}
-	h := p.Ledger.Hunks[0]
+	if !p.Ledger.Hunks[0].Covered || p.Ledger.Hunks[1].Covered {
+		t.Fatalf("covered flags = %+v", p.Ledger.Hunks)
+	}
+	h := p.Ledger.Hunks[1]
 	if h.Path != "src/retry.ts" || h.Side != "head" || h.Start != 10 || h.End != 14 || h.Added != 5 || h.Removed != 2 {
 		t.Fatalf("hunk = %+v", h)
 	}
 
 	// Range plates take ledgers too; a diff plate without one stays valid.
 	rangeHeader := `{"version":1,"title":"t","repo":"/r","head_sha":"abc","about":{"range":"main..feat"},"created_at":"2026-11-01T10:00:00Z"}`
-	if _, err := ParsePlate(writeLedger(t, rangeHeader, `{"shown":1,"total":1,"hunks":[]}`)); err != nil {
+	if _, err := ParsePlate(writeLedger(t, rangeHeader, `{"shown":1,"total":1,"hunks":[`+coveredHunk+`]}`)); err != nil {
 		t.Fatalf("ledger on a range plate: %v", err)
 	}
 	p, err = ParsePlate(writePlate(t, worktreeHeader, nibble))

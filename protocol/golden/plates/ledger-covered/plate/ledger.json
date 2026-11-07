@@ -1,5 +1,33 @@
 {
   "shown": 3,
   "total": 3,
-  "hunks": []
+  "hunks": [
+    {
+      "path": "src/cache/prices.ts",
+      "side": "head",
+      "start": 40,
+      "end": 44,
+      "added": 5,
+      "removed": 2,
+      "covered": true
+    },
+    {
+      "path": "src/cache/invalidate.ts",
+      "side": "head",
+      "start": 12,
+      "end": 19,
+      "added": 8,
+      "removed": 3,
+      "covered": true
+    },
+    {
+      "path": "src/cache/legacy-ttl.ts",
+      "side": "base",
+      "start": 1,
+      "end": 24,
+      "added": 0,
+      "removed": 24,
+      "covered": true
+    }
+  ]
 }

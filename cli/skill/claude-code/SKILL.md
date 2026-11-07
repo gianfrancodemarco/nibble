@@ -204,12 +204,13 @@ image-resize PR's opening nibble.
 
 ## The not-shown ledger
 
-Every `worktree` and range plate ends with a **ledger**: the diff hunks no
-nibble referenced, listed on a final card the reader can open and comment on.
-You never compute it — `nibble done` diffs the code itself (git), matches
-every hunk against every ref on the plate, and writes it at seal time. It is
-the plate's honesty mechanism: the reviewer sees exactly what the walkthrough
-skipped.
+Every `worktree` and range plate ends with a **ledger**: every hunk of the
+diff, the ones some nibble referenced flagged as covered, shown to the reader
+as a file tree on a final card — covered files badged, unshown hunks open to
+a click and to comments. You never compute it — `nibble done` diffs the code
+itself (git), matches every hunk against every ref on the plate, and writes
+it at seal time. It is the plate's honesty mechanism: the reviewer sees
+exactly what the walkthrough skipped, next to what it covered.
 
 Work with it, not around it:
 
@@ -317,7 +318,8 @@ When `serve` returns, the exit code is the verdict and stdout is the review:
 
 A target `n2` is nibble 2; `n2:s4` is element `s4` on nibble 2's visual —
 here, the enqueue arrow in the sequence. A target `ledger` is the not-shown
-ledger as a whole, and `ledger:src/billing.ts:40-52` is one of its hunks —
+ledger as a whole, and `ledger:src/billing.ts` is one of its files
+(`ledger:<path>#base` when the uncovered lines are deletions) —
 the reviewer read something you didn't walk through, so look at those exact
 lines before answering. Map each comment back to what it points at.
 

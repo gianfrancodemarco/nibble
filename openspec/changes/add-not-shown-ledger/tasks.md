@@ -131,6 +131,36 @@
   targets), index.html principle 7 already matches. Verify: pages render
   locally with the theme toggle intact and no stale "next item" text.
 
+## 8. Revision: one ledger entry per file
+
+- [x] 8.1 Reader: the ledger card lists one row per file and side (hunks'
+  line ranges + summed counts in the label); selection ids and comment
+  targets become `ledger:<path>` / `ledger:<path>#base`. Update
+  `reader/test/ledger.test.ts` first; `npm test` green.
+- [x] 8.2 API: `GET /api/ledger?file=<path>&side=<head|base>` serves all of
+  that file-and-side's hunks as merged ±3-context segments with in-range
+  marks, replacing `?hunk=<I>`; 404 on no match. Update `http_test.go`
+  first; `go test ./...` green.
+- [x] 8.3 Reader drawer: file rows fetch by path+side, gaps between
+  non-adjacent segments render an elision mark; rebuild `app.js`
+  drift-clean. Docs: PROTOCOL.md target grammar, SKILL.md review example.
+
+## 9. Revision: whole-diff ledger with seen badges and a file tree
+
+- [x] 9.1 Protocol: `ledger.json` stores every hunk of the diff with a
+  `covered` flag; `shown`/`total` must match the covered/hunk counts.
+  Update `ledger_test.go`, `plate_test.go` and the golden fixtures first;
+  `go test ./internal/protocol/` green.
+- [x] 9.2 CLI/API: `done --check` prints only uncovered hunks; `/api/ledger`
+  serves segments around all of a file-and-side's hunks, in-range marks on
+  uncovered lines only. Update `done_test.go`, `e2e_test.go`,
+  `http_test.go` first; `go test ./...` green.
+- [x] 9.3 Reader: the ledger card renders every changed file as a collapsed
+  directory tree, seen files badged (`shown` / partly shown), uncovered
+  ranges in the row label; drawer note adapts when nothing is highlighted.
+  Update `ledger.test.ts` first; `npm test` green, `app.js` rebuilt. Docs:
+  PROTOCOL.md ledger section, guide/PRD wording.
+
 ## Workflow follow-up
 
 - Archive the change (`opsx:archive`) once implementation and review are

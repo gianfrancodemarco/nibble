@@ -83,19 +83,25 @@ without one stays valid. The **CLI** computes and writes it when the plate is
 sealed (`nibble done`); the agent never computes coverage itself.
 
 ```json
-{ "shown": 4, "total": 6, "hunks": [
+{ "shown": 1, "total": 2, "hunks": [
+    { "path": "src/pool.ts", "side": "head",
+      "start": 1, "end": 1, "added": 1, "removed": 1, "covered": true },
     { "path": "src/retry.ts", "side": "head",
       "start": 10, "end": 14, "added": 5, "removed": 2 } ] }
 ```
 
-`shown`/`total` are hunk counts (`0 ≤ shown ≤ total`), stored rather than
-derived so full coverage is a statement: `{"shown": 6, "total": 6,
-"hunks": []}`. Each hunk: `path` (repo-relative, same rules as ref paths),
+`hunks` is the whole diff in diff order, each hunk a nibble referenced
+flagged `"covered": true`, so the reader can show what was reviewed next to
+what was not. `shown`/`total` are stored rather than derived, and must agree
+with the hunks: `total` equals the hunk count, `shown` the covered count
+(full coverage is every hunk flagged; an empty `hunks` is only an empty
+diff). Each hunk: `path` (repo-relative, same rules as ref paths),
 `side` — `"head"` for added or changed lines (the worktree, or the range's
 head), `"base"` for removed lines (they only exist on the base side) —
 `start`/`end` (`1 ≤ start ≤ end`) and `added`/`removed` line counts, not
 both zero unless the hunk declares `"binary": true` (a binary file has no
-lines to count). Anything else is `plate.ledger`; unknown fields are
+lines to count). Mismatched counts or anything else is `plate.ledger`;
+unknown fields are
 preserved by tools that rewrite the file. Fixtures:
 [`golden/plates/worktree-ledger/`](golden/plates/worktree-ledger/),
 [`golden/plates/ledger-covered/`](golden/plates/ledger-covered/).
@@ -105,8 +111,9 @@ preserved by tools that rewrite the file. Fixtures:
 `verdict` is one of `approve`, `changes`, `question`, `closed`, plus
 `comments`: `[{"target": "n2:cache", "text": "…"}]`, each pinned to a nibble
 and optionally an element or line. A plate with a ledger also takes comments
-targeted `ledger` (the ledger as a whole) or
-`ledger:<path>:<start>[-<end>]` (one hunk, named by its path and range).
+targeted `ledger` (the ledger as a whole) or `ledger:<path>` (one
+uncovered file; `ledger:<path>#base` when the uncovered lines are deletions,
+living on the diff's base side).
 
 ## Refs
 

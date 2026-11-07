@@ -97,11 +97,14 @@ func TestDoneWritesLedger(t *testing.T) {
 			t.Fatalf("done should report the not-shown count, got %q / %q", out, errb)
 		}
 		l := readLedger(t, plate)
-		if l.Shown != 1 || l.Total != 2 || len(l.Hunks) != 1 {
+		if l.Shown != 1 || l.Total != 2 || len(l.Hunks) != 2 {
 			t.Fatalf("ledger = %+v", l)
 		}
-		h := l.Hunks[0]
-		if h.Path != "notes.txt" || h.Side != "head" || h.Start != 1 || h.End != 3 || h.Added != 3 {
+		if c := l.Hunks[0]; c.Path != "src/pool.ts" || !c.Covered {
+			t.Fatalf("covered hunk = %+v", c)
+		}
+		h := l.Hunks[1]
+		if h.Path != "notes.txt" || h.Side != "head" || h.Start != 1 || h.End != 3 || h.Added != 3 || h.Covered {
 			t.Fatalf("untracked hunk = %+v", h)
 		}
 	})
@@ -146,11 +149,14 @@ func TestDoneWritesLedger(t *testing.T) {
 		if err := json.Unmarshal([]byte(out), &res); err != nil {
 			t.Fatalf("--json output: %v\n%s", err, out)
 		}
-		if res.Ledger == nil || res.Ledger.Shown != 1 || res.Ledger.Total != 2 || len(res.Ledger.Hunks) != 1 {
+		if res.Ledger == nil || res.Ledger.Shown != 1 || res.Ledger.Total != 2 || len(res.Ledger.Hunks) != 2 {
 			t.Fatalf("json ledger = %+v", res.Ledger)
 		}
-		h := res.Ledger.Hunks[0]
-		if h.Path != "src/retry.ts" || h.Side != "head" || h.Start != 1 || h.End != 2 {
+		if c := res.Ledger.Hunks[0]; c.Path != "src/prices.ts" || !c.Covered {
+			t.Fatalf("covered hunk = %+v", c)
+		}
+		h := res.Ledger.Hunks[1]
+		if h.Path != "src/retry.ts" || h.Side != "head" || h.Start != 1 || h.End != 2 || h.Covered {
 			t.Fatalf("uncovered hunk = %+v", h)
 		}
 		if diskL := readLedger(t, plate); diskL.Total != 2 {
@@ -223,7 +229,7 @@ func TestDoneCheck(t *testing.T) {
 		if res.Sealed {
 			t.Fatalf("--check claims sealed: %s", out)
 		}
-		if res.Ledger == nil || len(res.Ledger.Hunks) != 1 || res.Ledger.Hunks[0].Path != "src/pool.ts" {
+		if res.Ledger == nil || len(res.Ledger.Hunks) != 1 || res.Ledger.Hunks[0].Path != "src/pool.ts" || res.Ledger.Hunks[0].Covered {
 			t.Fatalf("check ledger = %+v", res.Ledger)
 		}
 		for _, f := range []string{"done", "ledger.json"} {
@@ -240,7 +246,7 @@ func TestDoneCheck(t *testing.T) {
 		if code, _, errb := run(t, ctx, "done", plate); code != 0 {
 			t.Fatal(errb)
 		}
-		if l := readLedger(t, plate); len(l.Hunks) != 0 || l.Shown != l.Total {
+		if l := readLedger(t, plate); l.Shown != l.Total || l.Total != 1 || !l.Hunks[0].Covered {
 			t.Fatalf("sealed ledger after covering = %+v", l)
 		}
 	})

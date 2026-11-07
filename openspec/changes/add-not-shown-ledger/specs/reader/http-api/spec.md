@@ -31,27 +31,28 @@ it must interpret.
 
 ## ADDED Requirements
 
-### Requirement: Ledger hunk code endpoint
+### Requirement: Ledger file code endpoint
 
-`GET /api/ledger?hunk=<I>` SHALL return ledger hunk I's lines in the shape
-of `/api/code`: resolved from the hunk's side (head: worktree or git head;
-base: the base revision), with up to 3 context lines each way, each line
-numbered and marked in/out of the hunk. It SHALL degrade exactly like refs —
-an unavailable root or git side answers with a human-readable reason instead
-of lines. An unknown hunk index, or a plate without a ledger, SHALL be 404.
+`GET /api/ledger?file=<path>&side=<head|base>` (side defaults to `head`)
+SHALL return all of that file-and-side's uncovered hunks as one code view in
+the shape of `/api/code`: ±3-line segments around each hunk (covered ones
+included), merged where they meet, each line marked in-range only when an
+uncovered hunk holds it. Resolution and degradation
+follow refs. No matching hunks, or no ledger, SHALL be 404.
 
-#### Scenario: Head-side hunk served from the worktree
-- **WHEN** the ledger lists a head-side hunk in `src/b.ts` and
-  `/api/ledger?hunk=0` is fetched with the repo present
-- **THEN** the response carries the hunk's lines with context, marked in/out
-  of range
+#### Scenario: Head-side file served from the worktree
+- **WHEN** the ledger lists two head-side hunks in `src/b.ts` and
+  `/api/ledger?file=src/b.ts` is fetched with the repo present
+- **THEN** the response carries both hunks' lines with context, every
+  hunk line marked in-range, and no line repeated
 
-#### Scenario: Base-side hunk without git
-- **WHEN** the plate's root is a plain directory (no git) and the hunk's side
-  is `base`
+#### Scenario: Base-side file without git
+- **WHEN** the plate's root is a plain directory (no git) and the file's
+  uncovered lines are on the `base` side
 - **THEN** the response carries a reason the code is unavailable instead of
-  lines, and the reader can still comment on the hunk
+  lines, and the reader can still comment on the file
 
 #### Scenario: No ledger
-- **WHEN** `/api/ledger?hunk=0` is fetched for a plate without `ledger.json`
+- **WHEN** `/api/ledger?file=src/b.ts` is fetched for a plate without
+  `ledger.json`
 - **THEN** the response is 404

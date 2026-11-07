@@ -146,7 +146,13 @@ func TestEndToEndLedgerLoop(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &checked); err != nil {
 		t.Fatal(err)
 	}
-	if len(checked.Ledger.Hunks) != 1 || checked.Ledger.Hunks[0].Path != "CHANGES.md" {
+	var unshown []protocol.LedgerHunk
+	for _, h := range checked.Ledger.Hunks {
+		if !h.Covered {
+			unshown = append(unshown, h)
+		}
+	}
+	if len(unshown) != 1 || unshown[0].Path != "CHANGES.md" {
 		t.Fatalf("check ledger = %+v", checked.Ledger)
 	}
 
@@ -162,7 +168,7 @@ func TestEndToEndLedgerLoop(t *testing.T) {
 	if err != nil || p.Open || p.Ledger == nil {
 		t.Fatalf("sealed plate: %+v err %v", p, err)
 	}
-	if len(p.Ledger.Hunks) != 0 || p.Ledger.Shown != p.Ledger.Total || p.Ledger.Total != 2 {
+	if p.Ledger.Shown != p.Ledger.Total || p.Ledger.Total != 2 || len(p.Ledger.Hunks) != 2 {
 		t.Fatalf("sealed ledger = %+v", p.Ledger)
 	}
 }

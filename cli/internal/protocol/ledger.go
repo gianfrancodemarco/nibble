@@ -7,10 +7,10 @@ import (
 	"strings"
 )
 
-// LedgerHunk is one uncovered diff hunk in the not-shown ledger: the lines a
-// plate's walkthrough never referenced. Head-side hunks address the new code
-// (worktree or the range's head); base-side hunks address removed code, which
-// only exists on the base side.
+// LedgerHunk is one diff hunk in the not-shown ledger. Covered says a ref of
+// some nibble showed it; the rest is what the walkthrough never referenced.
+// Head-side hunks address the new code (worktree or the range's head);
+// base-side hunks address removed code, which only exists on the base side.
 type LedgerHunk struct {
 	Path    string `json:"path"`
 	Side    string `json:"side"` // "head" or "base"
@@ -19,11 +19,13 @@ type LedgerHunk struct {
 	Added   int    `json:"added"`
 	Removed int    `json:"removed"`
 	Binary  bool   `json:"binary,omitempty"`
+	Covered bool   `json:"covered,omitempty"`
 }
 
 // Ledger is ledger.json: the not-shown ledger a diff plate is sealed with.
-// Shown and Total are stored, not derived, so "everything was shown" is a
-// statement the file itself makes.
+// Hunks is the whole diff in diff order, covered ones flagged; Shown and
+// Total are stored, not derived, so "everything was shown" is a statement
+// the file itself makes — and must agree with the hunks.
 type Ledger struct {
 	Shown int          `json:"shown"`
 	Total int          `json:"total"`
@@ -104,17 +106,18 @@ func atoiPair(start, count string) (int, int) {
 }
 
 // Coverage matches every diff hunk against every ref and returns the ledger:
-// the hunks no ref covered, plus the shown/total counts. The rule is path +
-// side shape + line overlap — any overlap counts as shown; judging whether a
-// hunk was shown *well* is the reviewer's job.
+// the whole diff in order, covered hunks flagged, plus the shown/total
+// counts. The rule is path + side shape + line overlap — any overlap counts
+// as shown; judging whether a hunk was shown *well* is the reviewer's job.
 func Coverage(hunks []DiffHunk, refs []Ref) Ledger {
 	l := Ledger{Total: len(hunks), Hunks: []LedgerHunk{}}
 	for _, h := range hunks {
-		if hunkCovered(h, refs) {
+		lh := toLedgerHunk(h)
+		lh.Covered = hunkCovered(h, refs)
+		if lh.Covered {
 			l.Shown++
-		} else {
-			l.Hunks = append(l.Hunks, toLedgerHunk(h))
 		}
+		l.Hunks = append(l.Hunks, lh)
 	}
 	return l
 }
@@ -161,8 +164,8 @@ func hunkCovered(h DiffHunk, refs []Ref) bool {
 	return false
 }
 
-// toLedgerHunk converts an uncovered diff hunk into its stored form, placed
-// on the side where its lines can be looked at.
+// toLedgerHunk converts a diff hunk into its stored form, placed on the
+// side where its lines can be looked at.
 func toLedgerHunk(h DiffHunk) LedgerHunk {
 	switch {
 	case h.Binary:
@@ -197,16 +200,23 @@ func parseLedger(raw []byte, aboutKind string) (*Ledger, error) {
 	if err := json.Unmarshal(raw, &l); err != nil {
 		return nil, errf(CodePlateLedger, "ledger.json: want {\"shown\": N, \"total\": N, \"hunks\": […]}: %v", err)
 	}
-	if l.Shown < 0 || l.Total < 0 || l.Shown > l.Total {
-		return nil, errf(CodePlateLedger, "ledger.json: want 0 ≤ shown ≤ total, got shown %d of total %d", l.Shown, l.Total)
-	}
 	if l.Hunks == nil {
-		return nil, errf(CodePlateLedger, "ledger.json: hunks is required (use [] when every hunk was shown)")
+		return nil, errf(CodePlateLedger, "ledger.json: hunks is required (use [] only for an empty diff)")
 	}
+	covered := 0
 	for i, h := range l.Hunks {
 		if err := checkLedgerHunk(h); err != nil {
 			return nil, errf(CodePlateLedger, "ledger.json hunk %d (%s): %s", i, h.Path, err.(*Error).Msg)
 		}
+		if h.Covered {
+			covered++
+		}
+	}
+	if l.Total != len(l.Hunks) {
+		return nil, errf(CodePlateLedger, "ledger.json: total is %d but hunks lists %d — the ledger lists every hunk of the diff", l.Total, len(l.Hunks))
+	}
+	if l.Shown != covered {
+		return nil, errf(CodePlateLedger, "ledger.json: shown is %d but %d hunks are covered", l.Shown, covered)
 	}
 	return &l, nil
 }

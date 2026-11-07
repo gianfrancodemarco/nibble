@@ -269,12 +269,13 @@ async function openDrawer(n: number, ref: number): Promise<void> {
   ($("#drawer") as HTMLElement).hidden = false;
 }
 
-// openLedgerDrawer shows one not-shown hunk's code, served by /api/ledger
-// from the side (worktree, base rev, range revs) the hunk lives on.
-async function openLedgerDrawer(i: number): Promise<void> {
+// openLedgerDrawer shows one file's not-shown hunks, served by /api/ledger
+// from the side (worktree, base rev, range revs) the hunks live on, with the
+// hunk lines highlighted and the stretches between distant hunks elided.
+async function openLedgerDrawer(path: string, side: string): Promise<void> {
   let resp: Response;
   try {
-    resp = await fetch(`api/ledger?hunk=${i}`);
+    resp = await fetch(`api/ledger?file=${encodeURIComponent(path)}&side=${encodeURIComponent(side)}`);
   } catch {
     flash("⚠ the plate’s server is gone — serve has exited; re-run nibble serve and reload");
     return;
@@ -292,12 +293,20 @@ async function openLedgerDrawer(i: number): Promise<void> {
     note.textContent = "⚠ this file is no longer there";
   } else {
     note.hidden = false;
-    note.textContent = c.side === "base"
-      ? "removed code, shown as it was on the base side"
-      : "no nibble referenced these lines";
+    const anyIn = c.lines.some((l) => l.in);
+    note.textContent = !anyIn
+      ? "every changed line in this file was shown by the walkthrough"
+      : c.side === "base"
+        ? "removed code, shown as it was on the base side"
+        : "no nibble referenced the highlighted lines";
   }
+  let prev = 0;
   $("#drawer-code").innerHTML = c.lines
-    .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${esc(l.text) || " "}</span></div>`)
+    .map((l) => {
+      const gap = prev > 0 && l.no > prev + 1 ? `<div class="ln gap"><span class="no">⋯</span><span></span></div>` : "";
+      prev = l.no;
+      return `${gap}<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${esc(l.text) || " "}</span></div>`;
+    })
     .join("");
   ($("#drawer") as HTMLElement).hidden = false;
 }
@@ -449,10 +458,10 @@ const hostWiring: HostWiring = {
 // stopImmediatePropagation keeps a chip click from toggling the row's
 // selection, mirroring how code chips behave inside visuals.
 $("#strip").addEventListener("click", (e) => {
-  const chip = (e.target as Element | null)?.closest?.("[data-ledger-hunk]");
+  const chip = (e.target as Element | null)?.closest?.("[data-ledger-path]");
   if (!chip) return;
   e.stopImmediatePropagation();
-  void openLedgerDrawer(Number(chip.getAttribute("data-ledger-hunk")));
+  void openLedgerDrawer(chip.getAttribute("data-ledger-path")!, chip.getAttribute("data-ledger-side") ?? "head");
 });
 wireVisualHost($("#strip"), hostWiring);
 

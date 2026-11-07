@@ -294,7 +294,7 @@ func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
-// --- GET /api/ledger?hunk=<I> ---
+// --- GET /api/ledger?file=<path>&side=<head|base> ---
 
 // ledgerHunkRef synthesizes the ref-shaped address of a ledger hunk, so the
 // drawer resolves and degrades exactly like a nibble ref: head-side hunks of
@@ -324,22 +324,34 @@ func (s *apiServer) serveLedger(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusNotFound, errf(protocol.CodePlateLedger, "this plate has no ledger"))
 		return
 	}
-	i, err := strconv.Atoi(r.URL.Query().Get("hunk"))
-	if err != nil || i < 0 || i >= len(p.Ledger.Hunks) {
-		httpError(w, http.StatusNotFound, errf(protocol.CodePlateLedger, "the ledger has no hunk %s", r.URL.Query().Get("hunk")))
+	path := r.URL.Query().Get("file")
+	side := r.URL.Query().Get("side")
+	if side == "" {
+		side = "head"
+	}
+	var hunks []protocol.LedgerHunk
+	if side == "head" || side == "base" {
+		for _, h := range p.Ledger.Hunks {
+			if h.Path == path && h.Side == side {
+				hunks = append(hunks, h)
+			}
+		}
+	}
+	if len(hunks) == 0 {
+		httpError(w, http.StatusNotFound, errf(protocol.CodePlateLedger,
+			"the ledger has no %s-side hunks for %q", side, path))
 		return
 	}
-	h := p.Ledger.Hunks[i]
 	out := map[string]any{
-		"path": h.Path, "side": h.Side, "hunk": i,
+		"path": path, "side": side, "hunks": len(hunks),
 		"missing": false, "lines": []lineOut{},
 	}
-	if h.Binary {
+	if hunks[0].Binary {
 		out["why"] = "binary file — no lines to show"
 		writeJSON(w, out)
 		return
 	}
-	ref := ledgerHunkRef(p.Header, h)
+	ref := ledgerHunkRef(p.Header, hunks[0])
 	if why := s.unverifiable(ref); why != "" {
 		out["why"] = "code unavailable — " + why
 		writeJSON(w, out)
@@ -355,13 +367,26 @@ func (s *apiServer) serveLedger(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, out)
 		return
 	}
-	lo := max(1, h.Start-drawerContext)
-	hi := min(len(content.Lines), h.End+drawerContext)
-	lines := make([]lineOut, 0, hi-lo+1)
-	for n := lo; n <= hi; n++ {
-		lines = append(lines, lineOut{
-			No: n, Text: content.Lines[n-1], In: n >= h.Start && n <= h.End,
-		})
+	// One segment of ±drawerContext per hunk, merged where they meet; a line
+	// is in-range when an uncovered hunk holds it — covered hunks show as
+	// plain context. Hunks arrive in diff order.
+	in := func(n int) bool {
+		for _, h := range hunks {
+			if !h.Covered && n >= h.Start && n <= h.End {
+				return true
+			}
+		}
+		return false
+	}
+	var lines []lineOut
+	last := 0
+	for _, h := range hunks {
+		lo := max(max(1, h.Start-drawerContext), last+1)
+		hi := min(len(content.Lines), h.End+drawerContext)
+		for n := lo; n <= hi; n++ {
+			lines = append(lines, lineOut{No: n, Text: content.Lines[n-1], In: in(n)})
+		}
+		last = max(last, hi)
 	}
 	out["lines"] = lines
 	writeJSON(w, out)
