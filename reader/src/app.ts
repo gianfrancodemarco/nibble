@@ -44,6 +44,7 @@ let chosen: string | null = null;
 let justSent = false;
 let dialLevel: DialLevel = DIAL_DEFAULT;
 const pending: ReviewComment[] = [];
+const read = new Set<number>(); // cards visited, for the rail only
 
 const visualOfCard = (card: number): Visual | null => plate?.nibbles[card]?.visual ?? null;
 // cards: the nibbles plus the ledger card when the plate carries a ledger
@@ -231,6 +232,17 @@ function camera(): void {
   const x = canvas.clientWidth / 2 - card.offsetLeft - card.offsetWidth / 2;
   strip.style.transform = `translateX(${x}px)`;
   $("#pos").textContent = plate ? `${active + 1} / ${cards()}` : "";
+  rail();
+}
+
+// rail: one segment per card in the top bar — read, active, or still ahead
+function rail(): void {
+  read.add(active);
+  const segs: string[] = [];
+  for (let i = 0; i < cards(); i++) {
+    segs.push(`<i class="${i === active ? "on" : read.has(i) ? "read" : ""}"></i>`);
+  }
+  $("#rail").innerHTML = segs.join("");
 }
 
 // --- code drawer ---

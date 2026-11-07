@@ -1218,6 +1218,7 @@ let chosen = null;
 let justSent = false;
 let dialLevel = DIAL_DEFAULT;
 const pending = [];
+const read = new Set(); // cards visited, for the rail only
 const visualOfCard = (card) => plate?.nibbles[card]?.visual ?? null;
 // cards: the nibbles plus the ledger card when the plate carries a ledger
 const cards = () => (plate ? cardCount(plate.nibbles.length, plate.ledger) : 0);
@@ -1402,6 +1403,16 @@ function camera() {
     const x = canvas.clientWidth / 2 - card.offsetLeft - card.offsetWidth / 2;
     strip.style.transform = `translateX(${x}px)`;
     $("#pos").textContent = plate ? `${active + 1} / ${cards()}` : "";
+    rail();
+}
+// rail: one segment per card in the top bar — read, active, or still ahead
+function rail() {
+    read.add(active);
+    const segs = [];
+    for (let i = 0; i < cards(); i++) {
+        segs.push(`<i class="${i === active ? "on" : read.has(i) ? "read" : ""}"></i>`);
+    }
+    $("#rail").innerHTML = segs.join("");
 }
 // --- code drawer ---
 async function openDrawer(n, ref) {
