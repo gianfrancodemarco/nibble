@@ -39,6 +39,7 @@ const (
 	CodePlateSealed             = "plate.sealed"
 	CodePlateHeader             = "plate.header"
 	CodePlateDescription        = "plate.description"
+	CodePlateLedger             = "plate.ledger"
 	CodeNibbleVisualMissing     = "nibble.visual.missing"
 	CodeNibbleTitleMissing      = "nibble.title.missing"
 	CodeNibbleDescription       = "nibble.description"

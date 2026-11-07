@@ -1,0 +1,119 @@
+diff --git a/bin.dat b/bin.dat
+index 201f3dd..19fbe70 100644
+Binary files a/bin.dat and b/bin.dat differ
+diff --git a/brand-new.txt b/brand-new.txt
+new file mode 100644
+index 0000000..2fe4df4
+--- /dev/null
++++ b/brand-new.txt
+@@ -0,0 +1,2 @@
++n1
++n2
+diff --git a/crlf.txt b/crlf.txt
+index df0aae8..3c07f52 100644
+--- a/crlf.txt
++++ b/crlf.txt
+@@ -2 +2 @@ c1
+-c2
++C2-new
+diff --git a/delete-lines.txt b/delete-lines.txt
+index 3c3103c..6caf933 100644
+--- a/delete-lines.txt
++++ b/delete-lines.txt
+@@ -2,2 +1,0 @@ d1
+-d2
+-d3
+diff --git a/goner.txt b/goner.txt
+deleted file mode 100644
+index c616d17..0000000
+--- a/goner.txt
++++ /dev/null
+@@ -1,3 +0,0 @@
+-g1
+-g2
+-g3
+diff --git a/modify.txt b/modify.txt
+index 01f84f8..dfb718e 100644
+--- a/modify.txt
++++ b/modify.txt
+@@ -3 +3 @@ l2
+-l3
++L3-new
+@@ -7,0 +8 @@ l7
++extra
+diff --git a/multi.txt b/multi.txt
+index 60e4bf9..2592ede 100644
+--- a/multi.txt
++++ b/multi.txt
+@@ -1 +1 @@
+-m1
++M1
+@@ -12 +12 @@ m11
+-m12
++M12
+diff --git a/newbig.txt b/newbig.txt
+new file mode 100644
+index 0000000..8f60127
+--- /dev/null
++++ b/newbig.txt
+@@ -0,0 +1,40 @@
++line 1 of the renamed module
++line 2 of the renamed module
++line 3 of the renamed module
++line 4 of the renamed module
++line 5 of the renamed module
++line 6 of the renamed module
++line 7 of the renamed module
++line 8 of the renamed module
++line 9 of the renamed module
++line 10 of the renamed module
++line 11 of the renamed module
++line 12 of the renamed module
++line 13 of the renamed module
++line 14 of the renamed module
++line 15 of the renamed module
++line 16 of the renamed module
++line 17 of the renamed module
++line 18 of the renamed module
++line 19 of the renamed module
++line twenty, edited
++line 21 of the renamed module
++line 22 of the renamed module
++line 23 of the renamed module
++line 24 of the renamed module
++line 25 of the renamed module
++line 26 of the renamed module
++line 27 of the renamed module
++line 28 of the renamed module
++line 29 of the renamed module
++line 30 of the renamed module
++line 31 of the renamed module
++line 32 of the renamed module
++line 33 of the renamed module
++line 34 of the renamed module
++line 35 of the renamed module
++line 36 of the renamed module
++line 37 of the renamed module
++line 38 of the renamed module
++line 39 of the renamed module
++line 40 of the renamed module
+diff --git a/newname.txt b/newname.txt
+new file mode 100644
+index 0000000..f7c2ddc
+--- /dev/null
++++ b/newname.txt
+@@ -0,0 +1,4 @@
++r1
++r2-edited
++r3
++r4
+diff --git a/oldname.txt b/oldname.txt
+deleted file mode 100644
+index c96fe16..0000000
+--- a/oldname.txt
++++ /dev/null
+@@ -1,4 +0,0 @@
+-r1
+-r2
+-r3
+-r4

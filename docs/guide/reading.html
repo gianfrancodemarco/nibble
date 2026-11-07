@@ -30,6 +30,7 @@
   <a class="sub" href="#keys">Keys</a>
   <a class="sub" href="#visuals">The visuals</a>
   <a class="sub" href="#blast">The blast radius</a>
+  <a class="sub" href="#ledger">The not-shown ledger</a>
   <a class="sub" href="#dial">The detail dial</a>
   <a class="sub" href="#trust">Trust badges</a>
   <a href="answering.html">Answering</a>
@@ -78,6 +79,9 @@
 <h4 id="blast">The blast radius</h4>
 <p>A PR plate usually opens with a <b>ringed map</b>: the whole change in three concentric zones, read inside-out. The centre is what <b>changed</b>. Around it sit the <b>dependents</b> — files that did not change but depend on something that did: callers, importers, tests, configs, grouped by why they depend. Outside is <b>the rest</b>, kept for orientation. The agent computes the rings from the repo; nibble only checks they are complete and draws them.</p>
 <p>The dependents ring is the review's checklist. Every dependent you haven't looked at carries a <b>badge</b>, and the ring's label counts them — <span class="mono">3 of 5 unvisited</span> — ticking down as you select a node or open its code, until it reads done. The count lives in this tab only: it never enters your review, and nothing is sent about what you did or didn't open. It exists so you don't approve a PR with a caller you never glanced at.</p>
+
+<h4 id="ledger">The not-shown ledger</h4>
+<p>A plate about a diff ends with one more card: the <b>ledger</b> — every hunk of the diff that no nibble referenced, grouped by file with its side and line counts. It is written when the plate is sealed, computed by nibble from git, never by the agent — so the walkthrough cannot quietly skip anything. Click a hunk to read those exact lines in the drawer (removed code is shown as it was on the base side), and comment on a hunk or on the ledger as a whole like anything else; those comments reach the agent as <span class="mono">ledger:path:lines</span> targets. A fully covered diff still shows the card, saying so. Check it before you approve: it is the part of the diff nobody walked you through.</p>
 
 <h4 id="dial">The detail dial</h4>
 <p>Every plate reads at three depths on the same canvas: <b>overview</b> (the shape in one sentence, enough to decide whether to care), <b>standard</b> (what a plate opens at), <b>deep</b> (per-element numbers and edge cases, generated on demand <span class="soon">v0.2</span>). You can spend ninety seconds or ten minutes on the same plate.</p>

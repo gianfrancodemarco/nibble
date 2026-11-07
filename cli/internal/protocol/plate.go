@@ -92,6 +92,7 @@ type Plate struct {
 	Nibbles []Nibble
 	Total   int  // from the done marker; 0 while open
 	Open    bool // no done marker yet
+	Ledger  *Ledger
 	Review  *Review
 }
 
@@ -210,6 +211,15 @@ func ParsePlate(dir string) (*Plate, error) {
 		}
 	} else {
 		p.Open = true
+	}
+
+	// Ledger.
+	if rawLedger, err := os.ReadFile(filepath.Join(dir, "ledger.json")); err == nil {
+		l, err := parseLedger(rawLedger, p.Header.About.Kind)
+		if err != nil {
+			return nil, err
+		}
+		p.Ledger = l
 	}
 
 	// Review.

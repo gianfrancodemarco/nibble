@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gianfrancodemarco/nibble/cli/internal/protocol"
@@ -72,6 +73,7 @@ func (s *apiServer) handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/plate", s.servePlate)
 	mux.HandleFunc("GET /api/code", s.serveCode)
+	mux.HandleFunc("GET /api/ledger", s.serveLedger)
 	mux.HandleFunc("POST /api/review", s.serveReview)
 	mux.HandleFunc("GET /api/events", s.serveEvents)
 	ui, err := fs.Sub(uiFS, "ui")
@@ -211,6 +213,7 @@ func (s *apiServer) servePlate(w http.ResponseWriter, r *http.Request) {
 		"open":     p.Open,
 		"total":    p.Total,
 		"review":   p.Review,
+		"ledger":   p.Ledger,
 		"nibbles":  nibbles,
 		"source": map[string]any{
 			"path":  p.Header.Repo,
@@ -230,6 +233,13 @@ func (s *apiServer) servePlate(w http.ResponseWriter, r *http.Request) {
 // --- GET /api/code?n=<N>&ref=<I> ---
 
 const drawerContext = 3
+
+// lineOut is one drawer line: numbered, marked in/out of the shown range.
+type lineOut struct {
+	No   int    `json:"no"`
+	Text string `json:"text"`
+	In   bool   `json:"in"`
+}
 
 func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 	p, err := protocol.ParsePlate(s.plateDir)
@@ -252,11 +262,6 @@ func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err)
 		return
-	}
-	type lineOut struct {
-		No   int    `json:"no"`
-		Text string `json:"text"`
-		In   bool   `json:"in"`
 	}
 	var why string
 	if pref, err := protocol.ParseRef(refs[ri].Ref); err == nil {
@@ -286,6 +291,79 @@ func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 		}
 		out["lines"] = lines
 	}
+	writeJSON(w, out)
+}
+
+// --- GET /api/ledger?hunk=<I> ---
+
+// ledgerHunkRef synthesizes the ref-shaped address of a ledger hunk, so the
+// drawer resolves and degrades exactly like a nibble ref: head-side hunks of
+// a worktree plate read the file on disk, base-side hunks read the recorded
+// base commit, range plates read their two revs through git.
+func ledgerHunkRef(hdr protocol.PlateHeader, h protocol.LedgerHunk) protocol.Ref {
+	ref := protocol.Ref{Path: h.Path, Start: h.Start, End: h.End}
+	switch hdr.About.Kind {
+	case "worktree":
+		if h.Side == "base" {
+			ref.Diff = &protocol.DiffSpec{Base: hdr.HeadSHA, Head: hdr.HeadSHA, Side: "base"}
+		}
+	case "range":
+		base, head, _ := strings.Cut(hdr.About.Range, "..")
+		ref.Diff = &protocol.DiffSpec{Base: base, Head: head, Side: h.Side}
+	}
+	return ref
+}
+
+func (s *apiServer) serveLedger(w http.ResponseWriter, r *http.Request) {
+	p, err := protocol.ParsePlate(s.plateDir)
+	if err != nil {
+		httpError(w, http.StatusConflict, err)
+		return
+	}
+	if p.Ledger == nil {
+		httpError(w, http.StatusNotFound, errf(protocol.CodePlateLedger, "this plate has no ledger"))
+		return
+	}
+	i, err := strconv.Atoi(r.URL.Query().Get("hunk"))
+	if err != nil || i < 0 || i >= len(p.Ledger.Hunks) {
+		httpError(w, http.StatusNotFound, errf(protocol.CodePlateLedger, "the ledger has no hunk %s", r.URL.Query().Get("hunk")))
+		return
+	}
+	h := p.Ledger.Hunks[i]
+	out := map[string]any{
+		"path": h.Path, "side": h.Side, "hunk": i,
+		"missing": false, "lines": []lineOut{},
+	}
+	if h.Binary {
+		out["why"] = "binary file — no lines to show"
+		writeJSON(w, out)
+		return
+	}
+	ref := ledgerHunkRef(p.Header, h)
+	if why := s.unverifiable(ref); why != "" {
+		out["why"] = "code unavailable — " + why
+		writeJSON(w, out)
+		return
+	}
+	content, err := loadRefContent(s.root, s.git, ref)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err)
+		return
+	}
+	if content == nil {
+		out["missing"] = true
+		writeJSON(w, out)
+		return
+	}
+	lo := max(1, h.Start-drawerContext)
+	hi := min(len(content.Lines), h.End+drawerContext)
+	lines := make([]lineOut, 0, hi-lo+1)
+	for n := lo; n <= hi; n++ {
+		lines = append(lines, lineOut{
+			No: n, Text: content.Lines[n-1], In: n >= h.Start && n <= h.End,
+		})
+	}
+	out["lines"] = lines
 	writeJSON(w, out)
 }
 

@@ -203,3 +203,125 @@ func TestPlateAboutForms(t *testing.T) {
 		}
 	}
 }
+
+// TestPlateLedger covers ledger.json: shape validation, the about-kind rule,
+// and exposure on the parsed plate.
+func TestPlateLedger(t *testing.T) {
+	const worktreeHeader = `{"version":1,"title":"t","repo":"/r","head_sha":"abc","about":"worktree","created_at":"2026-11-01T10:00:00Z"}`
+	nibble := `{"title":"c","visual":` + testVisual + `,"refs":[]}`
+	goodHunk := `{"path":"src/retry.ts","side":"head","start":10,"end":14,"added":5,"removed":2}`
+
+	writeLedger := func(t *testing.T, header, ledger string) string {
+		t.Helper()
+		dir := writePlate(t, header, nibble)
+		if err := os.WriteFile(filepath.Join(dir, "ledger.json"), []byte(ledger), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+
+	cases := []struct {
+		name   string
+		header string
+		ledger string
+		want   string // error code, "" means valid
+	}{
+		{
+			name:   "valid ledger with hunks",
+			header: worktreeHeader,
+			ledger: `{"shown":4,"total":6,"hunks":[` + goodHunk + `]}`,
+		},
+		{
+			name:   "fully covered ledger",
+			header: worktreeHeader,
+			ledger: `{"shown":6,"total":6,"hunks":[]}`,
+		},
+		{
+			name:   "binary hunk may count no lines",
+			header: worktreeHeader,
+			ledger: `{"shown":0,"total":1,"hunks":[{"path":"logo.png","side":"head","start":1,"end":1,"added":0,"removed":0,"binary":true}]}`,
+		},
+		{
+			name:   "bad side",
+			header: worktreeHeader,
+			ledger: `{"shown":0,"total":1,"hunks":[{"path":"a.ts","side":"worktree","start":1,"end":2,"added":1,"removed":0}]}`,
+			want:   "plate.ledger",
+		},
+		{
+			name:   "end below start",
+			header: worktreeHeader,
+			ledger: `{"shown":0,"total":1,"hunks":[{"path":"a.ts","side":"head","start":5,"end":3,"added":1,"removed":0}]}`,
+			want:   "plate.ledger",
+		},
+		{
+			name:   "absolute path",
+			header: worktreeHeader,
+			ledger: `{"shown":0,"total":1,"hunks":[{"path":"/etc/passwd","side":"head","start":1,"end":1,"added":1,"removed":0}]}`,
+			want:   "plate.ledger",
+		},
+		{
+			name:   "escaping path",
+			header: worktreeHeader,
+			ledger: `{"shown":0,"total":1,"hunks":[{"path":"../a.ts","side":"head","start":1,"end":1,"added":1,"removed":0}]}`,
+			want:   "plate.ledger",
+		},
+		{
+			name:   "shown beyond total",
+			header: worktreeHeader,
+			ledger: `{"shown":7,"total":6,"hunks":[]}`,
+			want:   "plate.ledger",
+		},
+		{
+			name:   "non-binary hunk counting no lines",
+			header: worktreeHeader,
+			ledger: `{"shown":0,"total":1,"hunks":[{"path":"a.ts","side":"head","start":1,"end":1,"added":0,"removed":0}]}`,
+			want:   "plate.ledger",
+		},
+		{
+			name:   "not an object",
+			header: worktreeHeader,
+			ledger: `[1,2,3]`,
+			want:   "plate.ledger",
+		},
+		{
+			name:   "ledger on a code plate",
+			header: testHeader,
+			ledger: `{"shown":0,"total":0,"hunks":[]}`,
+			want:   "plate.ledger",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p, err := ParsePlate(writeLedger(t, tc.header, tc.ledger))
+			if got := ErrCode(err); got != tc.want {
+				t.Fatalf("error code = %q (%v), want %q", got, err, tc.want)
+			}
+			if tc.want == "" && p.Ledger == nil {
+				t.Fatalf("valid ledger not exposed on the plate")
+			}
+		})
+	}
+
+	// Exposure: the parsed ledger carries what the file said.
+	p, err := ParsePlate(writeLedger(t, worktreeHeader, `{"shown":4,"total":6,"hunks":[`+goodHunk+`]}`))
+	if err != nil {
+		t.Fatalf("ParsePlate: %v", err)
+	}
+	if p.Ledger.Shown != 4 || p.Ledger.Total != 6 || len(p.Ledger.Hunks) != 1 {
+		t.Fatalf("ledger = %+v", p.Ledger)
+	}
+	h := p.Ledger.Hunks[0]
+	if h.Path != "src/retry.ts" || h.Side != "head" || h.Start != 10 || h.End != 14 || h.Added != 5 || h.Removed != 2 {
+		t.Fatalf("hunk = %+v", h)
+	}
+
+	// Range plates take ledgers too; a diff plate without one stays valid.
+	rangeHeader := `{"version":1,"title":"t","repo":"/r","head_sha":"abc","about":{"range":"main..feat"},"created_at":"2026-11-01T10:00:00Z"}`
+	if _, err := ParsePlate(writeLedger(t, rangeHeader, `{"shown":1,"total":1,"hunks":[]}`)); err != nil {
+		t.Fatalf("ledger on a range plate: %v", err)
+	}
+	p, err = ParsePlate(writePlate(t, worktreeHeader, nibble))
+	if err != nil || p.Ledger != nil {
+		t.Fatalf("diff plate without ledger: p.Ledger=%v err=%v", p.Ledger, err)
+	}
+}

@@ -1,0 +1,14 @@
+{
+  "shown": 0,
+  "total": 1,
+  "hunks": [
+    {
+      "path": "src/cache/invalidate.ts",
+      "side": "worktree",
+      "start": 12,
+      "end": 19,
+      "added": 8,
+      "removed": 0
+    }
+  ]
+}

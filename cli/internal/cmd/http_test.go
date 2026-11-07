@@ -517,3 +517,147 @@ func TestGoldenPlateServes(t *testing.T) {
 		}
 	}
 }
+
+// ledgeredFixture builds a sealed worktree plate whose ledger holds two
+// uncovered hunks: a pure deletion in src/prices.ts (base side) and an
+// untracked note.txt (head side); the src/pool.ts edit is covered.
+func ledgeredFixture(t *testing.T) (repo, plate string) {
+	t.Helper()
+	repo = gitInit(t) // uncommitted edit on src/pool.ts line 1
+	writeFile(t, repo, "src/prices.ts", "a\nb\nttl: 3600\ncache.set()\n") // line 5 ("e") deleted
+	writeFile(t, repo, "note.txt", "todo\nnote two\n")
+	visual := writeFile(t, t.TempDir(), "map.json", testMap)
+	ctx := Ctx{Dir: repo, Home: t.TempDir()}
+	code, out, errb := run(t, ctx, "new", "--title", "t", "--about", "worktree")
+	if code != 0 {
+		t.Fatalf("new: %s", errb)
+	}
+	plate = strings.TrimSpace(out)
+	if code, _, errb := run(t, ctx, "add", plate, "--title", "c", "--visual", visual,
+		"--ref", "src/pool.ts:1 @cache the pool"); code != 0 {
+		t.Fatalf("add: %s", errb)
+	}
+	if code, _, errb := run(t, ctx, "done", plate); code != 0 {
+		t.Fatalf("done: %s", errb)
+	}
+	return repo, plate
+}
+
+type apiLedger struct {
+	Shown int `json:"shown"`
+	Total int `json:"total"`
+	Hunks []struct {
+		Path    string `json:"path"`
+		Side    string `json:"side"`
+		Start   int    `json:"start"`
+		End     int    `json:"end"`
+		Added   int    `json:"added"`
+		Removed int    `json:"removed"`
+	} `json:"hunks"`
+}
+
+func TestAPILedger(t *testing.T) {
+	_, plate := ledgeredFixture(t)
+	api, err := newAPIServer(plate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(api.handler())
+	defer ts.Close()
+
+	// /api/plate carries the ledger.
+	var p struct {
+		Ledger *apiLedger `json:"ledger"`
+	}
+	getJSON(t, ts.URL+"/api/plate", &p)
+	if p.Ledger == nil || p.Ledger.Shown != 1 || p.Ledger.Total != 3 || len(p.Ledger.Hunks) != 2 {
+		t.Fatalf("plate ledger = %+v", p.Ledger)
+	}
+	if h := p.Ledger.Hunks[0]; h.Path != "src/prices.ts" || h.Side != "base" || h.Start != 5 || h.End != 5 {
+		t.Fatalf("hunk 0 = %+v", h)
+	}
+	if h := p.Ledger.Hunks[1]; h.Path != "note.txt" || h.Side != "head" || h.Start != 1 || h.End != 2 {
+		t.Fatalf("hunk 1 = %+v", h)
+	}
+
+	// A base-side hunk serves the removed line from the recorded base rev.
+	var c apiCode
+	if status := getJSON(t, ts.URL+"/api/ledger?hunk=0", &c); status != 200 {
+		t.Fatalf("ledger hunk 0: %d", status)
+	}
+	if c.Path != "src/prices.ts" || len(c.Lines) == 0 {
+		t.Fatalf("hunk 0 drawer = %+v", c)
+	}
+	var inText []string
+	for _, l := range c.Lines {
+		if l.In {
+			inText = append(inText, l.Text)
+		}
+	}
+	if len(inText) != 1 || inText[0] != "e" {
+		t.Fatalf("hunk 0 in-range lines = %v, want the deleted \"e\"", inText)
+	}
+
+	// A head-side hunk serves from the worktree.
+	if status := getJSON(t, ts.URL+"/api/ledger?hunk=1", &c); status != 200 {
+		t.Fatalf("ledger hunk 1: %d", status)
+	}
+	if c.Path != "note.txt" || len(c.Lines) != 2 || !c.Lines[0].In || c.Lines[0].Text != "todo" {
+		t.Fatalf("hunk 1 drawer = %+v", c)
+	}
+
+	// Unknown index → 404.
+	var e map[string]any
+	if status := getJSON(t, ts.URL+"/api/ledger?hunk=2", &e); status != 404 {
+		t.Fatalf("hunk 2: %d, want 404", status)
+	}
+}
+
+func TestAPILedgerAbsent(t *testing.T) {
+	_, _, ts := apiFixture(t) // a code plate: no ledger at all
+	var p struct {
+		Ledger *apiLedger `json:"ledger"`
+	}
+	getJSON(t, ts.URL+"/api/plate", &p)
+	if p.Ledger != nil {
+		t.Fatalf("code plate serves a ledger: %+v", p.Ledger)
+	}
+	var e map[string]any
+	if status := getJSON(t, ts.URL+"/api/ledger?hunk=0", &e); status != 404 {
+		t.Fatalf("ledger endpoint without a ledger: %d, want 404", status)
+	}
+}
+
+func TestAPILedgerDegraded(t *testing.T) {
+	// Detach the plate from git: a plain directory serves head-side hunks
+	// from the files and answers base-side hunks with a reason.
+	repo, plate := ledgeredFixture(t)
+	snap := filepath.Join(filepath.Dir(plate), "snapshot")
+	copyTree(t, repo, snap)
+	if err := os.RemoveAll(filepath.Join(snap, ".git")); err != nil {
+		t.Fatal(err)
+	}
+	setPlateRepo(t, plate, snap)
+	api, err := newAPIServer(plate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ts := httptest.NewServer(api.handler())
+	defer ts.Close()
+
+	var cw struct {
+		Why   string `json:"why"`
+		Lines []any  `json:"lines"`
+	}
+	if status := getJSON(t, ts.URL+"/api/ledger?hunk=0", &cw); status != 200 {
+		t.Fatalf("base hunk without git: %d", status)
+	}
+	if cw.Why == "" || len(cw.Lines) != 0 {
+		t.Fatalf("base hunk without git = %+v, want a why and no lines", cw)
+	}
+	var c apiCode
+	getJSON(t, ts.URL+"/api/ledger?hunk=1", &c)
+	if len(c.Lines) != 2 || c.Lines[0].Text != "todo" {
+		t.Fatalf("head hunk from plain files = %+v", c)
+	}
+}

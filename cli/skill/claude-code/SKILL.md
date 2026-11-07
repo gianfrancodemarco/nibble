@@ -41,6 +41,7 @@ switch output modes.
 nibble new   --title <t> [--description <md>] [--description-standard <md>] [--about code|worktree|<base>..<head>]
 nibble serve <plate> [--timeout <dur>] &                          # start serving now, in the background
 nibble add   <plate> --title <md> [--description <md>] [--description-standard <md>] --visual <file.json> [--ref <ref>]...
+nibble done  <plate> --check                                      # diff plates: what the walkthrough missed, while you can still add
 nibble done  <plate>                                              # seals it; serve keeps waiting for the verdict
 ```
 
@@ -99,11 +100,21 @@ $ nibble add <plate> \
     --visual compare.json \
     --ref "diff:src/upload/handler.ts@worktree:8-21 @after the handler that buys this"
 
+$ nibble done <plate> --check
+ledger: 1 of 1 hunks not shown
+  src/upload/handler.ts:1 (+1 −1, head)
+
 $ nibble done <plate>
-✓ sealed at 4 nibbles
+✓ sealed at 4 nibbles · ledger: 1 of 1 hunks not shown
 
 $ wait %1   # serve is still running; it exits with the verdict
 ```
+
+The `--check` before `done` is the last look: it prints the diff hunks no
+nibble referenced, without sealing. Here the one miss is the handler's
+changed header comment — not worth a nibble, so the agent seals and the
+ledger discloses it. Had the check named real logic, the move is another
+`add` with a ref over those lines, then `done` again.
 
 Each `add` landed in the reader the moment it ran — by `done`, the human may
 already be two nibbles in. Sealing tells the reader nothing more is coming;
@@ -190,6 +201,30 @@ map with no `changed` node is rejected too (`map.ring.empty`): rings only
 mean something anchored on a change. A bad value is `map.ring.unknown`.
 Worked example: [examples/ring-map.json](examples/ring-map.json) — the
 image-resize PR's opening nibble.
+
+## The not-shown ledger
+
+Every `worktree` and range plate ends with a **ledger**: the diff hunks no
+nibble referenced, listed on a final card the reader can open and comment on.
+You never compute it — `nibble done` diffs the code itself (git), matches
+every hunk against every ref on the plate, and writes it at seal time. It is
+the plate's honesty mechanism: the reviewer sees exactly what the walkthrough
+skipped.
+
+Work with it, not around it:
+
+- Before sealing, run `nibble done <plate> --check`. It prints the would-be
+  ledger and writes nothing, so the plate still takes `add`.
+- If the check names logic the review should see, add a nibble whose ref
+  covers those lines. If it names noise — a comment tweak, generated output,
+  a lockfile — seal: the ledger disclosing it *is* the correct handling.
+- Never pad a plate just to empty the ledger, and never ref lines you aren't
+  actually talking about. A reviewer who meets an honest two-line ledger
+  trusts the plate more, not less.
+
+A hunk is covered by any ref that names its path and overlaps its lines —
+refs you added for anchors count. Deleted code sits on the diff's base side;
+a ref over the line it vanished from covers it.
 
 ## Layer the detail (the dial)
 
@@ -281,8 +316,10 @@ When `serve` returns, the exit code is the verdict and stdout is the review:
 ```
 
 A target `n2` is nibble 2; `n2:s4` is element `s4` on nibble 2's visual —
-here, the enqueue arrow in the sequence. Map each comment back to what it
-points at before answering.
+here, the enqueue arrow in the sequence. A target `ledger` is the not-shown
+ledger as a whole, and `ledger:src/billing.ts:40-52` is one of its hunks —
+the reviewer read something you didn't walk through, so look at those exact
+lines before answering. Map each comment back to what it points at.
 
 - `approve` (exit 0): done. Report it and move on.
 - `changes` (exit 2): address each comment where the work happens — in the

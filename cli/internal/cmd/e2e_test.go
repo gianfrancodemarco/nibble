@@ -119,3 +119,50 @@ func exportGolden(t *testing.T, plate, dest string) {
 		t.Fatal(err)
 	}
 }
+
+// TestEndToEndLedgerLoop drives the review-coverage loop the skill teaches:
+// build a worktree plate, `done --check` reports what was missed, cover it,
+// seal — the ledger discloses only what stayed unshown.
+func TestEndToEndLedgerLoop(t *testing.T) {
+	repo := gitInit(t) // uncommitted edit on src/pool.ts line 1
+	writeFile(t, repo, "CHANGES.md", "intro\nthe pool doubled\n")
+	tmp := t.TempDir()
+	mapV := writeFile(t, tmp, "map.json", testMap)
+
+	ctx, plate := newTestPlate(t, repo, "--about", "worktree")
+	if code, _, errb := run(t, ctx, "add", plate, "--title", "The pool doubles.",
+		"--visual", mapV, "--ref", "diff:src/pool.ts@worktree:1 @db the pool size"); code != 0 {
+		t.Fatal(errb)
+	}
+
+	// The check names the uncovered hunk (the untracked changelog)…
+	code, out, _ := run(t, ctx, "done", plate, "--check", "--json")
+	if code != 0 {
+		t.Fatalf("check: exit %d", code)
+	}
+	var checked struct {
+		Ledger protocol.Ledger `json:"ledger"`
+	}
+	if err := json.Unmarshal([]byte(out), &checked); err != nil {
+		t.Fatal(err)
+	}
+	if len(checked.Ledger.Hunks) != 1 || checked.Ledger.Hunks[0].Path != "CHANGES.md" {
+		t.Fatalf("check ledger = %+v", checked.Ledger)
+	}
+
+	// …the agent covers it and seals: the hunk is gone from the ledger.
+	if code, _, errb := run(t, ctx, "add", plate, "--title", "And the changelog says so.",
+		"--visual", mapV, "--ref", "CHANGES.md:2 @cache the changelog line"); code != 0 {
+		t.Fatal(errb)
+	}
+	if code, _, errb := run(t, ctx, "done", plate); code != 0 {
+		t.Fatal(errb)
+	}
+	p, err := protocol.ParsePlate(plate)
+	if err != nil || p.Open || p.Ledger == nil {
+		t.Fatalf("sealed plate: %+v err %v", p, err)
+	}
+	if len(p.Ledger.Hunks) != 0 || p.Ledger.Shown != p.Ledger.Total || p.Ledger.Total != 2 {
+		t.Fatalf("sealed ledger = %+v", p.Ledger)
+	}
+}

@@ -1,0 +1,22 @@
+{
+  "shown": 1,
+  "total": 3,
+  "hunks": [
+    {
+      "path": "src/cache/invalidate.ts",
+      "side": "head",
+      "start": 12,
+      "end": 19,
+      "added": 8,
+      "removed": 3
+    },
+    {
+      "path": "src/cache/legacy-ttl.ts",
+      "side": "base",
+      "start": 1,
+      "end": 24,
+      "added": 0,
+      "removed": 24
+    }
+  ]
+}
