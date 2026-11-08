@@ -16,6 +16,7 @@
   <span class="spacer"></span>
   <span id="rail" aria-hidden="true"></span>
   <span id="progress" class="meta"></span>
+  <button id="send" title="send the review and wake the agent (s) — your held comments, or done with none">done</button>
 </header>
 <div id="plate-desc" hidden></div>
 <div id="notice" hidden></div>
@@ -23,13 +24,13 @@
 <div id="main">
 <aside id="legend" aria-label="keyboard shortcuts">
   <div class="krow"><kbd>← →</kbd><span>previous / next nibble</span></div>
+  <div class="krow"><kbd>d</kbd><span id="dial" role="group" aria-label="detail dial" title="detail dial (d) — skim the overview, or read everything at standard"><button class="dial-pos" data-level="overview">overview</button><button class="dial-pos on" data-level="standard">standard</button></span></div>
   <div class="krow"><kbd>⎵</kbd><span>step the visual — sequence steps, timeline cursor, compare flip</span></div>
-  <div class="krow"><kbd>d</kbd><span>detail dial — skim the overview, or read everything at standard</span></div>
-  <div class="krow"><kbd>⏎</kbd><span>pin the typed comment to this nibble, or to the selected element</span></div>
-  <div class="krow"><kbd>s</kbd><span>send the review — your pinned comments, or done with none</span></div>
+  <div class="krow"><kbd>c</kbd><span>comment — on the selection, or the nibble; hold for review, or ask now</span></div>
+  <div class="krow"><kbd>s</kbd><span>send the review — your held comments, or done with none</span></div>
   <div class="krow"><kbd>esc</kbd><span>close the drawer</span></div>
   <div class="krow"><kbd>?</kbd><span>pin this legend open</span></div>
-  <p class="kfoot">Refs open the code drawer. Pinned comments are a draft — the <b>send</b> button is what ends the agent's wait.</p>
+  <p class="kfoot">Refs open the code drawer. Held comments are a draft — the <b>send</b> button is what ends the agent's wait.</p>
 </aside>
 
 <main id="canvas">
@@ -37,19 +38,11 @@
 </main>
 </div>
 
-<nav id="stepper">
-  <button id="prev" title="previous nibble (←)">←</button>
-  <span id="pos" class="meta"></span>
-  <button id="next" title="next nibble (→)">→</button>
-  <span id="dial" role="group" aria-label="detail dial" title="detail dial (d) — how much every visual draws">
-    <button class="dial-pos" data-level="overview">overview</button>
-    <button class="dial-pos on" data-level="standard">standard</button>
-  </span>
-</nav>
-
 <aside id="drawer" hidden>
   <header>
-    <span id="drawer-path" class="mono"></span>
+    <span class="caret" aria-hidden="true">▾</span>
+    <span id="drawer-path"></span>
+    <span id="drawer-range"></span>
     <span id="drawer-trust" class="trust"></span>
     <span class="spacer"></span>
     <button id="drawer-close" title="close the drawer (esc)">×</button>
@@ -58,14 +51,17 @@
   <pre id="drawer-code" class="mono"></pre>
 </aside>
 
+<div id="pop" role="dialog" aria-label="comment" hidden>
+  <div class="on" id="pop-target"></div>
+  <textarea id="pop-text" rows="3" placeholder="disagree on the thing itself…"></textarea>
+  <div class="acts">
+    <button id="pop-hold" title="pin the comment; the send button posts the review (⌘⏎)">Hold for review <small>⌘⏎</small></button>
+    <button id="pop-ask" class="primary" title="end the agent’s wait now, with this question and everything pinned (⇧⌘⏎)">Ask now <small>⇧⌘⏎</small></button>
+  </div>
+</div>
+
 <footer id="reviewbar">
   <div id="pending"></div>
-  <div class="row">
-    <input id="comment" type="text" placeholder="comment on this nibble…" title="type, then ⏎ or the pin button attaches it to the active nibble">
-    <button id="comment-add" title="pin the comment to the active nibble (⏎)">pin to <span id="comment-target">n1</span></button>
-    <span class="spacer"></span>
-    <button id="send" title="send the review and wake the agent (s) — your pinned comments, or done with none">done</button>
-  </div>
   <div id="submitted" hidden></div>
 </footer>
 

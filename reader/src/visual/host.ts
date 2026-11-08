@@ -88,6 +88,53 @@ function reviewBody(comments: readonly { target?: string; text: string }[]): str
 type RendererOf<K extends Visual["kind"]> = (v: Extract<Visual, { kind: K }>, ctx: RenderCtx) => Element;
 const visualRenderers: { [K in Visual["kind"]]?: RendererOf<K> } = {};
 
+// --- syntax highlight for the code drawers (pure seam, tested) ---
+// A tiny line tokenizer, language-agnostic by design: comments, strings,
+// numbers, a shared keyword set and call-position identifiers cover the
+// TS/Go/Python-ish code plates usually quote; anything unrecognised stays
+// plain text. Returns HTML with everything escaped.
+
+const HL_KEYWORDS = new Set([
+  // ts/js
+  "const", "let", "var", "function", "return", "if", "else", "for", "while",
+  "do", "new", "await", "async", "import", "from", "export", "default",
+  "type", "interface", "class", "extends", "implements", "throw", "try",
+  "catch", "finally", "switch", "case", "break", "continue", "typeof",
+  "instanceof", "in", "of", "void", "delete", "yield", "static", "public",
+  "private", "protected", "readonly", "enum", "null", "undefined", "true",
+  "false", "this",
+  // go
+  "func", "package", "defer", "go", "chan", "range", "struct", "nil",
+  "select", "fallthrough", "goto",
+  // python
+  "def", "elif", "None", "True", "False", "not", "and", "or", "is",
+  "lambda", "with", "as", "pass", "raise", "global",
+]);
+
+function hlEsc(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function highlightCode(line: string): string {
+  const re = /(\/\/.*$|#.*$)|("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?|`(?:[^`\\]|\\.)*`?)|(\b\d[\w.]*)|([A-Za-z_$][\w$]*)/g;
+  let out = "";
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(line)) !== null) {
+    out += hlEsc(line.slice(last, m.index));
+    const [, cm, str, num, id] = m;
+    if (cm !== undefined) out += `<span class="cm">${hlEsc(cm)}</span>`;
+    else if (str !== undefined) out += `<span class="str">${hlEsc(str)}</span>`;
+    else if (num !== undefined) out += `<span class="num">${hlEsc(num)}</span>`;
+    else if (HL_KEYWORDS.has(id)) out += `<span class="kw">${hlEsc(id)}</span>`;
+    else if (/^\s*\(/.test(line.slice(re.lastIndex))) out += `<span class="fn">${hlEsc(id)}</span>`;
+    else out += hlEsc(id);
+    last = re.lastIndex;
+  }
+  out += hlEsc(line.slice(last));
+  return out || " ";
+}
+
 // --- pure seam logic (covered by test/host.test.ts) ---
 
 function anchorRefIndex(refs: readonly AnchoredRef[]): Map<string, number> {

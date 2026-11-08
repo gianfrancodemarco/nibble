@@ -33,12 +33,21 @@ function mapGroupOrder(list: MapNode[]): MapNode[] {
 }
 
 function layoutMap(v: MapVisual): MapLayout {
-  const PAD = 24, VGAP = 22, HGAP = 90, NODE_H = MAP_NODE_H;
+  const PAD = 24, HGAP = 90, NODE_H = MAP_NODE_H;
   const nodeW = mapNodeW;
   const colOf = (n: MapNode) => n.tier ?? "service";
   const present = MAP_TIERS.filter((t) => v.nodes.some((n) => colOf(n) === t));
 
   const cols = present.map((tier) => mapGroupOrder(v.nodes.filter((n) => colOf(n) === tier)));
+
+  // An edge between two nodes of the same column runs vertically through the
+  // row gap, which then has to hold an arrowhead and a label beside the line;
+  // a plain stack stays tight.
+  const colIdx = new Map<string, number>();
+  cols.forEach((c, i) => c.forEach((n) => colIdx.set(n.id, i)));
+  const VGAP = (v.edges ?? []).some(
+    (e) => colIdx.has(e.from) && colIdx.get(e.from) === colIdx.get(e.to),
+  ) ? 58 : 22;
 
   const colW = cols.map((c) => Math.max(...c.map(nodeW)));
   const colH = cols.map((c) => c.length * NODE_H + (c.length - 1) * VGAP);
@@ -252,13 +261,23 @@ function renderMapVisual(v: MapVisual, ctx: RenderCtx): Element {
     const g = svgEl("g", { class: `edge ${e.style ?? "flow"}`, "data-from": e.from, "data-to": e.to });
     g.appendChild(svgEl("path", { d, "marker-end": `url(#${uid}-arr)` }));
     g.appendChild(svgEl("title", {}, e.label ?? ""));
-    // a horizontal label needs to fit the gap between the boxes, or it would
-    // clip behind them (ring rows sit much closer than tier columns)
-    const labelFits = !horizontal || Math.abs(x2 - x1) > (e.label?.length ?? 0) * 6.5;
-    if (e.label && labelFits) {
-      g.appendChild(svgEl("text", {
-        x: (x1 + x2) / 2, y: (y1 + y2) / 2 - 7, "text-anchor": "middle", class: "elabel",
-      }, e.label));
+    // A horizontal label sits above its edge and must fit the gap between
+    // the boxes, or it would clip behind them (ring rows sit much closer
+    // than tier columns). A vertical label can never fit the row gap above
+    // the line, so it sits beside the line instead, vertically centred in
+    // the gap — never under a box.
+    if (e.label) {
+      if (horizontal) {
+        if (Math.abs(x2 - x1) > e.label.length * 6.5) {
+          g.appendChild(svgEl("text", {
+            x: (x1 + x2) / 2, y: (y1 + y2) / 2 - 7, "text-anchor": "middle", class: "elabel",
+          }, e.label));
+        }
+      } else {
+        g.appendChild(svgEl("text", {
+          x: (x1 + x2) / 2 + 8, y: (y1 + y2) / 2 + 3.5, "text-anchor": "start", class: "elabel",
+        }, e.label));
+      }
     }
     edgesG.appendChild(g);
   });

@@ -148,9 +148,15 @@ function renderTimelineVisual(v: TimelineVisual, ctx: RenderCtx): Element {
       g.appendChild(svgEl("title", {}, `${tlFmt(tlParseAt(e.at), clock)} — ${e.label}${e.weight ? ` (${e.weight})` : ""}`));
       g.appendChild(svgEl("circle", { cx: ex, cy: y, r: tlWeightR(e.weight, maxWeight) }));
       const above = y - tlWeightR(e.weight, maxWeight) - 6;
-      g.appendChild(svgEl("text", { x: ex, y: above, "text-anchor": "middle", class: "ev-label" }, e.label));
+      // A centred label would clip past the plot edges near either end of the
+      // axis, so it flips to grow inward instead.
+      const half = e.label.length * 3.4;
+      const right = PADL + labelW + plotW;
+      const anchor = ex + half > right + 24 ? "end" : ex - half < PADL + labelW - 8 ? "start" : "middle";
+      g.appendChild(svgEl("text", { x: ex, y: above, "text-anchor": anchor, class: "ev-label" }, e.label));
       if (e.id) {
-        const chip = codeChip(ctx, e.id, ex + 8, y + 16);
+        // the chip sits to the event's right unless that would leave the plot
+        const chip = codeChip(ctx, e.id, ex + 34 > right + 24 ? ex - 34 : ex + 8, y + 16);
         if (chip) g.appendChild(chip);
       }
       eventsG.appendChild(g);

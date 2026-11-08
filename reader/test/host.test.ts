@@ -70,3 +70,12 @@ t("the review POST body carries no visited information", () => {
   ok(!body.includes("visited"), "no visited key anywhere");
   eq(JSON.parse(reviewBody([])), { comments: [] }, "no comments means done");
 });
+
+t("highlightCode marks tokens and escapes html", () => {
+  eq(highlightCode("const n = 42 // half"),
+    '<span class="kw">const</span> n = <span class="num">42</span> <span class="cm">// half</span>',
+    "keyword, number, comment");
+  eq(highlightCode("total(lines)"), '<span class="fn">total</span>(lines)', "call position");
+  eq(highlightCode('a < "b<i>"'), 'a &lt; <span class="str">"b&lt;i&gt;"</span>', "escaped html");
+  eq(highlightCode(""), " ", "empty line keeps its height");
+});

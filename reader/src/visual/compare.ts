@@ -91,7 +91,7 @@ function cmpPane(id: "before" | "after", v: CompareVisual, ctx: RenderCtx): HTML
             return;
           }
           body.innerHTML = resp.lines
-            .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${cmpEsc(l.text) || " "}</span></div>`)
+            .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`)
             .join("");
         })
         .catch(() => undefined);

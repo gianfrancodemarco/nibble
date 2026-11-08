@@ -56,6 +56,55 @@ function reviewBody(comments) {
     return JSON.stringify({ comments });
 }
 const visualRenderers = {};
+// --- syntax highlight for the code drawers (pure seam, tested) ---
+// A tiny line tokenizer, language-agnostic by design: comments, strings,
+// numbers, a shared keyword set and call-position identifiers cover the
+// TS/Go/Python-ish code plates usually quote; anything unrecognised stays
+// plain text. Returns HTML with everything escaped.
+const HL_KEYWORDS = new Set([
+    // ts/js
+    "const", "let", "var", "function", "return", "if", "else", "for", "while",
+    "do", "new", "await", "async", "import", "from", "export", "default",
+    "type", "interface", "class", "extends", "implements", "throw", "try",
+    "catch", "finally", "switch", "case", "break", "continue", "typeof",
+    "instanceof", "in", "of", "void", "delete", "yield", "static", "public",
+    "private", "protected", "readonly", "enum", "null", "undefined", "true",
+    "false", "this",
+    // go
+    "func", "package", "defer", "go", "chan", "range", "struct", "nil",
+    "select", "fallthrough", "goto",
+    // python
+    "def", "elif", "None", "True", "False", "not", "and", "or", "is",
+    "lambda", "with", "as", "pass", "raise", "global",
+]);
+function hlEsc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function highlightCode(line) {
+    const re = /(\/\/.*$|#.*$)|("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?|`(?:[^`\\]|\\.)*`?)|(\b\d[\w.]*)|([A-Za-z_$][\w$]*)/g;
+    let out = "";
+    let last = 0;
+    let m;
+    while ((m = re.exec(line)) !== null) {
+        out += hlEsc(line.slice(last, m.index));
+        const [, cm, str, num, id] = m;
+        if (cm !== undefined)
+            out += `<span class="cm">${hlEsc(cm)}</span>`;
+        else if (str !== undefined)
+            out += `<span class="str">${hlEsc(str)}</span>`;
+        else if (num !== undefined)
+            out += `<span class="num">${hlEsc(num)}</span>`;
+        else if (HL_KEYWORDS.has(id))
+            out += `<span class="kw">${hlEsc(id)}</span>`;
+        else if (/^\s*\(/.test(line.slice(re.lastIndex)))
+            out += `<span class="fn">${hlEsc(id)}</span>`;
+        else
+            out += hlEsc(id);
+        last = re.lastIndex;
+    }
+    out += hlEsc(line.slice(last));
+    return out || " ";
+}
 // --- pure seam logic (covered by test/host.test.ts) ---
 function anchorRefIndex(refs) {
     const m = new Map();
@@ -272,11 +321,17 @@ function mapGroupOrder(list) {
     return ordered;
 }
 function layoutMap(v) {
-    const PAD = 24, VGAP = 22, HGAP = 90, NODE_H = MAP_NODE_H;
+    const PAD = 24, HGAP = 90, NODE_H = MAP_NODE_H;
     const nodeW = mapNodeW;
     const colOf = (n) => n.tier ?? "service";
     const present = MAP_TIERS.filter((t) => v.nodes.some((n) => colOf(n) === t));
     const cols = present.map((tier) => mapGroupOrder(v.nodes.filter((n) => colOf(n) === tier)));
+    // An edge between two nodes of the same column runs vertically through the
+    // row gap, which then has to hold an arrowhead and a label beside the line;
+    // a plain stack stays tight.
+    const colIdx = new Map();
+    cols.forEach((c, i) => c.forEach((n) => colIdx.set(n.id, i)));
+    const VGAP = (v.edges ?? []).some((e) => colIdx.has(e.from) && colIdx.get(e.from) === colIdx.get(e.to)) ? 58 : 22;
     const colW = cols.map((c) => Math.max(...c.map(nodeW)));
     const colH = cols.map((c) => c.length * NODE_H + (c.length - 1) * VGAP);
     const h = Math.max(...colH) + PAD * 2;
@@ -484,13 +539,24 @@ function renderMapVisual(v, ctx) {
         const g = svgEl("g", { class: `edge ${e.style ?? "flow"}`, "data-from": e.from, "data-to": e.to });
         g.appendChild(svgEl("path", { d, "marker-end": `url(#${uid}-arr)` }));
         g.appendChild(svgEl("title", {}, e.label ?? ""));
-        // a horizontal label needs to fit the gap between the boxes, or it would
-        // clip behind them (ring rows sit much closer than tier columns)
-        const labelFits = !horizontal || Math.abs(x2 - x1) > (e.label?.length ?? 0) * 6.5;
-        if (e.label && labelFits) {
-            g.appendChild(svgEl("text", {
-                x: (x1 + x2) / 2, y: (y1 + y2) / 2 - 7, "text-anchor": "middle", class: "elabel",
-            }, e.label));
+        // A horizontal label sits above its edge and must fit the gap between
+        // the boxes, or it would clip behind them (ring rows sit much closer
+        // than tier columns). A vertical label can never fit the row gap above
+        // the line, so it sits beside the line instead, vertically centred in
+        // the gap — never under a box.
+        if (e.label) {
+            if (horizontal) {
+                if (Math.abs(x2 - x1) > e.label.length * 6.5) {
+                    g.appendChild(svgEl("text", {
+                        x: (x1 + x2) / 2, y: (y1 + y2) / 2 - 7, "text-anchor": "middle", class: "elabel",
+                    }, e.label));
+                }
+            }
+            else {
+                g.appendChild(svgEl("text", {
+                    x: (x1 + x2) / 2 + 8, y: (y1 + y2) / 2 + 3.5, "text-anchor": "start", class: "elabel",
+                }, e.label));
+            }
         }
         edgesG.appendChild(g);
     });
@@ -840,9 +906,15 @@ function renderTimelineVisual(v, ctx) {
             g.appendChild(svgEl("title", {}, `${tlFmt(tlParseAt(e.at), clock)} — ${e.label}${e.weight ? ` (${e.weight})` : ""}`));
             g.appendChild(svgEl("circle", { cx: ex, cy: y, r: tlWeightR(e.weight, maxWeight) }));
             const above = y - tlWeightR(e.weight, maxWeight) - 6;
-            g.appendChild(svgEl("text", { x: ex, y: above, "text-anchor": "middle", class: "ev-label" }, e.label));
+            // A centred label would clip past the plot edges near either end of the
+            // axis, so it flips to grow inward instead.
+            const half = e.label.length * 3.4;
+            const right = PADL + labelW + plotW;
+            const anchor = ex + half > right + 24 ? "end" : ex - half < PADL + labelW - 8 ? "start" : "middle";
+            g.appendChild(svgEl("text", { x: ex, y: above, "text-anchor": anchor, class: "ev-label" }, e.label));
             if (e.id) {
-                const chip = codeChip(ctx, e.id, ex + 8, y + 16);
+                // the chip sits to the event's right unless that would leave the plot
+                const chip = codeChip(ctx, e.id, ex + 34 > right + 24 ? ex - 34 : ex + 8, y + 16);
                 if (chip)
                     g.appendChild(chip);
             }
@@ -983,7 +1055,7 @@ function cmpPane(id, v, ctx) {
                     return;
                 }
                 body.innerHTML = resp.lines
-                    .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${cmpEsc(l.text) || " "}</span></div>`)
+                    .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`)
                     .join("");
             })
                 .catch(() => undefined);
@@ -1218,6 +1290,7 @@ let justSent = false;
 let dialLevel = DIAL_DEFAULT;
 const pending = [];
 const read = new Set(); // cards visited, for the rail only
+let knownCards = 0; // cards already on screen, for the arrival animation
 const visualOfCard = (card) => plate?.nibbles[card]?.visual ?? null;
 // cards: the nibbles plus the ledger card when the plate carries a ledger
 const cards = () => (plate ? cardCount(plate.nibbles.length, plate.ledger) : 0);
@@ -1271,6 +1344,7 @@ function aboutLabel(p) {
 function render() {
     if (!plate)
         return;
+    closeDrawer(); // the strip rebuild would destroy a drawer left in a card
     $("#plate-title").textContent = plate.title;
     $("#plate-meta").textContent = `${aboutLabel(plate)} · ${plate.head_sha.slice(0, 7)}`;
     const plateDesc = descriptionAt(plate.description, dialLevel);
@@ -1301,17 +1375,19 @@ function render() {
         const vs = visualSummary(nb.visual);
         const desc = descriptionAt(nb.description, dialLevel);
         return `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
-        <div class="visual">
-          <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
-          <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
-          ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
+        <div class="nbody">
+          <div class="visual">
+            <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
+            <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
+            ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
+          </div>
+          <aside class="nside">
+            <h2>nibble ${nb.n}</h2>
+            <p class="ntitle">${mdLite(nb.title)}</p>
+            ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
+            ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
+          </aside>
         </div>
-        <aside class="nside">
-          <h2>nibble ${nb.n}</h2>
-          <p class="ntitle">${mdLite(nb.title)}</p>
-          ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
-          ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
-        </aside>
       </article>`;
     })
         .join("");
@@ -1320,19 +1396,22 @@ function render() {
         const card = document.createElement("article");
         card.className = "nibble ledger" + (active === plate.nibbles.length ? " active" : "");
         card.dataset.i = String(plate.nibbles.length);
+        const nbody = document.createElement("div");
+        nbody.className = "nbody";
         const slot = document.createElement("div");
         slot.className = "visual rendered";
         const body = renderLedgerBody(plate.ledger);
         body.classList.add("visual-body");
         slot.appendChild(body);
-        card.appendChild(slot);
+        nbody.appendChild(slot);
         const side = document.createElement("aside");
         side.className = "nside";
         side.innerHTML = `<h2>not-shown ledger</h2>
       <p class="ntitle">${plate.ledger.hunks.length === 0
             ? "Every hunk of the diff was shown."
             : "What this walkthrough never showed — the rest of the diff, open to comments."}</p>`;
-        card.appendChild(side);
+        nbody.appendChild(side);
+        card.appendChild(nbody);
         strip.appendChild(card);
     }
     // Per-kind rendering: swap each card's fallback summary for the rendered
@@ -1359,6 +1438,19 @@ function render() {
         body.classList.add("visual-body");
         slot.appendChild(body);
     });
+    // A card that streamed in after the first paint slides into place; the
+    // strip is rebuilt wholesale, so only indexes beyond the known count are
+    // new. The camera stays where it is — arrivals never steal it.
+    const total = cards();
+    if (knownCards > 0 && total > knownCards) {
+        const all = strip.querySelectorAll(".nibble");
+        for (let i = knownCards; i < total; i++)
+            all[i]?.classList.add("in");
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            all.forEach((c) => c.classList.remove("in"));
+        }));
+    }
+    knownCards = total;
     applySelection(strip);
     updateCommentTarget();
     renderReviewBar();
@@ -1375,22 +1467,33 @@ function setDial(level) {
     render(); // redraw in place: layout is computed from the full document
 }
 // --- camera: an animated transform, never a navigation ---
-function updateCommentTarget() {
-    if (!plate || cards() === 0)
-        return;
-    $("#comment-target").textContent = isLedgerCard(active)
+// currentTarget: what a comment pins to right now — the selected element on
+// the active card, or the card itself.
+function currentTarget() {
+    if (!plate)
+        return `n${active + 1}`;
+    return isLedgerCard(active)
         ? ledgerCommentTarget(hostSelection, active)
         : commentTarget(plate.nibbles[active].n, hostSelection, active);
+}
+// updateCommentTarget keeps an open popover honest when the selection moves
+// under it; a closed popover reads the target fresh when it opens.
+function updateCommentTarget() {
+    if ($("#pop").hidden)
+        return;
+    $("#pop-target").textContent = currentTarget();
 }
 function setActive(i) {
     if (!plate)
         return;
-    active = Math.max(0, Math.min(cards() - 1, i));
+    const next = Math.max(0, Math.min(cards() - 1, i));
+    if (next !== active)
+        closeDrawer(); // the drawer shows the active card's code
+    active = next;
     document.querySelectorAll(".nibble").forEach((card, idx) => {
         card.classList.toggle("active", idx === active);
     });
     updateCommentTarget();
-    $("#pos").textContent = `${active + 1} / ${cards()}`;
     camera();
 }
 function camera() {
@@ -1401,7 +1504,6 @@ function camera() {
     const canvas = $("#canvas");
     const x = canvas.clientWidth / 2 - card.offsetLeft - card.offsetWidth / 2;
     strip.style.transform = `translateX(${x}px)`;
-    $("#pos").textContent = plate ? `${active + 1} / ${cards()}` : "";
     rail();
 }
 // rail: one segment per card in the top bar — read, active, or still ahead
@@ -1413,7 +1515,23 @@ function rail() {
     }
     $("#rail").innerHTML = segs.join("");
 }
-// --- code drawer ---
+// --- code drawer: one element, mounted inside the active card while open ---
+// attachDrawer moves the drawer into the active card, so the evidence reads
+// as part of the nibble rather than a panel over it.
+function attachDrawer() {
+    const d = $("#drawer");
+    const card = document.querySelector(".nibble.active");
+    if (card)
+        card.appendChild(d);
+    d.hidden = false;
+}
+// closeDrawer re-homes the drawer to the body: a strip rebuild or a card
+// change must never destroy the one drawer element.
+function closeDrawer() {
+    const d = $("#drawer");
+    d.hidden = true;
+    document.body.appendChild(d);
+}
 async function openDrawer(n, ref) {
     let resp;
     try {
@@ -1427,6 +1545,10 @@ async function openDrawer(n, ref) {
         return;
     const c = (await resp.json());
     $("#drawer-path").textContent = c.path;
+    const lit = c.lines.filter((l) => l.in);
+    $("#drawer-range").textContent = lit.length === 0 ? ""
+        : lit[0].no === lit[lit.length - 1].no ? String(lit[0].no)
+            : `${lit[0].no}–${lit[lit.length - 1].no}`;
     $("#drawer-trust").outerHTML = trustBadge(c.trust).replace('class="trust', 'id="drawer-trust" class="trust');
     const note = $("#drawer-note");
     if (c.why) {
@@ -1449,9 +1571,9 @@ async function openDrawer(n, ref) {
         note.hidden = true;
     }
     $("#drawer-code").innerHTML = c.lines
-        .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${esc(l.text) || " "}</span></div>`)
+        .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`)
         .join("");
-    $("#drawer").hidden = false;
+    attachDrawer();
 }
 // openLedgerDrawer shows one file's not-shown hunks, served by /api/ledger
 // from the side (worktree, base rev, range revs) the hunks live on, with the
@@ -1469,6 +1591,7 @@ async function openLedgerDrawer(path, side) {
         return;
     const c = (await resp.json());
     $("#drawer-path").textContent = c.path;
+    $("#drawer-range").textContent = "";
     $("#drawer-trust").outerHTML = `<span id="drawer-trust" class="trust unverified">not shown · ${esc(c.side)}</span>`;
     const note = $("#drawer-note");
     if (c.why) {
@@ -1493,10 +1616,57 @@ async function openLedgerDrawer(path, side) {
         .map((l) => {
         const gap = prev > 0 && l.no > prev + 1 ? `<div class="ln gap"><span class="no">⋯</span><span></span></div>` : "";
         prev = l.no;
-        return `${gap}<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${esc(l.text) || " "}</span></div>`;
+        return `${gap}<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`;
     })
         .join("");
-    $("#drawer").hidden = false;
+    attachDrawer();
+}
+// --- the comment popover: disagree on the thing itself, where it is ---
+// openPop shows the popover beside the selected element (or over the active
+// card's visual when nothing is selected), targeted like the review bar.
+function openPop() {
+    if (!plate || plate.review)
+        return;
+    $("#pop-target").textContent = currentTarget();
+    const pop = $("#pop");
+    pop.hidden = false;
+    const anchor = document.querySelector(".nibble.active [data-anchor].sel") ??
+        document.querySelector(".nibble.active .visual");
+    const r = anchor?.getBoundingClientRect();
+    if (r) {
+        let x = r.right + 12;
+        let y = r.top;
+        if (x + pop.offsetWidth > window.innerWidth - 12) {
+            x = Math.max(12, Math.min(r.left + r.width / 2 - pop.offsetWidth / 2, window.innerWidth - pop.offsetWidth - 12));
+            y = r.bottom + 10;
+        }
+        y = Math.max(12, Math.min(y, window.innerHeight - pop.offsetHeight - 12));
+        pop.style.left = `${x}px`;
+        pop.style.top = `${y}px`;
+    }
+    $("#pop-text").focus();
+}
+function closePop() {
+    $("#pop").hidden = true;
+    $("#pop-text").value = "";
+}
+// holdPop pins the comment for the review; the send button still posts it.
+function holdPop() {
+    const text = $("#pop-text").value.trim();
+    if (!text)
+        return;
+    pending.push({ target: currentTarget(), text });
+    closePop();
+    renderReviewBar();
+}
+// askPop ends the agent's wait now: this question, plus everything pinned.
+function askPop() {
+    const text = $("#pop-text").value.trim();
+    if (!text)
+        return;
+    pending.push({ target: currentTarget(), text });
+    closePop();
+    void submit();
 }
 // --- review ---
 function renderReviewBar() {
@@ -1506,6 +1676,7 @@ function renderReviewBar() {
     const submitted = $("#submitted");
     if (plate.review) {
         bar.classList.add("locked");
+        $("#send").hidden = true;
         submitted.hidden = false;
         const n = plate.review.comments?.length ?? 0;
         const badge = n
@@ -1519,6 +1690,7 @@ function renderReviewBar() {
     bar.classList.remove("locked");
     submitted.hidden = true;
     const send = $("#send");
+    send.hidden = false;
     send.textContent = pending.length ? `send ${pending.length} comment${pending.length > 1 ? "s" : ""}` : "done";
     $("#pending").innerHTML = pending
         .map((c, i) => `<span class="pin"><b>${esc(c.target ?? "plate")}</b> ${esc(c.text)} <button data-i="${i}" title="remove">×</button></span>`)
@@ -1529,21 +1701,6 @@ function renderReviewBar() {
             renderReviewBar();
         });
     });
-}
-function addComment() {
-    const input = $("#comment");
-    const text = input.value.trim();
-    if (!text) {
-        input.placeholder = "type the comment first, then pin it";
-        input.focus();
-        return;
-    }
-    const target = !plate ? `n${active + 1}`
-        : isLedgerCard(active) ? ledgerCommentTarget(hostSelection, active)
-            : commentTarget(plate.nibbles[active].n, hostSelection, active);
-    pending.push({ target, text });
-    input.value = "";
-    renderReviewBar();
 }
 async function submit() {
     let resp;
@@ -1586,23 +1743,33 @@ function listen() {
     es.addEventListener("review", () => void loadPlate());
 }
 // --- wire up ---
-$("#prev").addEventListener("click", () => setActive(active - 1));
-$("#next").addEventListener("click", () => setActive(active + 1));
 document.querySelectorAll("#dial .dial-pos").forEach((btn) => {
-    btn.addEventListener("click", () => setDial(btn.dataset.level));
+    btn.addEventListener("click", (e) => {
+        e.stopPropagation(); // the dial lives in the legend; don't toggle its pin
+        setDial(btn.dataset.level);
+    });
 });
-$("#drawer-close").addEventListener("click", () => ($("#drawer").hidden = true));
+$("#drawer-close").addEventListener("click", closeDrawer);
 const legend = $("#legend");
-$("#comment-add").addEventListener("click", addComment);
-$("#comment").addEventListener("keydown", (e) => {
-    if (e.key === "Enter")
-        addComment();
-});
-// Pinning comments is a draft; only the send button posts the review.
+// Held comments are a draft; only the send button posts the review.
 // With no comments it sends "done" — that alone ends the agent's wait.
 $("#send").addEventListener("click", () => void submit());
+// The popover: hold pins the comment, ask now sends the review with it.
+$("#pop-hold").addEventListener("click", holdPop);
+$("#pop-ask").addEventListener("click", askPop);
+$("#pop-text").addEventListener("keydown", (e) => {
+    if (e.key === "Escape")
+        closePop();
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (e.shiftKey)
+            askPop();
+        else
+            holdPop();
+    }
+});
 document.addEventListener("keydown", (e) => {
-    if (e.target instanceof HTMLInputElement)
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
         return;
     if (e.key === "ArrowLeft")
         setActive(active - 1);
@@ -1618,15 +1785,21 @@ document.addEventListener("keydown", (e) => {
     }
     if (e.key === "d")
         setDial(dialToggle(dialLevel));
+    if (e.key === "c") {
+        e.preventDefault(); // or the c itself lands in the focused textarea
+        openPop();
+    }
     if (e.key === "?")
         legend.classList.toggle("pinned");
     if (e.key === "s" && plate && !plate.review)
         void submit();
     if (e.key === "Escape") {
-        if (legend.classList.contains("pinned"))
+        if (!$("#pop").hidden)
+            closePop();
+        else if (legend.classList.contains("pinned"))
             legend.classList.remove("pinned");
         else if (!$("#drawer").hidden)
-            $("#drawer").hidden = true;
+            closeDrawer();
         else
             clearVisualSelection($("#strip"), hostWiring);
     }
