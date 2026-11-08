@@ -83,6 +83,13 @@ button:hover { border-color: var(--accent); }
 #rail i.read { background: var(--accent); opacity: .45; }
 #rail i.on { background: var(--accent); width: 40px; }
 @media (max-width: 700px) { #rail { display: none; } }
+/* the live marker: the agent is still writing this plate */
+#progress .pulse {
+  display: inline-block; width: 8px; height: 8px; margin-right: 6px;
+  border-radius: 50%; background: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: .25; } }
 .brand { font-weight: 700; letter-spacing: -0.02em; }
 .brand .bite {
   display: inline-block; width: 9px; height: 9px; margin-left: 3px;
@@ -118,6 +125,7 @@ button:hover { border-color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .nibble, #strip { transition: none; }
   .vis-map .edge.miss path { animation: none; }
+  #progress .pulse { animation: none; }
 }
 .nibble h2 {
   margin: 0 0 10px; font-size: 11.5px; color: var(--accent);
