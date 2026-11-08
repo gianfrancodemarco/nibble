@@ -384,12 +384,18 @@ button:hover { border-color: var(--accent); }
 #drawer-note { padding: 0 18px 8px; }
 #drawer-code { flex: 1; overflow: auto; margin: 0; padding: 0 0 10px; font-size: 13px; line-height: 1.7; }
 
-/* syntax colours (the mockup palette); the drawers and compare panes share them */
-.kw { color: var(--kw); }
-.fn { color: var(--fn); }
-.str { color: var(--str); }
-.num { color: var(--num); }
-.cm { color: var(--cm); font-style: italic; }
+/* syntax colours (the mockup palette): highlight.js token classes mapped
+   onto the five theme variables; the drawers and compare panes share them */
+.hljs-keyword, .hljs-literal, .hljs-built_in, .hljs-type, .hljs-doctag,
+.hljs-selector-tag, .hljs-section { color: var(--kw); }
+.hljs-title, .hljs-attr, .hljs-attribute, .hljs-property, .hljs-name,
+.hljs-selector-class, .hljs-selector-id, .hljs-selector-pseudo,
+.hljs-variable, .hljs-template-variable { color: var(--fn); }
+.hljs-string, .hljs-regexp, .hljs-char.escape_, .hljs-addition { color: var(--str); }
+.hljs-number, .hljs-symbol, .hljs-meta, .hljs-link, .hljs-bullet { color: var(--num); }
+.hljs-comment, .hljs-quote, .hljs-deletion { color: var(--cm); font-style: italic; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
 #drawer-code .ln { display: flex; }
 #drawer-code .no {
   width: 56px; flex: none; text-align: right; padding-right: 14px;

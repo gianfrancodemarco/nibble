@@ -83,15 +83,16 @@ function cmpPane(id: "before" | "after", v: CompareVisual, ctx: RenderCtx): HTML
     } else {
       body.textContent = refStr; // placeholder until the fetch lands
       void fetch(`api/code?n=${ctx.n}&ref=${refIdx}`)
-        .then((r) => (r.ok ? (r.json() as Promise<{ why?: string; lines: { no: number; text: string; in: boolean }[] }>) : null))
+        .then((r) => (r.ok ? (r.json() as Promise<{ path: string; why?: string; lines: { no: number; text: string; in: boolean }[] }>) : null))
         .then((resp) => {
           if (!resp) return;
           if (resp.why) {
             body.textContent = `⚠ ${resp.why}`;
             return;
           }
+          const hl = highlightLines(resp.path, resp.lines.map((l) => l.text));
           body.innerHTML = resp.lines
-            .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`)
+            .map((l, i) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${hl[i]}</span></div>`)
             .join("");
         })
         .catch(() => undefined);

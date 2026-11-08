@@ -15,6 +15,7 @@
   "files": [
     "../src/visual/types.gen.d.ts",
     "harness.ts",
+    "../src/highlight.ts",
     "../src/visual/host.ts",
     "../src/visual/map.ts",
     "../src/visual/sequence.ts",
@@ -32,6 +33,7 @@
     "descriptions.test.ts",
     "wiring.test.ts",
     "live.test.ts",
+    "highlight.test.ts",
     "types.test.ts",
     "run.ts"
   ]

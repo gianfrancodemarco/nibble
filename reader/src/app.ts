@@ -372,8 +372,9 @@ async function openDrawer(n: number, ref: number): Promise<void> {
   } else {
     note.hidden = true;
   }
+  const hl = highlightLines(c.path, c.lines.map((l) => l.text));
   $("#drawer-code").innerHTML = c.lines
-    .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`)
+    .map((l, i) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${hl[i]}</span></div>`)
     .join("");
   attachDrawer();
 }
@@ -410,14 +411,28 @@ async function openLedgerDrawer(path: string, side: string): Promise<void> {
         ? "removed code, shown as it was on the base side"
         : "no nibble referenced the highlighted lines";
   }
+  // Highlight per contiguous segment: an elided gap starts a fresh
+  // highlighting state, so a construct cut by the elision cannot discolor
+  // what follows.
+  const parts: string[] = [];
+  let seg: CodeLine[] = [];
+  const flushSeg = (): void => {
+    if (seg.length === 0) return;
+    const hl = highlightLines(c.path, seg.map((l) => l.text));
+    seg.forEach((l, i) => parts.push(`<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${hl[i]}</span></div>`));
+    seg = [];
+  };
   let prev = 0;
-  $("#drawer-code").innerHTML = c.lines
-    .map((l) => {
-      const gap = prev > 0 && l.no > prev + 1 ? `<div class="ln gap"><span class="no">⋯</span><span></span></div>` : "";
-      prev = l.no;
-      return `${gap}<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`;
-    })
-    .join("");
+  for (const l of c.lines) {
+    if (prev > 0 && l.no > prev + 1) {
+      flushSeg();
+      parts.push(`<div class="ln gap"><span class="no">⋯</span><span></span></div>`);
+    }
+    prev = l.no;
+    seg.push(l);
+  }
+  flushSeg();
+  $("#drawer-code").innerHTML = parts.join("");
   attachDrawer();
 }
 
