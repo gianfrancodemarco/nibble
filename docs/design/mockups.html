@@ -198,12 +198,12 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: v
 .nbar .nd { font-size: 13.5px; color: var(--muted); line-height: 1.55; margin: 10px 0 0; }
 @media (max-width: 760px) { .ncard { flex-direction: column; } .ncard .nbar { border-left: 0; border-top: 1px solid var(--border); flex-basis: auto; } }
 
-/* the plate: the whole window — description, legend, strip, review bar */
+/* the plate: the whole window — description, legend, strip, floating dock */
 .nbar mark, .pbar mark { background: var(--lit); box-shadow: inset 0 -2px 0 var(--lit-edge); color: inherit; border-radius: 3px; padding: 0 2px; }
 .pdesc { padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--muted); }
 .platewrap { display: flex; }
 .plegend { flex: none; border-right: 1px solid var(--border); padding: 14px 10px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-.pcanvas { flex: 1; min-width: 0; overflow: hidden; padding: 22px 0; background: var(--bg); }
+.pcanvas { flex: 1; min-width: 0; overflow: hidden; padding: 22px 0; background: var(--bg); position: relative; }
 .platestrip { display: flex; gap: 18px; will-change: transform; transition: transform .45s cubic-bezier(.22, 1, .36, 1); }
 @media (prefers-reduced-motion: reduce) { .platestrip { transition: none; } }
 .pcard { flex: 0 0 72%; display: flex; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; opacity: .45; transform: scale(.96); transition: opacity .3s, transform .3s, border-color .3s; cursor: pointer; }
@@ -220,11 +220,11 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: v
 .pvis .pnum { fill: var(--text); font: 700 12px "JetBrains Mono", monospace; text-anchor: end; }
 .pvis .pe { stroke: var(--muted); fill: none; stroke-width: 1.5; }
 .pvis .pe.warn { stroke: var(--warn); stroke-dasharray: 5 4; }
-.prevu { border-top: 1px solid var(--border); padding: 10px 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
-.ppin { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; display: inline-flex; gap: 6px; align-items: center; }
+.pdock { position: absolute; right: 12px; bottom: 10px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.ppin { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; display: inline-flex; gap: 6px; align-items: center; background: var(--surface); box-shadow: var(--shadow); }
 .ppin b { color: var(--sel); font-family: "JetBrains Mono", monospace; font-weight: 600; }
 .ppin .px { color: var(--muted); }
-.pinput { flex: 1 1 180px; min-width: 140px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); padding: 7px 10px; color: var(--muted); }
+.pdone { padding: 4px 12px; font-size: 12.5px; }
 @media (max-width: 760px) { .pcard { flex-direction: column; } .pcard .pbar { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 10px; flex-basis: auto; } .plegend { display: none; } }
 
 /* detail dial: overview draws less of the same picture; nothing moves */
@@ -437,17 +437,18 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 <section>
   <h2>03 · The plate (live)</h2>
   <h3>The whole window, not one card</h3>
-  <p class="note">Everything else on this page zooms into one card. The plate is the whole window: its own title and levelled description up top, the keyboard legend on the left, and one strip of cards the camera glides across — neighbours stay in sight, so moving is a <b>camera move, not a page swap</b>. The stepper, the dial and the review bar frame every card. <b>Use ← →</b>, or click a neighbour.</p>
+  <p class="note">Everything else on this page zooms into one card. The plate is the whole window: its own title and levelled description up top, the keyboard legend on the left — the detail dial lives inside it — and one strip of cards the camera glides across — neighbours stay in sight, so moving is a <b>camera move, not a page swap</b>. Nothing frames the strip from below: held comments float in the corner, and the one send button sits in the title bar. <b>Click a neighbour</b> to move.</p>
   <div class="win">
     <div class="chrome">
       <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
       <div class="title">Why checkout slows down every hour</div>
       <div class="rail" id="pRail" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
       <div class="meta">code · 79e700f</div>
+      <span class="b primary pdone">send 1 comment</span>
     </div>
     <div class="pdesc">Checkout p99 jumps to 4.2 s on the hour. The cause is one flat cache TTL — and the fix is one line of jitter.</div>
     <div class="platewrap">
-      <div class="plegend" aria-hidden="true"><kbd>←→</kbd><kbd>⎵</kbd><kbd>d</kbd><kbd>⏎</kbd><kbd>s</kbd><kbd>?</kbd></div>
+      <div class="plegend" aria-hidden="true"><kbd>←→</kbd><kbd>d</kbd><kbd>⎵</kbd><kbd>c</kbd><kbd>s</kbd><kbd>esc</kbd><kbd>?</kbd></div>
       <div class="pcanvas" id="pCanvas">
         <div class="platestrip" id="pStrip">
           <div class="pcard on">
@@ -508,22 +509,8 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
             </aside>
           </div>
         </div>
+        <div class="pdock"><span class="ppin"><b>n2:cache</b> Why not refresh-ahead? <span class="px">×</span></span></div>
       </div>
-    </div>
-    <div class="controls" style="justify-content:center">
-      <button class="play" id="pPrev" type="button" aria-label="previous nibble">←</button>
-      <span class="clock" id="pPos" style="min-width:48px;text-align:center">1 / 3</span>
-      <button class="play" id="pNext" type="button" aria-label="next nibble">→</button>
-      <span class="seg" role="group" aria-label="detail dial">
-        <button type="button" aria-pressed="false">overview</button>
-        <button type="button" aria-pressed="true">standard</button>
-      </span>
-    </div>
-    <div class="prevu">
-      <span class="ppin"><b>n2:cache</b> Why not refresh-ahead? <span class="px">×</span></span>
-      <span class="pinput">comment on this nibble…</span>
-      <span class="b" id="pPinBtn">pin to n1</span>
-      <span class="b primary">send 1 comment</span>
     </div>
   </div>
 </section>
@@ -994,13 +981,9 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
     var card = pCards[pActive];
     var x = canvas.clientWidth / 2 - card.offsetLeft - card.offsetWidth / 2;
     document.getElementById('pStrip').style.transform = 'translateX(' + x + 'px)';
-    document.getElementById('pPos').textContent = (pActive + 1) + ' / ' + pCards.length;
-    document.getElementById('pPinBtn').textContent = 'pin to n' + (pActive + 1);
     var segs = document.getElementById('pRail').children;
     for (var r = 0; r < segs.length; r++) segs[r].className = r === pActive ? 'on' : (pRead[r] ? 'read' : '');
   }
-  document.getElementById('pPrev').onclick = function () { pGo(pActive - 1); };
-  document.getElementById('pNext').onclick = function () { pGo(pActive + 1); };
   pCards.forEach(function (c, idx) { c.addEventListener('click', function () { pGo(idx); }); });
   window.addEventListener('resize', function () { pGo(pActive); });
   pGo(0);
