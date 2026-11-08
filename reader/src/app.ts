@@ -44,6 +44,7 @@ let justSent = false;
 let dialLevel: DialLevel = DIAL_DEFAULT;
 const pending: ReviewComment[] = [];
 const read = new Set<number>(); // cards visited, for the rail only
+let knownCards = 0; // cards already on screen, for the arrival animation
 
 const visualOfCard = (card: number): Visual | null => plate?.nibbles[card]?.visual ?? null;
 // cards: the nibbles plus the ledger card when the plate carries a ledger
@@ -100,6 +101,7 @@ function aboutLabel(p: Plate): string {
 
 function render(): void {
   if (!plate) return;
+  closeDrawer(); // the strip rebuild would destroy a drawer left in a card
   $("#plate-title").textContent = plate.title;
   $("#plate-meta").textContent = `${aboutLabel(plate)} · ${plate.head_sha.slice(0, 7)}`;
   const plateDesc = descriptionAt(plate.description, dialLevel);
@@ -129,17 +131,19 @@ function render(): void {
       const vs = visualSummary(nb.visual);
       const desc = descriptionAt(nb.description, dialLevel);
       return `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
-        <div class="visual">
-          <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
-          <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
-          ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
+        <div class="nbody">
+          <div class="visual">
+            <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
+            <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
+            ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
+          </div>
+          <aside class="nside">
+            <h2>nibble ${nb.n}</h2>
+            <p class="ntitle">${mdLite(nb.title)}</p>
+            ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
+            ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
+          </aside>
         </div>
-        <aside class="nside">
-          <h2>nibble ${nb.n}</h2>
-          <p class="ntitle">${mdLite(nb.title)}</p>
-          ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
-          ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
-        </aside>
       </article>`;
     })
     .join("");
@@ -149,19 +153,22 @@ function render(): void {
     const card = document.createElement("article");
     card.className = "nibble ledger" + (active === plate.nibbles.length ? " active" : "");
     card.dataset.i = String(plate.nibbles.length);
+    const nbody = document.createElement("div");
+    nbody.className = "nbody";
     const slot = document.createElement("div");
     slot.className = "visual rendered";
     const body = renderLedgerBody(plate.ledger);
     body.classList.add("visual-body");
     slot.appendChild(body);
-    card.appendChild(slot);
+    nbody.appendChild(slot);
     const side = document.createElement("aside");
     side.className = "nside";
     side.innerHTML = `<h2>not-shown ledger</h2>
       <p class="ntitle">${plate.ledger.hunks.length === 0
         ? "Every hunk of the diff was shown."
         : "What this walkthrough never showed — the rest of the diff, open to comments."}</p>`;
-    card.appendChild(side);
+    nbody.appendChild(side);
+    card.appendChild(nbody);
     strip.appendChild(card);
   }
 
@@ -186,6 +193,19 @@ function render(): void {
     body.classList.add("visual-body");
     slot.appendChild(body);
   });
+  // A card that streamed in after the first paint slides into place; the
+  // strip is rebuilt wholesale, so only indexes beyond the known count are
+  // new. The camera stays where it is — arrivals never steal it.
+  const total = cards();
+  if (knownCards > 0 && total > knownCards) {
+    const all = strip.querySelectorAll<HTMLElement>(".nibble");
+    for (let i = knownCards; i < total; i++) all[i]?.classList.add("in");
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      all.forEach((c) => c.classList.remove("in"));
+    }));
+  }
+  knownCards = total;
+
   applySelection(strip);
   updateCommentTarget();
   renderReviewBar();
@@ -205,21 +225,31 @@ function setDial(level: DialLevel): void {
 
 // --- camera: an animated transform, never a navigation ---
 
-function updateCommentTarget(): void {
-  if (!plate || cards() === 0) return;
-  $("#comment-target").textContent = isLedgerCard(active)
+// currentTarget: what a comment pins to right now — the selected element on
+// the active card, or the card itself.
+function currentTarget(): string {
+  if (!plate) return `n${active + 1}`;
+  return isLedgerCard(active)
     ? ledgerCommentTarget(hostSelection, active)
     : commentTarget(plate.nibbles[active].n, hostSelection, active);
 }
 
+// updateCommentTarget keeps an open popover honest when the selection moves
+// under it; a closed popover reads the target fresh when it opens.
+function updateCommentTarget(): void {
+  if (($("#pop") as HTMLElement).hidden) return;
+  $("#pop-target").textContent = currentTarget();
+}
+
 function setActive(i: number): void {
   if (!plate) return;
-  active = Math.max(0, Math.min(cards() - 1, i));
+  const next = Math.max(0, Math.min(cards() - 1, i));
+  if (next !== active) closeDrawer(); // the drawer shows the active card's code
+  active = next;
   document.querySelectorAll<HTMLElement>(".nibble").forEach((card, idx) => {
     card.classList.toggle("active", idx === active);
   });
   updateCommentTarget();
-  $("#pos").textContent = `${active + 1} / ${cards()}`;
   camera();
 }
 
@@ -230,7 +260,6 @@ function camera(): void {
   const canvas = $("#canvas");
   const x = canvas.clientWidth / 2 - card.offsetLeft - card.offsetWidth / 2;
   strip.style.transform = `translateX(${x}px)`;
-  $("#pos").textContent = plate ? `${active + 1} / ${cards()}` : "";
   rail();
 }
 
@@ -244,7 +273,24 @@ function rail(): void {
   $("#rail").innerHTML = segs.join("");
 }
 
-// --- code drawer ---
+// --- code drawer: one element, mounted inside the active card while open ---
+
+// attachDrawer moves the drawer into the active card, so the evidence reads
+// as part of the nibble rather than a panel over it.
+function attachDrawer(): void {
+  const d = $("#drawer");
+  const card = document.querySelector(".nibble.active");
+  if (card) card.appendChild(d);
+  d.hidden = false;
+}
+
+// closeDrawer re-homes the drawer to the body: a strip rebuild or a card
+// change must never destroy the one drawer element.
+function closeDrawer(): void {
+  const d = $("#drawer");
+  d.hidden = true;
+  document.body.appendChild(d);
+}
 
 async function openDrawer(n: number, ref: number): Promise<void> {
   let resp: Response;
@@ -257,6 +303,10 @@ async function openDrawer(n: number, ref: number): Promise<void> {
   if (!resp.ok) return;
   const c = (await resp.json()) as CodeResponse;
   $("#drawer-path").textContent = c.path;
+  const lit = c.lines.filter((l) => l.in);
+  $("#drawer-range").textContent = lit.length === 0 ? ""
+    : lit[0].no === lit[lit.length - 1].no ? String(lit[0].no)
+    : `${lit[0].no}–${lit[lit.length - 1].no}`;
   $("#drawer-trust").outerHTML = trustBadge(c.trust).replace('class="trust', 'id="drawer-trust" class="trust');
   const note = $("#drawer-note");
   if (c.why) {
@@ -275,9 +325,9 @@ async function openDrawer(n: number, ref: number): Promise<void> {
     note.hidden = true;
   }
   $("#drawer-code").innerHTML = c.lines
-    .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${esc(l.text) || " "}</span></div>`)
+    .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`)
     .join("");
-  ($("#drawer") as HTMLElement).hidden = false;
+  attachDrawer();
 }
 
 // openLedgerDrawer shows one file's not-shown hunks, served by /api/ledger
@@ -294,6 +344,7 @@ async function openLedgerDrawer(path: string, side: string): Promise<void> {
   if (!resp.ok) return;
   const c = (await resp.json()) as { path: string; side: string; missing: boolean; why?: string; lines: CodeLine[] };
   $("#drawer-path").textContent = c.path;
+  $("#drawer-range").textContent = "";
   $("#drawer-trust").outerHTML = `<span id="drawer-trust" class="trust unverified">not shown · ${esc(c.side)}</span>`;
   const note = $("#drawer-note");
   if (c.why) {
@@ -316,10 +367,60 @@ async function openLedgerDrawer(path: string, side: string): Promise<void> {
     .map((l) => {
       const gap = prev > 0 && l.no > prev + 1 ? `<div class="ln gap"><span class="no">⋯</span><span></span></div>` : "";
       prev = l.no;
-      return `${gap}<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${esc(l.text) || " "}</span></div>`;
+      return `${gap}<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`;
     })
     .join("");
-  ($("#drawer") as HTMLElement).hidden = false;
+  attachDrawer();
+}
+
+// --- the comment popover: disagree on the thing itself, where it is ---
+
+// openPop shows the popover beside the selected element (or over the active
+// card's visual when nothing is selected), targeted like the review bar.
+function openPop(): void {
+  if (!plate || plate.review) return;
+  $("#pop-target").textContent = currentTarget();
+  const pop = $("#pop");
+  pop.hidden = false;
+  const anchor =
+    document.querySelector(".nibble.active [data-anchor].sel") ??
+    document.querySelector(".nibble.active .visual");
+  const r = anchor?.getBoundingClientRect();
+  if (r) {
+    let x = r.right + 12;
+    let y = r.top;
+    if (x + pop.offsetWidth > window.innerWidth - 12) {
+      x = Math.max(12, Math.min(r.left + r.width / 2 - pop.offsetWidth / 2, window.innerWidth - pop.offsetWidth - 12));
+      y = r.bottom + 10;
+    }
+    y = Math.max(12, Math.min(y, window.innerHeight - pop.offsetHeight - 12));
+    pop.style.left = `${x}px`;
+    pop.style.top = `${y}px`;
+  }
+  $<HTMLTextAreaElement>("#pop-text").focus();
+}
+
+function closePop(): void {
+  $("#pop").hidden = true;
+  $<HTMLTextAreaElement>("#pop-text").value = "";
+}
+
+// holdPop pins the comment for the review; the send button still posts it.
+function holdPop(): void {
+  const text = $<HTMLTextAreaElement>("#pop-text").value.trim();
+  if (!text) return;
+  pending.push({ target: currentTarget(), text });
+  closePop();
+  renderReviewBar();
+}
+
+// askPop ends the agent's wait now: this question, plus everything pinned.
+function askPop(): void {
+  const text = $<HTMLTextAreaElement>("#pop-text").value.trim();
+  if (!text) return;
+  pending.push({ target: currentTarget(), text });
+  closePop();
+  void submit();
 }
 
 // --- review ---
@@ -330,6 +431,7 @@ function renderReviewBar(): void {
   const submitted = $("#submitted");
   if (plate.review) {
     bar.classList.add("locked");
+    $("#send").hidden = true;
     submitted.hidden = false;
     const n = plate.review.comments?.length ?? 0;
     const badge = n
@@ -343,6 +445,7 @@ function renderReviewBar(): void {
   bar.classList.remove("locked");
   submitted.hidden = true;
   const send = $<HTMLButtonElement>("#send");
+  send.hidden = false;
   send.textContent = pending.length ? `send ${pending.length} comment${pending.length > 1 ? "s" : ""}` : "done";
   $("#pending").innerHTML = pending
     .map((c, i) => `<span class="pin"><b>${esc(c.target ?? "plate")}</b> ${esc(c.text)} <button data-i="${i}" title="remove">×</button></span>`)
@@ -353,22 +456,6 @@ function renderReviewBar(): void {
       renderReviewBar();
     });
   });
-}
-
-function addComment(): void {
-  const input = $<HTMLInputElement>("#comment");
-  const text = input.value.trim();
-  if (!text) {
-    input.placeholder = "type the comment first, then pin it";
-    input.focus();
-    return;
-  }
-  const target = !plate ? `n${active + 1}`
-    : isLedgerCard(active) ? ledgerCommentTarget(hostSelection, active)
-    : commentTarget(plate.nibbles[active].n, hostSelection, active);
-  pending.push({ target, text });
-  input.value = "";
-  renderReviewBar();
 }
 
 async function submit(): Promise<void> {
@@ -414,22 +501,30 @@ function listen(): void {
 
 // --- wire up ---
 
-$("#prev").addEventListener("click", () => setActive(active - 1));
-$("#next").addEventListener("click", () => setActive(active + 1));
 document.querySelectorAll<HTMLButtonElement>("#dial .dial-pos").forEach((btn) => {
-  btn.addEventListener("click", () => setDial(btn.dataset.level as DialLevel));
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation(); // the dial lives in the legend; don't toggle its pin
+    setDial(btn.dataset.level as DialLevel);
+  });
 });
-$("#drawer-close").addEventListener("click", () => (($("#drawer") as HTMLElement).hidden = true));
+$("#drawer-close").addEventListener("click", closeDrawer);
 const legend = $("#legend");
-$("#comment-add").addEventListener("click", addComment);
-$<HTMLInputElement>("#comment").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") addComment();
-});
-// Pinning comments is a draft; only the send button posts the review.
+// Held comments are a draft; only the send button posts the review.
 // With no comments it sends "done" — that alone ends the agent's wait.
 $<HTMLButtonElement>("#send").addEventListener("click", () => void submit());
+// The popover: hold pins the comment, ask now sends the review with it.
+$("#pop-hold").addEventListener("click", holdPop);
+$("#pop-ask").addEventListener("click", askPop);
+$<HTMLTextAreaElement>("#pop-text").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closePop();
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    if (e.shiftKey) askPop();
+    else holdPop();
+  }
+});
 document.addEventListener("keydown", (e) => {
-  if (e.target instanceof HTMLInputElement) return;
+  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
   if (e.key === "ArrowLeft") setActive(active - 1);
   if (e.key === "ArrowRight") setActive(active + 1);
   if (e.key === " ") {
@@ -441,11 +536,16 @@ document.addEventListener("keydown", (e) => {
     }
   }
   if (e.key === "d") setDial(dialToggle(dialLevel));
+  if (e.key === "c") {
+    e.preventDefault(); // or the c itself lands in the focused textarea
+    openPop();
+  }
   if (e.key === "?") legend.classList.toggle("pinned");
   if (e.key === "s" && plate && !plate.review) void submit();
   if (e.key === "Escape") {
-    if (legend.classList.contains("pinned")) legend.classList.remove("pinned");
-    else if (!($("#drawer") as HTMLElement).hidden) ($("#drawer") as HTMLElement).hidden = true;
+    if (!($("#pop") as HTMLElement).hidden) closePop();
+    else if (legend.classList.contains("pinned")) legend.classList.remove("pinned");
+    else if (!($("#drawer") as HTMLElement).hidden) closeDrawer();
     else clearVisualSelection($("#strip"), hostWiring);
   }
 });

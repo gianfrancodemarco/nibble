@@ -16,6 +16,11 @@
   --bad: #c92a2a;
   --code-bg: #fbf8f3;
   --grid: #ece6dc;
+  --kw: #b5317a;
+  --fn: #1c6fb0;
+  --str: #2f8a4c;
+  --num: #b35c00;
+  --cm: #9a9086;
   --shadow: 0 1px 2px rgba(40, 30, 20, .06), 0 8px 24px rgba(40, 30, 20, .08);
   --radius: 14px;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -39,6 +44,11 @@
     --bad: #ff6b6b;
     --code-bg: #1a1814;
     --grid: #2b2722;
+    --kw: #f28fc0;
+    --fn: #7cb8f0;
+    --str: #8fd19e;
+    --num: #ffb36b;
+    --cm: #7d7468;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
   }
 }
@@ -89,20 +99,30 @@ button:hover { border-color: var(--accent); }
   transition: transform .45s cubic-bezier(.22, 1, .36, 1);
 }
 
-/* One card in view at a time: the active card takes the canvas, neighbours
-   sit fully off-screen; the camera slides between them. The card is a row:
-   the visual takes the space, the lateral bar carries the words. */
+/* One card dominates the view with slivers of its neighbours in sight, so
+   moving reads as a camera slide across one canvas, not a page swap. The
+   card is a row: the visual takes the space, the lateral bar the words. */
 .nibble {
-  flex: 0 0 calc(100% - 48px);
-  display: flex; flex-direction: row; gap: 20px;
+  flex: 0 0 84%;
+  display: flex; flex-direction: column;
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 18px 22px; max-height: 100%; height: 100%; overflow: hidden;
   opacity: .45; transform: scale(.96);
   transition: opacity .3s, transform .3s, border-color .3s;
 }
+.nibble .nbody { display: flex; flex-direction: row; gap: 20px; flex: 1 1 auto; min-height: 0; }
 .nibble.active { opacity: 1; transform: scale(1); border-color: var(--accent); }
-.nibble h2 { margin: 0 0 10px; font-size: 13px; color: var(--muted); font-weight: 600; }
+/* a card that just streamed in slides into place; the camera never moves */
+.nibble.in { opacity: 0; transform: translateX(32px) scale(.96); }
+@media (prefers-reduced-motion: reduce) {
+  .nibble, #strip { transition: none; }
+  .vis-map .edge.miss path { animation: none; }
+}
+.nibble h2 {
+  margin: 0 0 10px; font-size: 11.5px; color: var(--accent);
+  font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+}
 .nibble .ntitle { margin: 0; font-size: 17px; line-height: 1.45; }
 /* the reading light: bold phrases in a title carry the amber highlight */
 .nibble .ntitle b {
@@ -120,7 +140,8 @@ button:hover { border-color: var(--accent); }
   align-self: stretch;
 }
 @media (max-width: 880px) {
-  .nibble { flex-direction: column; overflow: auto; }
+  .nibble { overflow: auto; flex-basis: calc(100% - 36px); }
+  .nibble .nbody { flex-direction: column; }
   .nside { flex: 0 0 auto; border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
 }
 
@@ -131,8 +152,8 @@ button:hover { border-color: var(--accent); }
 .visual .kind {
   display: inline-block; font-size: 11px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .08em;
-  color: var(--accent); background: var(--accent-soft);
-  border-radius: 5px; padding: 2px 7px; margin-right: 8px;
+  color: var(--accent); background: var(--card);
+  border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; margin-right: 8px;
 }
 .visual .soon { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .visual .vhead { display: flex; align-items: baseline; }
@@ -183,10 +204,11 @@ button:hover { border-color: var(--accent); }
 .vis-map .arr { fill: var(--muted); }
 .vis-map .arr.hl { fill: var(--accent); }
 .vis-map .edge path { fill: none; stroke: var(--muted); stroke-width: 1.5; }
-.vis-map .edge.miss path { stroke: var(--warn); stroke-dasharray: 6 4; }
+.vis-map .edge.miss path { stroke: var(--warn); stroke-dasharray: 6 4; animation: edge-flow 1s linear infinite; }
+@keyframes edge-flow { to { stroke-dashoffset: -10; } }
 .vis-map .edge.miss .elabel { fill: var(--warn); }
 .vis-map .edge.weak path { stroke: var(--line); }
-.vis-map .edge .elabel { font-size: 11px; fill: var(--muted); }
+.vis-map .edge .elabel { font-size: 11px; fill: var(--muted); font-family: var(--mono); }
 .vis-map .edge.dim { opacity: .22; }
 .vis-map .edge.hl path { stroke: var(--accent); stroke-width: 2; }
 .vis-map .edge.hl .elabel { fill: var(--accent); }
@@ -283,25 +305,19 @@ button:hover { border-color: var(--accent); }
 .trust.unverified { color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent); }
 #notice { padding: 7px 20px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--card); }
 
-#stepper {
-  display: flex; align-items: center; justify-content: center; gap: 16px;
-  padding: 10px; border-top: 1px solid var(--line);
-}
-#stepper #pos { font-family: var(--mono); }
-#prev, #next { width: 32px; height: 32px; padding: 0; border-radius: 999px; }
-
 /* levelled descriptions: the plate's under the header, a nibble's on its card */
 #plate-desc {
   padding: 10px 20px; border-bottom: 1px solid var(--line);
-  color: var(--ink); font-size: 15px; line-height: 1.55; max-width: 110ch;
+  color: var(--muted); font-size: 14.5px; line-height: 1.55; max-width: 110ch;
 }
 #plate-desc[hidden] { display: none; }
 .nibble .desc { color: var(--ink); opacity: .82; font-size: 14.5px; line-height: 1.55; margin: 6px 0 0; }
 
-/* the detail dial: two positions, the active one marked */
+/* the detail dial: two positions, the active one marked; lives in the legend */
 #dial {
-  display: inline-flex; align-items: center;
+  display: inline-flex; align-items: center; width: auto;
   border: 1px solid var(--line); border-radius: 999px; overflow: hidden;
+  background: var(--card);
 }
 #dial .dial-pos {
   border: none; border-radius: 0; background: none;
@@ -311,21 +327,35 @@ button:hover { border-color: var(--accent); }
   background: var(--accent); color: #fff;
 }
 
+/* the evidence drawer: mounted inside the active card while open, flush to
+   its edges — the code reads as part of the nibble (mockup 02) */
 #drawer[hidden] { display: none; }
 #drawer {
-  position: fixed; top: 0; right: 0; bottom: 0;
-  width: min(620px, 92vw);
-  background: var(--code-bg); border-left: 1px solid var(--line);
-  box-shadow: -18px 0 40px rgba(0,0,0,.12);
-  display: flex; flex-direction: column; z-index: 10;
+  flex: none; max-height: 52%;
+  margin: 14px -22px -18px;
+  background: var(--code-bg); border-top: 1px solid var(--line);
+  display: flex; flex-direction: column;
+  animation: drawer-up .22s ease;
 }
+@keyframes drawer-up { from { max-height: 0; } }
+@media (prefers-reduced-motion: reduce) { #drawer { animation: none; } }
 #drawer header {
   display: flex; align-items: center; gap: 10px;
-  padding: 12px 16px; border-bottom: 1px solid var(--line);
-  font-size: 13px; background: var(--surface-2);
+  padding: 8px 18px; font-size: 12.5px;
+  font-family: var(--mono); color: var(--muted);
 }
-#drawer-note { padding: 8px 16px; border-bottom: 1px solid var(--line); }
-#drawer-code { flex: 1; overflow: auto; margin: 0; padding: 12px 0; font-size: 13px; line-height: 1.55; }
+#drawer header .caret { font-size: 11px; }
+#drawer-path { color: var(--ink); font-weight: 500; }
+#drawer header button { padding: 0 8px; background: none; border: none; font-size: 15px; color: var(--muted); }
+#drawer-note { padding: 0 18px 8px; }
+#drawer-code { flex: 1; overflow: auto; margin: 0; padding: 0 0 10px; font-size: 13px; line-height: 1.7; }
+
+/* syntax colours (the mockup palette); the drawers and compare panes share them */
+.kw { color: var(--kw); }
+.fn { color: var(--fn); }
+.str { color: var(--str); }
+.num { color: var(--num); }
+.cm { color: var(--cm); font-style: italic; }
 #drawer-code .ln { display: flex; }
 #drawer-code .no {
   width: 56px; flex: none; text-align: right; padding-right: 14px;
@@ -343,9 +373,13 @@ button:hover { border-color: var(--accent); }
 }
 #legend:hover, #legend.pinned { width: 330px; }
 #legend .kfoot { margin-top: auto; }
-.krow { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
+.krow { display: flex; align-items: flex-start; gap: 12px; padding: 4px 0; }
 .krow kbd { flex: none; min-width: 38px; text-align: center; }
 .krow span, #legend .kfoot { opacity: 0; transition: opacity .18s ease .05s; font-size: 13px; }
+/* legend rows wrap when the panel is open, never clipping mid-sentence;
+   collapsed they stay one (hidden) line, keeping the key column compact */
+.krow > span { width: 258px; line-height: 1.45; }
+#legend:hover .krow > span, #legend.pinned .krow > span { white-space: normal; }
 #legend:hover .krow span, #legend.pinned .krow span,
 #legend:hover .kfoot, #legend.pinned .kfoot { opacity: 1; }
 #legend .kfoot { margin: 8px 0 0; color: var(--muted); white-space: normal; width: 290px; }
@@ -355,21 +389,53 @@ kbd {
   padding: 1px 6px; background: var(--surface-2);
 }
 
-#reviewbar { border-top: 1px solid var(--line); padding: 10px 20px 14px; }
-#reviewbar .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-#comment { flex: 2 1 200px; min-width: 160px; font: inherit; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); color: var(--ink); }
-#send { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; margin-left: auto; }
-#pending { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+/* the comment popover: disagree on the thing itself, where it is (mockup 09) */
+#pop[hidden] { display: none; }
+#pop {
+  position: fixed; width: 330px; max-width: calc(100vw - 24px); z-index: 20;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 14px;
+}
+#pop .on { font-size: 12px; color: var(--muted); margin-bottom: 8px; font-family: var(--mono); }
+#pop textarea {
+  width: 100%; min-height: 64px; resize: vertical;
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+  font: inherit; font-size: 14px; background: var(--surface-2); color: var(--ink);
+}
+#pop .acts { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; flex-wrap: wrap; }
+#pop .acts button { font-size: 13px; font-weight: 600; }
+#pop .acts button small { font-weight: 400; opacity: .7; margin-left: 4px; }
+#pop .acts .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* the review dock floats bottom-right: held comments and the one send button */
+#reviewbar {
+  position: fixed; right: 16px; bottom: 16px; z-index: 15;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  max-width: min(560px, calc(100vw - 32px));
+}
+/* the send button lives in the top bar: one action, always in the same place */
+#send {
+  align-self: center;
+  background: var(--accent); border-color: var(--accent); color: #fff;
+  font-weight: 700; font-size: 13.5px; padding: 5px 14px;
+}
+#send[hidden] { display: none; }
+#pending { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
 #pending:empty { display: none; }
 .pin {
   font-size: 12.5px; border: 1px solid var(--line); border-radius: 999px;
   padding: 2px 10px; display: inline-flex; gap: 6px; align-items: center;
+  background: var(--card); box-shadow: var(--shadow);
 }
 .pin b { color: var(--sel); font-family: var(--mono); font-weight: 600; }
 .pin button { border: none; padding: 0 2px; background: none; color: var(--muted); }
-#submitted { font-weight: 600; padding: 6px 0; }
+#submitted {
+  font-weight: 600; padding: 10px 14px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow);
+}
 #submitted .trust { margin-left: 0; }
-#reviewbar.locked .row, #reviewbar.locked #pending { display: none; }
+#reviewbar.locked #pending { display: none; }
 
 /* --- the not-shown ledger card --- */
 .ledger-body { width: 100%; height: 100%; overflow: auto; padding: 4px 2px; }
