@@ -122,10 +122,24 @@ button:hover { border-color: var(--accent); }
 .nibble.active { opacity: 1; transform: scale(1); border-color: var(--accent); }
 /* a card that just streamed in slides into place; the camera never moves */
 .nibble.in { opacity: 0; transform: translateX(32px) scale(.96); }
+/* the ghost: where the next nibble will land while the agent writes */
+.ghost {
+  flex: 0 0 44%;
+  display: flex; gap: 20px;
+  border: 1.5px dashed var(--line); border-radius: var(--radius);
+  padding: 18px 22px; max-height: 100%; height: 100%;
+  animation: ghostpulse 2s ease-in-out infinite;
+}
+.ghost .gvisual { flex: 1; border-radius: 10px; background: var(--line); opacity: .3; }
+.ghost .gside { width: 32%; display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
+.ghost .gbar { height: 10px; border-radius: 999px; background: var(--line); opacity: .5; }
+.ghost .gbar.short { width: 60%; }
+@keyframes ghostpulse { 0%, 100% { opacity: .55; } 50% { opacity: .22; } }
 @media (prefers-reduced-motion: reduce) {
   .nibble, #strip { transition: none; }
   .vis-map .edge.miss path { animation: none; }
   #progress .pulse { animation: none; }
+  .ghost { animation: none; opacity: .4; }
 }
 .nibble h2 {
   margin: 0 0 10px; font-size: 11.5px; color: var(--accent);

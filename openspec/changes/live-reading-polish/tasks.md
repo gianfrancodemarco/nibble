@@ -69,3 +69,12 @@
   to match the shipped behavior, and mark the roadmap item's state in
   `docs/roadmap.html` if the project marks items done at merge. Verify the
   pages render locally and say what the reader now does.
+
+## 6. Ghost placeholder (follow-up ask)
+
+- [x] 6.1 While the plate is open, end the strip with a non-interactive
+  pulsing skeleton card (`.ghost`, not `.nibble`, so navigation and counts
+  ignore it); arrivals insert before it, the seal removes it;
+  `prefers-reduced-motion` disables the pulse. Verify in the headless e2e:
+  ghost present while open, arrivals land before it, gone at seal.
+- [x] 6.2 Rebuild `app.js`, sync `docs/visuals/`, full suites green.

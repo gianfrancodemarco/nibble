@@ -68,6 +68,23 @@ rather than rebuilding. The animation SHALL be disabled under
 - **WHEN** an open plate seals while the reader is watching
 - **THEN** the ledger card slides into the end of the strip like a nibble
 
+### Requirement: A ghost marks the next arrival
+
+While the plate is open, the strip SHALL end with one non-interactive
+placeholder card — a pulsing skeleton where the next nibble will land.
+Arriving cards insert before it, the seal removes it, and it never counts as
+a card: the rail, the progress text, stepping and comments ignore it. The
+pulse SHALL be disabled under `prefers-reduced-motion`.
+
+#### Scenario: Ghost while the agent writes
+- **WHEN** the reader shows an open plate
+- **THEN** a placeholder card ends the strip, and the rail and progress count
+  only the real cards
+
+#### Scenario: The seal removes the ghost
+- **WHEN** the plate seals
+- **THEN** the placeholder is gone and the last card is the final one
+
 ### Requirement: A dead server is announced
 
 When the event stream drops and the plate can no longer be fetched, the shell

@@ -166,6 +166,26 @@ function mountCard(card: HTMLElement): void {
   slot.appendChild(body);
 }
 
+// syncGhost: while the agent is still writing, the strip ends with one
+// non-interactive skeleton card — where the next nibble will land. It is not
+// a .nibble, so the rail, the counts and navigation never see it; arrivals
+// insert before it and the seal removes it.
+function syncGhost(): void {
+  const strip = $("#strip");
+  let g = strip.querySelector<HTMLElement>(".ghost");
+  if (!plate?.open) {
+    g?.remove();
+    return;
+  }
+  if (!g) {
+    g = document.createElement("article");
+    g.className = "ghost";
+    g.setAttribute("aria-hidden", "true");
+    g.innerHTML = `<div class="gvisual"></div><div class="gside"><span class="gbar"></span><span class="gbar"></span><span class="gbar short"></span></div>`;
+  }
+  strip.appendChild(g); // re-appending keeps it last after arrivals
+}
+
 // renderProgress: where the plate stands — a pulsing live marker while the
 // agent is still writing, the final count once sealed.
 function renderProgress(): void {
@@ -221,6 +241,7 @@ function render(): void {
   }
   knownCards = total;
   painted = true;
+  syncGhost();
 
   applySelection(strip);
   updateCommentTarget();
@@ -539,15 +560,17 @@ function appendCards(from: number): void {
   const fresh: HTMLElement[] = [];
   for (let i = from; i < plate.nibbles.length; i++) fresh.push(buildNibbleCard(plate.nibbles[i], i));
   if (plate.ledger && from <= plate.nibbles.length) fresh.push(buildLedgerCard(plate.ledger, plate.nibbles.length));
+  const ghost = strip.querySelector(".ghost");
   for (const card of fresh) {
     card.classList.add("in");
-    strip.appendChild(card);
+    strip.insertBefore(card, ghost); // a null ghost appends
     mountCard(card);
   }
   requestAnimationFrame(() => requestAnimationFrame(() => {
     for (const card of fresh) card.classList.remove("in");
   }));
   knownCards = cards();
+  syncGhost();
   renderProgress();
   rail();
 }
