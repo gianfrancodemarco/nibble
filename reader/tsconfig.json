@@ -20,6 +20,7 @@
     "src/visual/timeline.ts",
     "src/visual/compare.ts",
     "src/visual/ledger.ts",
+    "src/live.ts",
     "src/app.ts"
   ]
 }

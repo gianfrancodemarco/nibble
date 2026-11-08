@@ -21,6 +21,7 @@
     "../src/visual/timeline.ts",
     "../src/visual/compare.ts",
     "../src/visual/ledger.ts",
+    "../src/live.ts",
     "host.test.ts",
     "map.test.ts",
     "sequence.test.ts",
@@ -30,6 +31,7 @@
     "dial.test.ts",
     "descriptions.test.ts",
     "wiring.test.ts",
+    "live.test.ts",
     "types.test.ts",
     "run.ts"
   ]
