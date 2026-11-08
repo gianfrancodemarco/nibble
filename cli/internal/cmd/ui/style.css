@@ -84,7 +84,7 @@ button:hover { border-color: var(--accent); }
 #rail i.on { background: var(--accent); width: 40px; }
 @media (max-width: 700px) { #rail { display: none; } }
 /* the live marker: the agent is still writing this plate */
-#progress .pulse {
+#progress .pulse, .ghost .pulse {
   display: inline-block; width: 8px; height: 8px; margin-right: 6px;
   border-radius: 50%; background: var(--accent);
   animation: pulse 1.4s ease-in-out infinite;
@@ -125,21 +125,33 @@ button:hover { border-color: var(--accent); }
 /* the ghost: where the next nibble will land while the agent writes */
 .ghost {
   flex: 0 0 44%;
-  display: flex; gap: 20px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
   border: 1.5px dashed var(--line); border-radius: var(--radius);
   padding: 18px 22px; max-height: 100%; height: 100%;
+}
+.ghost .gmap { display: flex; align-items: center; gap: 10px; }
+.ghost .gnode {
+  width: 64px; height: 36px; border-radius: 10px;
+  background: var(--line); opacity: .45;
   animation: ghostpulse 2s ease-in-out infinite;
 }
-.ghost .gvisual { flex: 1; border-radius: 10px; background: var(--line); opacity: .3; }
-.ghost .gside { width: 32%; display: flex; flex-direction: column; gap: 10px; padding-top: 8px; }
-.ghost .gbar { height: 10px; border-radius: 999px; background: var(--line); opacity: .5; }
-.ghost .gbar.short { width: 60%; }
-@keyframes ghostpulse { 0%, 100% { opacity: .55; } 50% { opacity: .22; } }
+.ghost .gnode:nth-child(3) { animation-delay: .3s; }
+.ghost .gnode:nth-child(5) { animation-delay: .6s; }
+.ghost .gedge { width: 24px; height: 2px; background: var(--line); }
+.ghost .gbars { display: flex; flex-direction: column; align-items: center; gap: 9px; width: 70%; }
+.ghost .gbar {
+  height: 10px; width: 100%; border-radius: 999px;
+  background: var(--line); opacity: .4;
+  animation: ghostpulse 2s ease-in-out infinite; animation-delay: .45s;
+}
+.ghost .gbar.short { width: 55%; }
+.ghost .gnote { margin: 0; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; }
+@keyframes ghostpulse { 0%, 100% { opacity: .5; } 50% { opacity: .18; } }
 @media (prefers-reduced-motion: reduce) {
   .nibble, #strip { transition: none; }
   .vis-map .edge.miss path { animation: none; }
-  #progress .pulse { animation: none; }
-  .ghost { animation: none; opacity: .4; }
+  #progress .pulse, .ghost .pulse { animation: none; }
+  .ghost .gnode, .ghost .gbar { animation: none; }
 }
 .nibble h2 {
   margin: 0 0 10px; font-size: 11.5px; color: var(--accent);

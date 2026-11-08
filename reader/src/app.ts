@@ -181,7 +181,11 @@ function syncGhost(): void {
     g = document.createElement("article");
     g.className = "ghost";
     g.setAttribute("aria-hidden", "true");
-    g.innerHTML = `<div class="gvisual"></div><div class="gside"><span class="gbar"></span><span class="gbar"></span><span class="gbar short"></span></div>`;
+    g.innerHTML = `<div class="gmap">
+        <span class="gnode"></span><span class="gedge"></span><span class="gnode"></span><span class="gedge"></span><span class="gnode"></span>
+      </div>
+      <div class="gbars"><span class="gbar"></span><span class="gbar short"></span></div>
+      <p class="gnote"><span class="pulse"></span>the agent is writing the next nibble…</p>`;
   }
   strip.appendChild(g); // re-appending keeps it last after arrivals
 }
