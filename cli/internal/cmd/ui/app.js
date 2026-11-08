@@ -1,4 +1,83 @@
 "use strict";
+// Per-language syntax highlighting: the seam between the served file path
+// and the vendored highlight.js bundle. Pure and DOM-free so the node test
+// build exercises it against the real grammars. The path decides the
+// language — never content sniffing — and anything unmapped renders as
+// plain escaped text.
+// langOf: the highlight.js language name for a file path, or null for
+// anything the reader does not highlight. Curation lives here: the bundle
+// carries more grammars, but only these ten are ever used.
+const HL_LANGS = {
+    go: "go",
+    ts: "typescript", tsx: "typescript",
+    js: "javascript", jsx: "javascript", mjs: "javascript", cjs: "javascript",
+    py: "python",
+    json: "json",
+    yaml: "yaml", yml: "yaml",
+    md: "markdown",
+    sh: "bash", bash: "bash", zsh: "bash",
+    css: "css",
+    html: "xml", htm: "xml", xml: "xml",
+    sql: "sql",
+};
+function langOf(path) {
+    const dot = path.lastIndexOf(".");
+    if (dot <= 0 || dot === path.length - 1)
+        return null;
+    return HL_LANGS[path.slice(dot + 1).toLowerCase()] ?? null;
+}
+function escPlain(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+// splitHighlighted: hljs highlights the excerpt whole (that is what keeps a
+// multi-line comment or raw string colored on every line), but the drawer
+// renders line divs. Walk the flat span markup, close the open spans at each
+// newline and reopen them on the next line, so every returned line is
+// well-formed HTML on its own.
+function splitHighlighted(html) {
+    const lines = [];
+    const open = [];
+    let cur = "";
+    let i = 0;
+    while (i < html.length) {
+        const ch = html[i];
+        if (ch === "\n") {
+            lines.push(cur + "</span>".repeat(open.length));
+            cur = open.join("");
+            i++;
+        }
+        else if (ch === "<") {
+            const end = html.indexOf(">", i);
+            const tag = html.slice(i, end + 1);
+            if (tag.startsWith("</"))
+                open.pop();
+            else
+                open.push(tag);
+            cur += tag;
+            i = end + 1;
+        }
+        else {
+            cur += ch;
+            i++;
+        }
+    }
+    lines.push(cur + "</span>".repeat(open.length));
+    return lines;
+}
+// highlightLines: one call per contiguous excerpt — cross-line state lives
+// inside the single hljs call, and an elided gap resets it because the next
+// segment is its own call. Any doubt (no language, no bundle, a line-count
+// mismatch) returns plainly escaped lines: line numbers must never shift.
+// An empty line comes back as a single space so its row keeps its height.
+function highlightLines(path, lines) {
+    const lang = langOf(path);
+    const engine = globalThis.hljs;
+    const plain = () => lines.map((l) => escPlain(l) || " ");
+    if (!lang || !engine || !engine.getLanguage(lang))
+        return plain();
+    const out = splitHighlighted(engine.highlight(lines.join("\n"), { language: lang, ignoreIllegals: true }).value);
+    return out.length === lines.length ? out.map((l) => l || " ") : plain();
+}
 // The visual host — the seam between the shell and the per-kind renderers.
 // Renderers register themselves in visualRenderers (one file per kind,
 // concatenated by tsc in tsconfig order), mark addressable elements with
@@ -56,55 +135,6 @@ function reviewBody(comments) {
     return JSON.stringify({ comments });
 }
 const visualRenderers = {};
-// --- syntax highlight for the code drawers (pure seam, tested) ---
-// A tiny line tokenizer, language-agnostic by design: comments, strings,
-// numbers, a shared keyword set and call-position identifiers cover the
-// TS/Go/Python-ish code plates usually quote; anything unrecognised stays
-// plain text. Returns HTML with everything escaped.
-const HL_KEYWORDS = new Set([
-    // ts/js
-    "const", "let", "var", "function", "return", "if", "else", "for", "while",
-    "do", "new", "await", "async", "import", "from", "export", "default",
-    "type", "interface", "class", "extends", "implements", "throw", "try",
-    "catch", "finally", "switch", "case", "break", "continue", "typeof",
-    "instanceof", "in", "of", "void", "delete", "yield", "static", "public",
-    "private", "protected", "readonly", "enum", "null", "undefined", "true",
-    "false", "this",
-    // go
-    "func", "package", "defer", "go", "chan", "range", "struct", "nil",
-    "select", "fallthrough", "goto",
-    // python
-    "def", "elif", "None", "True", "False", "not", "and", "or", "is",
-    "lambda", "with", "as", "pass", "raise", "global",
-]);
-function hlEsc(s) {
-    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function highlightCode(line) {
-    const re = /(\/\/.*$|#.*$)|("(?:[^"\\]|\\.)*"?|'(?:[^'\\]|\\.)*'?|`(?:[^`\\]|\\.)*`?)|(\b\d[\w.]*)|([A-Za-z_$][\w$]*)/g;
-    let out = "";
-    let last = 0;
-    let m;
-    while ((m = re.exec(line)) !== null) {
-        out += hlEsc(line.slice(last, m.index));
-        const [, cm, str, num, id] = m;
-        if (cm !== undefined)
-            out += `<span class="cm">${hlEsc(cm)}</span>`;
-        else if (str !== undefined)
-            out += `<span class="str">${hlEsc(str)}</span>`;
-        else if (num !== undefined)
-            out += `<span class="num">${hlEsc(num)}</span>`;
-        else if (HL_KEYWORDS.has(id))
-            out += `<span class="kw">${hlEsc(id)}</span>`;
-        else if (/^\s*\(/.test(line.slice(re.lastIndex)))
-            out += `<span class="fn">${hlEsc(id)}</span>`;
-        else
-            out += hlEsc(id);
-        last = re.lastIndex;
-    }
-    out += hlEsc(line.slice(last));
-    return out || " ";
-}
 // --- pure seam logic (covered by test/host.test.ts) ---
 function anchorRefIndex(refs) {
     const m = new Map();
@@ -1054,8 +1084,9 @@ function cmpPane(id, v, ctx) {
                     body.textContent = `⚠ ${resp.why}`;
                     return;
                 }
+                const hl = highlightLines(resp.path, resp.lines.map((l) => l.text));
                 body.innerHTML = resp.lines
-                    .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`)
+                    .map((l, i) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${hl[i]}</span></div>`)
                     .join("");
             })
                 .catch(() => undefined);
@@ -1662,8 +1693,9 @@ async function openDrawer(n, ref) {
     else {
         note.hidden = true;
     }
+    const hl = highlightLines(c.path, c.lines.map((l) => l.text));
     $("#drawer-code").innerHTML = c.lines
-        .map((l) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`)
+        .map((l, i) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${hl[i]}</span></div>`)
         .join("");
     attachDrawer();
 }
@@ -1703,14 +1735,29 @@ async function openLedgerDrawer(path, side) {
                 ? "removed code, shown as it was on the base side"
                 : "no nibble referenced the highlighted lines";
     }
+    // Highlight per contiguous segment: an elided gap starts a fresh
+    // highlighting state, so a construct cut by the elision cannot discolor
+    // what follows.
+    const parts = [];
+    let seg = [];
+    const flushSeg = () => {
+        if (seg.length === 0)
+            return;
+        const hl = highlightLines(c.path, seg.map((l) => l.text));
+        seg.forEach((l, i) => parts.push(`<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${hl[i]}</span></div>`));
+        seg = [];
+    };
     let prev = 0;
-    $("#drawer-code").innerHTML = c.lines
-        .map((l) => {
-        const gap = prev > 0 && l.no > prev + 1 ? `<div class="ln gap"><span class="no">⋯</span><span></span></div>` : "";
+    for (const l of c.lines) {
+        if (prev > 0 && l.no > prev + 1) {
+            flushSeg();
+            parts.push(`<div class="ln gap"><span class="no">⋯</span><span></span></div>`);
+        }
         prev = l.no;
-        return `${gap}<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${highlightCode(l.text)}</span></div>`;
-    })
-        .join("");
+        seg.push(l);
+    }
+    flushSeg();
+    $("#drawer-code").innerHTML = parts.join("");
     attachDrawer();
 }
 // --- the comment popover: disagree on the thing itself, where it is ---

@@ -71,11 +71,12 @@ t("the review POST body carries no visited information", () => {
   eq(JSON.parse(reviewBody([])), { comments: [] }, "no comments means done");
 });
 
-t("highlightCode marks tokens and escapes html", () => {
-  eq(highlightCode("const n = 42 // half"),
-    '<span class="kw">const</span> n = <span class="num">42</span> <span class="cm">// half</span>',
-    "keyword, number, comment");
-  eq(highlightCode("total(lines)"), '<span class="fn">total</span>(lines)', "call position");
-  eq(highlightCode('a < "b<i>"'), 'a &lt; <span class="str">"b&lt;i&gt;"</span>', "escaped html");
-  eq(highlightCode(""), " ", "empty line keeps its height");
+t("the drawer's highlighter is per-language: one line, two readings", () => {
+  const line = "return price // hot path";
+  const go = highlightLines("internal/pool.go", [line])[0];
+  const py = highlightLines("internal/pool.py", [line])[0];
+  ok(go !== py, "a .go path and a .py path highlight the same line differently");
+  ok(go.includes("hljs-comment"), "go reads // as a comment: " + go);
+  ok(!py.includes("hljs-comment"), "python does not: " + py);
+  eq(highlightLines("x.go", [""])[0], " ", "empty line keeps its height");
 });

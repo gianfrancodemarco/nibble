@@ -14,6 +14,7 @@
   },
   "files": [
     "src/visual/types.gen.d.ts",
+    "src/highlight.ts",
     "src/visual/host.ts",
     "src/visual/map.ts",
     "src/visual/sequence.ts",
