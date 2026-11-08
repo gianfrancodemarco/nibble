@@ -83,6 +83,13 @@ button:hover { border-color: var(--accent); }
 #rail i.read { background: var(--accent); opacity: .45; }
 #rail i.on { background: var(--accent); width: 40px; }
 @media (max-width: 700px) { #rail { display: none; } }
+/* the live marker: the agent is still writing this plate */
+#progress .pulse, .ghost .pulse {
+  display: inline-block; width: 8px; height: 8px; margin-right: 6px;
+  border-radius: 50%; background: var(--accent);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: .25; } }
 .brand { font-weight: 700; letter-spacing: -0.02em; }
 .brand .bite {
   display: inline-block; width: 9px; height: 9px; margin-left: 3px;
@@ -115,9 +122,36 @@ button:hover { border-color: var(--accent); }
 .nibble.active { opacity: 1; transform: scale(1); border-color: var(--accent); }
 /* a card that just streamed in slides into place; the camera never moves */
 .nibble.in { opacity: 0; transform: translateX(32px) scale(.96); }
+/* the ghost: where the next nibble will land while the agent writes */
+.ghost {
+  flex: 0 0 44%; min-width: 280px; max-width: 620px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+  border: 1.5px dashed var(--line); border-radius: var(--radius);
+  padding: 18px 22px; max-height: 100%; height: 100%;
+}
+.ghost .gmap { display: flex; align-items: center; gap: 10px; }
+.ghost .gnode {
+  width: 64px; height: 36px; border-radius: 10px;
+  background: var(--line); opacity: .45;
+  animation: ghostpulse 2s ease-in-out infinite;
+}
+.ghost .gnode:nth-child(3) { animation-delay: .3s; }
+.ghost .gnode:nth-child(5) { animation-delay: .6s; }
+.ghost .gedge { width: 24px; height: 2px; background: var(--line); }
+.ghost .gbars { display: flex; flex-direction: column; align-items: center; gap: 9px; width: 70%; }
+.ghost .gbar {
+  height: 10px; width: 100%; border-radius: 999px;
+  background: var(--line); opacity: .4;
+  animation: ghostpulse 2s ease-in-out infinite; animation-delay: .45s;
+}
+.ghost .gbar.short { width: 55%; }
+.ghost .gnote { margin: 0; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; }
+@keyframes ghostpulse { 0%, 100% { opacity: .5; } 50% { opacity: .18; } }
 @media (prefers-reduced-motion: reduce) {
   .nibble, #strip { transition: none; }
   .vis-map .edge.miss path { animation: none; }
+  #progress .pulse, .ghost .pulse { animation: none; }
+  .ghost .gnode, .ghost .gbar { animation: none; }
 }
 .nibble h2 {
   margin: 0 0 10px; font-size: 11.5px; color: var(--accent);

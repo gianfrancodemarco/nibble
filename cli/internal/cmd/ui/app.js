@@ -1266,6 +1266,50 @@ function renderLedgerDir(dir, root) {
     }
     return el;
 }
+// Live reading: the pure decisions behind streaming, kept out of the DOM so
+// the node test build can exercise them. app.ts owns the wiring.
+function progressLabel(open, nibbles, total) {
+    if (open) {
+        return { text: `${nibbles} nibble${nibbles === 1 ? "" : "s"} · still being written`, live: true };
+    }
+    return { text: `${nibbles} of ${total} · sealed`, live: false };
+}
+function plateShape(nibbles, open, reviewed, ledger) {
+    return { nibbles: nibbles.map((n) => JSON.stringify(n)), open, reviewed, ledger };
+}
+// arrivalPlan: append only when the shown plate is a strict prefix of the
+// new one — new nibbles at the end, or the ledger card (and sealed state)
+// arriving at the seal. Anything else that differs rebuilds wholesale;
+// identical shapes do nothing.
+function arrivalPlan(prev, next) {
+    if (!prev)
+        return "rebuild";
+    if (prev.reviewed !== next.reviewed)
+        return "rebuild";
+    if (next.nibbles.length < prev.nibbles.length)
+        return "rebuild";
+    for (let i = 0; i < prev.nibbles.length; i++) {
+        if (prev.nibbles[i] !== next.nibbles[i])
+            return "rebuild";
+    }
+    if (prev.ledger && !next.ledger)
+        return "rebuild";
+    // The ledger card sits after the last nibble: nibbles arriving once it is
+    // on screen would land at its index, so that malformed stream rebuilds.
+    if (prev.ledger && next.nibbles.length > prev.nibbles.length)
+        return "rebuild";
+    const grew = next.nibbles.length > prev.nibbles.length || (!prev.ledger && next.ledger);
+    if (grew || prev.open !== next.open)
+        return "append";
+    return "none";
+}
+function latestWins() {
+    let seq = 0;
+    return {
+        begin: () => ++seq,
+        isCurrent: (token) => token === seq,
+    };
+}
 // nibble reader shell — pure presentation over the Go server's JSON API.
 // Protocol logic (refs, trust, validation) never happens here: the server
 // hands us computed trust and resolved code. Hand-written types below cover
@@ -1291,6 +1335,7 @@ let dialLevel = DIAL_DEFAULT;
 const pending = [];
 const read = new Set(); // cards visited, for the rail only
 let knownCards = 0; // cards already on screen, for the arrival animation
+let painted = false; // first paint done — later cards are arrivals, animated
 const visualOfCard = (card) => plate?.nibbles[card]?.visual ?? null;
 // cards: the nibbles plus the ledger card when the plate carries a ledger
 const cards = () => (plate ? cardCount(plate.nibbles.length, plate.ledger) : 0);
@@ -1341,6 +1386,103 @@ function aboutLabel(p) {
         return a.range ?? "range";
     return a.kind;
 }
+// buildNibbleCard: one card — the visual on the left and a lateral bar on
+// the right: the nibble number, the title (the claim) and its description.
+// Code is reached through the visual's </> chips, so there is no ref list.
+function buildNibbleCard(nb, i) {
+    const vs = visualSummary(nb.visual);
+    const desc = descriptionAt(nb.description, dialLevel);
+    const tpl = document.createElement("template");
+    tpl.innerHTML = `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
+    <div class="nbody">
+      <div class="visual">
+        <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
+        <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
+        ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
+      </div>
+      <aside class="nside">
+        <h2>nibble ${nb.n}</h2>
+        <p class="ntitle">${mdLite(nb.title)}</p>
+        ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
+        ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
+      </aside>
+    </div>
+  </article>`;
+    return tpl.content.firstElementChild;
+}
+function buildLedgerCard(ledger, i) {
+    const card = document.createElement("article");
+    card.className = "nibble ledger" + (active === i ? " active" : "");
+    card.dataset.i = String(i);
+    const nbody = document.createElement("div");
+    nbody.className = "nbody";
+    const slot = document.createElement("div");
+    slot.className = "visual rendered";
+    const body = renderLedgerBody(ledger);
+    body.classList.add("visual-body");
+    slot.appendChild(body);
+    nbody.appendChild(slot);
+    const side = document.createElement("aside");
+    side.className = "nside";
+    side.innerHTML = `<h2>not-shown ledger</h2>
+    <p class="ntitle">${ledger.hunks.length === 0
+        ? "Every hunk of the diff was shown."
+        : "What this walkthrough never showed — the rest of the diff, open to comments."}</p>`;
+    nbody.appendChild(side);
+    card.appendChild(nbody);
+    return card;
+}
+// mountCard: the per-card wiring — click to activate, and the per-kind
+// renderer swapping the fallback summary for the rendered visual when one
+// is registered for its kind.
+function mountCard(card) {
+    card.addEventListener("click", () => setActive(Number(card.dataset.i)));
+    const nb = plate?.nibbles[Number(card.dataset.i)];
+    if (!nb)
+        return; // the ledger card renders its own body in buildLedgerCard
+    const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel, visited: hostVisited });
+    if (!body)
+        return;
+    const slot = card.querySelector(".visual");
+    if (!slot)
+        return;
+    slot.classList.add("rendered");
+    slot.querySelector(".soon")?.remove();
+    slot.querySelector(".anchors")?.remove();
+    body.classList.add("visual-body");
+    slot.appendChild(body);
+}
+// syncGhost: while the agent is still writing, the strip ends with one
+// non-interactive skeleton card — where the next nibble will land. It is not
+// a .nibble, so the rail, the counts and navigation never see it; arrivals
+// insert before it and the seal removes it.
+function syncGhost() {
+    const strip = $("#strip");
+    let g = strip.querySelector(".ghost");
+    if (!plate?.open) {
+        g?.remove();
+        return;
+    }
+    if (!g) {
+        g = document.createElement("article");
+        g.className = "ghost";
+        g.setAttribute("aria-hidden", "true");
+        g.innerHTML = `<div class="gmap">
+        <span class="gnode"></span><span class="gedge"></span><span class="gnode"></span><span class="gedge"></span><span class="gnode"></span>
+      </div>
+      <div class="gbars"><span class="gbar"></span><span class="gbar short"></span></div>
+      <p class="gnote"><span class="pulse"></span>the agent is writing the next nibble…</p>`;
+    }
+    strip.appendChild(g); // re-appending keeps it last after arrivals
+}
+// renderProgress: where the plate stands — a pulsing live marker while the
+// agent is still writing, the final count once sealed.
+function renderProgress() {
+    if (!plate)
+        return;
+    const pl = progressLabel(plate.open, plate.nibbles.length, plate.total);
+    $("#progress").innerHTML = (pl.live ? `<span class="pulse"></span>` : "") + esc(pl.text);
+}
 function render() {
     if (!plate)
         return;
@@ -1363,86 +1505,25 @@ function render() {
     else {
         notice.hidden = true;
     }
-    $("#progress").textContent = plate.open
-        ? `${plate.nibbles.length} nibbles · still being written`
-        : `${plate.nibbles.length} of ${plate.total}`;
+    renderProgress();
     const strip = $("#strip");
-    // Each card is the visual on the left and a lateral bar on the right: the
-    // nibble number, the title (the claim) and its description. Code is reached
-    // through the visual's </> chips, so there is no separate ref list.
-    strip.innerHTML = plate.nibbles
-        .map((nb, i) => {
-        const vs = visualSummary(nb.visual);
-        const desc = descriptionAt(nb.description, dialLevel);
-        return `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
-        <div class="nbody">
-          <div class="visual">
-            <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
-            <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
-            ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
-          </div>
-          <aside class="nside">
-            <h2>nibble ${nb.n}</h2>
-            <p class="ntitle">${mdLite(nb.title)}</p>
-            ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
-            ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
-          </aside>
-        </div>
-      </article>`;
-    })
-        .join("");
+    strip.innerHTML = "";
+    plate.nibbles.forEach((nb, i) => strip.appendChild(buildNibbleCard(nb, i)));
     // The not-shown ledger ends a diff plate: one last card after the nibbles.
-    if (plate.ledger) {
-        const card = document.createElement("article");
-        card.className = "nibble ledger" + (active === plate.nibbles.length ? " active" : "");
-        card.dataset.i = String(plate.nibbles.length);
-        const nbody = document.createElement("div");
-        nbody.className = "nbody";
-        const slot = document.createElement("div");
-        slot.className = "visual rendered";
-        const body = renderLedgerBody(plate.ledger);
-        body.classList.add("visual-body");
-        slot.appendChild(body);
-        nbody.appendChild(slot);
-        const side = document.createElement("aside");
-        side.className = "nside";
-        side.innerHTML = `<h2>not-shown ledger</h2>
-      <p class="ntitle">${plate.ledger.hunks.length === 0
-            ? "Every hunk of the diff was shown."
-            : "What this walkthrough never showed — the rest of the diff, open to comments."}</p>`;
-        nbody.appendChild(side);
-        card.appendChild(nbody);
-        strip.appendChild(card);
-    }
-    // Per-kind rendering: swap each card's fallback summary for the rendered
-    // visual when a renderer for its kind is registered. A selection survives
-    // the rebuild only while its element is drawn at the dial level.
-    // (a ledger-card selection has no dial levels to survive — it stays)
+    if (plate.ledger)
+        strip.appendChild(buildLedgerCard(plate.ledger, plate.nibbles.length));
+    // A selection survives the rebuild only while its element is drawn at the
+    // dial level. (a ledger-card selection has no dial levels to survive)
     hostSelection = hostSelection && isLedgerCard(hostSelection.card)
         ? hostSelection
         : selectionAfterDial(hostSelection, visualOfCard, dialLevel);
-    strip.querySelectorAll(".nibble").forEach((card) => {
-        card.addEventListener("click", () => setActive(Number(card.dataset.i)));
-        const nb = plate.nibbles[Number(card.dataset.i)];
-        if (!nb)
-            return; // the ledger card renders its own body above
-        const body = renderVisualBody(nb.visual, { n: nb.n, anchored: anchorRefIndex(nb.refs), refs: nb.refs, level: dialLevel, visited: hostVisited });
-        if (!body)
-            return;
-        const slot = card.querySelector(".visual");
-        if (!slot)
-            return;
-        slot.classList.add("rendered");
-        slot.querySelector(".soon")?.remove();
-        slot.querySelector(".anchors")?.remove();
-        body.classList.add("visual-body");
-        slot.appendChild(body);
-    });
-    // A card that streamed in after the first paint slides into place; the
-    // strip is rebuilt wholesale, so only indexes beyond the known count are
-    // new. The camera stays where it is — arrivals never steal it.
+    strip.querySelectorAll(".nibble").forEach(mountCard);
+    // A card that streamed in after the first paint slides into place — only
+    // indexes beyond the known count are new. The camera stays where it is:
+    // arrivals never steal it. (live arrivals take appendCards instead; this
+    // covers a rebuild that also carries new cards)
     const total = cards();
-    if (knownCards > 0 && total > knownCards) {
+    if (painted && total > knownCards) {
         const all = strip.querySelectorAll(".nibble");
         for (let i = knownCards; i < total; i++)
             all[i]?.classList.add("in");
@@ -1451,6 +1532,8 @@ function render() {
         }));
     }
     knownCards = total;
+    painted = true;
+    syncGhost();
     applySelection(strip);
     updateCommentTarget();
     renderReviewBar();
@@ -1498,7 +1581,10 @@ function setActive(i) {
 }
 function camera() {
     const strip = $("#strip");
-    const card = document.querySelectorAll(".nibble")[active];
+    // An empty strip still has the ghost: center it, or the placeholder hugs
+    // the left edge until the first nibble lands.
+    const card = document.querySelectorAll(".nibble")[active]
+        ?? strip.querySelector(".ghost");
     if (!card)
         return;
     const canvas = $("#canvas");
@@ -1506,14 +1592,20 @@ function camera() {
     strip.style.transform = `translateX(${x}px)`;
     rail();
 }
-// rail: one segment per card in the top bar — read, active, or still ahead
+// rail: one segment per card in the top bar — read, active, or still ahead.
+// Segments reconcile in place: rewriting them would kill their transitions,
+// and an arriving card's segment must join without the others flashing.
 function rail() {
     read.add(active);
-    const segs = [];
-    for (let i = 0; i < cards(); i++) {
-        segs.push(`<i class="${i === active ? "on" : read.has(i) ? "read" : ""}"></i>`);
+    const el = $("#rail");
+    const want = cards();
+    while (el.children.length > want)
+        el.lastElementChild.remove();
+    while (el.children.length < want)
+        el.appendChild(document.createElement("i"));
+    for (let i = 0; i < want; i++) {
+        el.children[i].className = i === active ? "on" : read.has(i) ? "read" : "";
     }
-    $("#rail").innerHTML = segs.join("");
 }
 // --- code drawer: one element, mounted inside the active card while open ---
 // attachDrawer moves the drawer into the active card, so the evidence reads
@@ -1728,19 +1820,84 @@ async function submit() {
     }
 }
 // --- data + live events ---
+// Reloads are latest-wins: every SSE event fires one, and an older response
+// resolving last must not paint — the count would walk backwards.
+const loads = latestWins();
+let shownShape = null; // the plate the strip currently shows
 async function loadPlate() {
+    const token = loads.begin();
     const resp = await fetch("api/plate");
     if (!resp.ok)
         return;
-    plate = (await resp.json());
+    const next = (await resp.json());
+    if (!loads.isCurrent(token))
+        return;
+    const prev = shownShape;
+    shownShape = plateShape(next.nibbles, next.open, next.review != null, next.ledger != null);
+    const plan = arrivalPlan(prev, shownShape);
+    const prevCards = prev ? prev.nibbles.length + (prev.ledger ? 1 : 0) : 0;
+    plate = next;
+    if (plan === "none")
+        return;
+    if (plan === "append") {
+        appendCards(prevCards);
+        return;
+    }
     active = Math.min(active, Math.max(0, cards() - 1));
     render();
+}
+// appendCards: new cards at the end of a live plate join the strip in place.
+// Nothing else is touched — the drawer, the selection, the popover and the
+// camera all survive the arrival. (the mockups: "arrivals never steal the
+// camera — you keep reading")
+function appendCards(from) {
+    if (!plate)
+        return;
+    const strip = $("#strip");
+    const fresh = [];
+    for (let i = from; i < plate.nibbles.length; i++)
+        fresh.push(buildNibbleCard(plate.nibbles[i], i));
+    if (plate.ledger && from <= plate.nibbles.length)
+        fresh.push(buildLedgerCard(plate.ledger, plate.nibbles.length));
+    const ghost = strip.querySelector(".ghost");
+    for (const card of fresh) {
+        card.classList.add("in");
+        strip.insertBefore(card, ghost); // a null ghost appends
+        mountCard(card);
+    }
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        for (const card of fresh)
+            card.classList.remove("in");
+    }));
+    knownCards = cards();
+    syncGhost();
+    renderProgress();
+    rail();
+    // There was nothing to read yet, so there is no camera to steal: the first
+    // card claims it from the ghost.
+    if (from === 0)
+        camera();
 }
 function listen() {
     const es = new EventSource("api/events");
     es.addEventListener("nibble", () => void loadPlate());
     es.addEventListener("sealed", () => void loadPlate());
     es.addEventListener("review", () => void loadPlate());
+    // The EventSource retries forever and errors on every transient reconnect,
+    // so the error alone proves nothing. Probe the plate once per episode: a
+    // dead fetch means serve is gone — say so instead of silently going stale.
+    let probing = false;
+    let dead = false;
+    es.addEventListener("error", () => {
+        if (probing || dead)
+            return;
+        probing = true;
+        fetch("api/plate").then(() => { probing = false; }, // still there — a reconnect, stay quiet
+        () => {
+            dead = true;
+            flash("⚠ the plate’s server is gone — serve has exited; re-run nibble serve and reload");
+        });
+    });
 }
 // --- wire up ---
 document.querySelectorAll("#dial .dial-pos").forEach((btn) => {
