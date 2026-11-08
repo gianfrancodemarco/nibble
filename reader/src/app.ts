@@ -296,7 +296,10 @@ function setActive(i: number): void {
 
 function camera(): void {
   const strip = $("#strip");
-  const card = document.querySelectorAll<HTMLElement>(".nibble")[active];
+  // An empty strip still has the ghost: center it, or the placeholder hugs
+  // the left edge until the first nibble lands.
+  const card = document.querySelectorAll<HTMLElement>(".nibble")[active]
+    ?? strip.querySelector<HTMLElement>(".ghost");
   if (!card) return;
   const canvas = $("#canvas");
   const x = canvas.clientWidth / 2 - card.offsetLeft - card.offsetWidth / 2;
@@ -577,6 +580,9 @@ function appendCards(from: number): void {
   syncGhost();
   renderProgress();
   rail();
+  // There was nothing to read yet, so there is no camera to steal: the first
+  // card claims it from the ghost.
+  if (from === 0) camera();
 }
 
 function listen(): void {

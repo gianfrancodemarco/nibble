@@ -1581,7 +1581,10 @@ function setActive(i) {
 }
 function camera() {
     const strip = $("#strip");
-    const card = document.querySelectorAll(".nibble")[active];
+    // An empty strip still has the ghost: center it, or the placeholder hugs
+    // the left edge until the first nibble lands.
+    const card = document.querySelectorAll(".nibble")[active]
+        ?? strip.querySelector(".ghost");
     if (!card)
         return;
     const canvas = $("#canvas");
@@ -1870,6 +1873,10 @@ function appendCards(from) {
     syncGhost();
     renderProgress();
     rail();
+    // There was nothing to read yet, so there is no camera to steal: the first
+    // card claims it from the ghost.
+    if (from === 0)
+        camera();
 }
 function listen() {
     const es = new EventSource("api/events");
