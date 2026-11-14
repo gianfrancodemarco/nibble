@@ -29,9 +29,11 @@
   <a href="reading.html" aria-current="page">Reading a plate</a>
   <a class="sub" href="#keys">Keys</a>
   <a class="sub" href="#visuals">The visuals</a>
+  <a class="sub" href="#links">Prose links</a>
   <a class="sub" href="#blast">The blast radius</a>
   <a class="sub" href="#ledger">The not-shown ledger</a>
   <a class="sub" href="#dial">The detail dial</a>
+  <a class="sub" href="#drawer">The code drawer</a>
   <a class="sub" href="#trust">Trust badges</a>
   <a href="answering.html">Answering</a>
   <a href="agents.html">For agents</a>
@@ -41,7 +43,7 @@
 </aside>
 <div class="content">
 <h1>Reading a plate</h1>
-<p class="lede">The canvas takes most of the window. The title sits below it — with its description when the nibble has one — and the code lives in a drawer. Moving between nibbles moves the camera across <b>one shared map</b>. You can try the <a href="#visuals">live demo below</a>: it is the real reader on a real plate.</p>
+<p class="lede">The canvas takes most of the window. The title sits below it — with its description when the nibble has one — and the code lives in a drawer. Phrases in the text that name a part of the picture are linked to it. Moving between nibbles moves the camera across <b>one shared map</b>. You can try the <a href="#visuals">live demo below</a>: it is the real reader on a real plate.</p>
 <h4 id="keys">Keys</h4>
 <table class="keys">
   <thead><tr><th>key</th><th>does</th></tr></thead>
@@ -57,12 +59,12 @@
     <tr><td><kbd>q</kbd></td><td>close without answering</td></tr>
   </tbody>
 </table>
-<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd>, <kbd>space</kbd>, <kbd>d</kbd> (the dial), <kbd>⏎</kbd> (pin comment), <kbd>s</kbd> (send — your comments, or done with none), <kbd>esc</kbd> (drawer, then selection) and <kbd>?</kbd> (the in-reader legend) are live. Clicking does the rest: selecting an element pins comments to it (<span class="mono">n2:cache</span>), and its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer.</p>
+<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd>, <kbd>space</kbd>, <kbd>d</kbd> (the dial), <kbd>⏎</kbd> (pin comment), <kbd>s</kbd> (send — your comments, or done with none), <kbd>esc</kbd> (drawer, then selection) and <kbd>?</kbd> (the in-reader legend) are live. Clicking does the rest: selecting an element pins comments to it (<span class="mono">n2:cache</span>) and opens its code when a ref is anchored to it; its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer on its own; a <a href="#links">linked phrase</a> in the text does what clicking the element it names does.</p>
 
 <h4 id="visuals">The visuals</h4>
 <p>Each visual renders as interactive SVG. The reader lays it out from what the agent declared: the agent sends the meaning, the reader draws the pixels.</p>
 <div class="cards">
-  <div class="card"><b>map</b><p>Click a node: it and its edges highlight, the rest dims. Its <span class="mono">&lt;/&gt;</span> chip opens the code in the drawer.</p></div>
+  <div class="card"><b>map</b><p>Click a node: it and its edges highlight, the rest dims, and its code opens in the drawer when a ref is anchored to it. The <span class="mono">&lt;/&gt;</span> chip opens the code without selecting.</p></div>
   <div class="card"><b>sequence</b><p>Step message by message (<kbd>space</kbd> or click a step). Branches (<i>alt</i>) show where it could have gone.</p></div>
   <div class="card"><b>timeline</b><p>Scrub time: events ahead of the cursor fade to pending. You can toggle precomputed states, for example "jitter off / on".</p></div>
   <div class="card"><b>compare</b><p>Flip between before and after: code (with its trust badge), a map, or metrics aligned to read across.</p></div>
@@ -70,11 +72,15 @@
 <div class="demo">
   <div class="demobar">
     <b>Live demo: the real reader, on a real plate.</b>
-    <span><kbd>←</kbd> <kbd>→</kbd> nibbles · <kbd>space</kbd> step / scrub / flip · click a node to comment on it · comments stay local to this page</span>
+    <span><kbd>←</kbd> <kbd>→</kbd> nibbles · <kbd>space</kbd> step / scrub / flip · click a node to comment on it · hover an underlined phrase to find it in the picture · comments stay local to this page</span>
     <span style="margin-left:auto"><a href="../visuals/reader.html" target="_blank">open full screen ↗</a></span>
   </div>
   <iframe src="../visuals/reader.html" title="nibble reader demo: a four-nibble plate using every visual kind" loading="lazy"></iframe>
 </div>
+
+<h4 id="links">Prose links</h4>
+<p>A nibble's title and description can name parts of its own visual, and those phrases are <b>underlined</b>. Hover one and the element it names lights up in the picture; hover an element in the picture (or select it) and every phrase that names it lights up in the text. The two never drift: the agent writes the link as <span class="mono">[phrase](@id)</span>, and the CLI rejects a link to an element the visual does not draw, so an underline always leads somewhere.</p>
+<p>Clicking a phrase does exactly what clicking the element does: it becomes the selection, the comment target follows it (<span class="mono">n2:cache</span>), and the code drawer opens on the ref anchored to it, if there is one. A link always points into the same card; two nibbles can both have a <span class="mono">cache</span> node, and a phrase on the first card never lights the second. Agents are told to link the first mention only, so a description reads as prose, not as a list of buttons.</p>
 
 <h4 id="blast">The blast radius</h4>
 <p>A PR plate usually opens with a <b>ringed map</b>: the whole change in three concentric zones, read inside-out. The centre is what <b>changed</b>. Around it sit the <b>dependents</b> — files that did not change but depend on something that did: callers, importers, tests, configs, grouped by why they depend. Outside is <b>the rest</b>, kept for orientation. The agent computes the rings from the repo; nibble only checks they are complete and draws them.</p>
@@ -85,7 +91,11 @@
 
 <h4 id="dial">The detail dial</h4>
 <p>Every plate reads at three depths on the same canvas: <b>overview</b> (the shape in one sentence, enough to decide whether to care), <b>standard</b> (what a plate opens at), <b>deep</b> (per-element numbers and edge cases, generated on demand <span class="soon">v0.2</span>). You can spend ninety seconds or ten minutes on the same plate.</p>
-<p>In the v0.1 reader the dial has two positions — press <kbd>d</kbd> (or use the toggle next to the stepper) to flip between overview and standard. Nothing moves when you turn it: the overview is the same picture drawing less, so what you located at a skim is exactly where it stays when you go deeper. If the element you had selected isn’t drawn at overview, the selection clears and comments fall back to the whole nibble. Prose follows the dial too: the plate and each nibble can carry a two-depth <b>description</b> under their title — the skim text at overview, the fuller story at standard.</p>
+<p>In the v0.1 reader the dial has two positions — press <kbd>d</kbd> (or use the toggle next to the stepper) to flip between overview and standard. Nothing moves when you turn it: the overview is the same picture drawing less, so what you located at a skim is exactly where it stays when you go deeper. If the element you had selected isn’t drawn at overview, the selection clears and comments fall back to the whole nibble. Prose follows the dial too: the plate and each nibble can carry a two-depth <b>description</b> under their title — the skim text at overview, the fuller story at standard. So do prose links: a phrase that names an element the overview doesn’t draw turns into plain text, and is a link again when you turn the dial back.</p>
+
+<h4 id="drawer">The code drawer</h4>
+<p>The drawer shows the referenced lines with three lines of context either side; its header carries the file path, the range and the ref’s <a href="#trust">trust badge</a>. It opens from any ref, from a card’s <span class="mono">&lt;/&gt;</span> chip, from selecting an element a ref is anchored to, from a linked phrase, and from a file in the ledger. <kbd>esc</kbd> closes it.</p>
+<p>Code is <b>highlighted per language</b>, picked from the file’s path: Go, TypeScript and JavaScript, Python, JSON, YAML, Markdown, shell, CSS, HTML and SQL. Any other file shows as plain text rather than wrongly coloured. Highlighting runs over the whole excerpt, so a block comment, a Go raw string or a Python triple-quoted string keeps its colour on every line it spans; a gap elided in the ledger drawer starts clean after it. The ledger drawer and the code panes of a <b>compare</b> use the same highlighter, so the same file reads the same everywhere.</p>
 
 <h4 id="trust">Trust badges</h4>
 <p>The code keeps changing after a plate is written. For this reason, every ref is re-checked against the file as it is now.</p>

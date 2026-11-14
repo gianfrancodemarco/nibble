@@ -39,15 +39,15 @@
 <div class="content">
 <h1>Getting started</h1>
 <p class="lede">This guide covers everything you do with nibble. <b>Your agent runs the nibble commands. You just read, poke and reply.</b></p>
-<div class="banner">⚠ nibble is <b>pre-release</b>: v0.1 is in progress. This guide describes the designed behaviour and is updated as features are released. Anything not implemented yet is marked. There is no installer yet; follow the <a href="../roadmap.html">roadmap</a>.</div>
+<div class="banner">⚠ nibble is <b>early</b>: v0.1 is released and v0.2 is in progress. This guide describes the designed behaviour and is updated as features are released. Anything not implemented yet is marked. There is no installer yet; follow the <a href="../roadmap.html">roadmap</a>.</div>
 
-<h4 id="install">Install <span class="soon">installer comes with v0.1</span></h4>
-<p>The CLI already works. For now, you have to build it from source:</p>
+<h4 id="install">Install <span class="soon">install script and brew tap come with v1</span></h4>
+<p>The CLI works. Download a binary from the <a href="https://github.com/gianfrancodemarco/nibble/releases/latest">latest release</a> (macOS and Linux, arm64 and amd64), put it on your <span class="mono">PATH</span> and name it <span class="mono">nibble</span> — or build it from source:</p>
 <pre class="cli"><span class="p">$</span> go install github.com/gianfrancodemarco/nibble/cli/cmd/nibble@main</pre>
-<p>The brew tap and the skill setup are not published yet:</p>
+<p>Then, inside the repo you want explained, install the skill. The brew tap is not published yet:</p>
 <pre class="cli"><span class="p">$</span> brew install gianfrancodemarco/tap/nibble      <span class="d"># tap not published yet</span>
-<span class="p">$</span> nibble setup                                   <span class="d"># installs the skill into Claude Code / Codex / Cursor</span></pre>
-<p><span class="mono">setup</span> installs the skill into each agent it finds. The skill tells the agent when to use nibble and how to write good plates. After that, you never type nibble commands yourself.</p>
+<span class="p">$</span> nibble setup                                   <span class="d"># installs the skill into .claude/skills/nibble/</span></pre>
+<p><span class="mono">setup</span> installs the skill for Claude Code (Codex and Cursor come with v0.2). The skill tells the agent when to use nibble and how to write good plates. After that, you never type nibble commands yourself.</p>
 
 <h4 id="try">Try it without an agent</h4>
 <p>The repository contains a real example plate (the one the test suite writes), together with a snapshot of the files it references. You can serve it directly from the checkout:</p>

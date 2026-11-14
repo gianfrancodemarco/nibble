@@ -11,5 +11,11 @@ close-out in that same branch, in this order:
 2. Update `docs/roadmap.html`: mark the item the change implements as done
    (`class="it done"`). If the change has no roadmap item, say so instead of
    inventing one.
-3. Commit, push and open the PR, so the archive and the roadmap edit land
-   with the feature instead of trailing it.
+3. Update the user guide under `docs/guide/`: every behaviour the change
+   adds or alters that a reader or an agent can see must be described in
+   the chapter it belongs to (getting started, receiving, reading, answering
+   or agents), and anything the guide still marks as "coming" that the
+   change ships must lose that mark. If the change is invisible to users
+   (internal refactor, CI, tests), say so instead of editing the guide.
+4. Commit, push and open the PR, so the archive, the roadmap edit and the
+   guide update land with the feature instead of trailing it.
