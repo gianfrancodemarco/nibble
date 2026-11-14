@@ -78,6 +78,56 @@ function highlightLines(path, lines) {
     const out = splitHighlighted(engine.highlight(lines.join("\n"), { language: lang, ignoreIllegals: true }).value);
     return out.length === lines.length ? out.map((l) => l || " ") : plain();
 }
+// Prose — the reader's tiny markdown, now with anchor links. Nibble titles
+// and descriptions may name visual elements with [phrase](@id) (validated
+// against the visual by the CLI; the reader trusts what it is served). This
+// file is pure string logic, part of the node test build: no DOM access.
+function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+// inline formatting over escaped text: bold/code/italic only, by design.
+function mdLite(s) {
+    return esc(s)
+        .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*([^*]+)\*/g, "<i>$1</i>");
+}
+// One grammar with the Go validator (protocol prose.go): [phrase](@id), the
+// id in the ref-anchor charset; backtick code spans shield their content.
+const PROSE_LINK_RE = /\[([^\]]*)\]\(@([A-Za-z0-9_-]+)\)/g;
+const CODE_SPAN_RE = /`[^`]*`/g;
+// maskCodeSpans blanks code spans without shifting offsets, so link matches
+// can be read back out of the original string.
+function maskCodeSpans(md) {
+    return md.replace(CODE_SPAN_RE, (m) => " ".repeat(m.length));
+}
+// linkIds: the anchor ids a prose string links, in order.
+function linkIds(md) {
+    const out = [];
+    const masked = maskCodeSpans(md);
+    for (const m of masked.matchAll(PROSE_LINK_RE))
+        out.push(m[2]);
+    return out;
+}
+// proseToHtml renders nibble prose: mdLite plus the link rule. A link whose
+// element is drawn at the current dial level becomes an interactive phrase;
+// an undrawn one stays readable but inert (spec: prose links follow the
+// dial). The id charset is attribute-safe by construction.
+function proseToHtml(md, drawn) {
+    const masked = maskCodeSpans(md);
+    let out = "";
+    let at = 0;
+    for (const m of masked.matchAll(PROSE_LINK_RE)) {
+        const start = m.index;
+        out += mdLite(md.slice(at, start));
+        const phrase = mdLite(md.slice(start + 1, start + 1 + m[1].length));
+        out += drawn(m[2])
+            ? `<a class="plink" data-link-anchor="${m[2]}" tabindex="0">${phrase}</a>`
+            : `<span class="plink-inert">${phrase}</span>`;
+        at = start + m[0].length;
+    }
+    return out + mdLite(md.slice(at));
+}
 // The visual host — the seam between the shell and the per-kind renderers.
 // Renderers register themselves in visualRenderers (one file per kind,
 // concatenated by tsc in tsconfig order), mark addressable elements with
@@ -192,6 +242,19 @@ function selectionAfterDial(sel, visualOf, level) {
         return null;
     return anchorDrawnAt(v, sel.id, level) ? sel : null;
 }
+// --- prose ↔ visual links: the two-way hover handshake ---
+// hoverCounterpart: what the other side of the handshake is, as a selector
+// scoped to the hovered node's card. A prose phrase (data-link-anchor)
+// lights its element; an addressable element (data-anchor) lights every
+// phrase that names it; anything else lights nothing. Ids are in the
+// ref-anchor charset, so they are selector-safe.
+function hoverCounterpart(linkAnchor, anchor) {
+    if (linkAnchor)
+        return `[data-anchor="${linkAnchor}"]`;
+    if (anchor)
+        return `.plink[data-link-anchor="${anchor}"]`;
+    return null;
+}
 // --- SVG helpers shared by the renderers ---
 const SVG_NS = "http://www.w3.org/2000/svg";
 function svgEl(tag, attrs = {}, text) {
@@ -201,6 +264,13 @@ function svgEl(tag, attrs = {}, text) {
     if (text !== undefined)
         el.textContent = text;
     return el;
+}
+// codeChipSelector: the card-scoped selector for an anchored element's code
+// chip. Chips carry data-for so the chip is findable from the element's id
+// alone — the compare renderer places its chip beside, not inside, the
+// [data-anchor] node. Ids share the ref-anchor charset: selector-safe.
+function codeChipSelector(id) {
+    return `[data-code][data-for="${id}"]`;
 }
 // What activating an element's code affordance resolves to: the exact
 // (nibble, ref index) pair the drawer endpoint takes, or null when the id
@@ -217,7 +287,7 @@ function codeChip(ctx, id, x, y) {
     if (!act)
         return null;
     const g = svgEl("g", {
-        class: "code-chip", "data-code": act.ref, "data-n": act.n,
+        class: "code-chip", "data-code": act.ref, "data-n": act.n, "data-for": id,
         transform: `translate(${x} ${y})`, role: "button", tabindex: 0,
     });
     g.appendChild(svgEl("title", {}, "open the code this element references"));
@@ -235,6 +305,7 @@ function codeChipHTML(ctx, id) {
     b.className = "code-chip-h";
     b.dataset.code = String(act.ref);
     b.dataset.n = String(act.n);
+    b.dataset.for = id;
     b.textContent = "</>";
     b.title = "open the code this side references";
     return b;
@@ -252,6 +323,10 @@ function applySelection(strip) {
         card.classList.toggle("has-sel", selId !== null);
         card.querySelectorAll("[data-anchor]").forEach((el) => {
             el.classList.toggle("sel", selId !== null && el.getAttribute("data-anchor") === selId);
+        });
+        // linked phrases follow the selection, so prose and picture read as one
+        card.querySelectorAll(".plink").forEach((el) => {
+            el.classList.toggle("sel", selId !== null && el.getAttribute("data-link-anchor") === selId);
         });
         const body = card.querySelector(".visual-body");
         if (body)
@@ -273,6 +348,23 @@ function clearVisualSelection(strip, wiring) {
     wiring.onTarget();
 }
 function wireVisualHost(strip, wiring) {
+    // selectId: the one selection path — element clicks and prose-link clicks
+    // both land here, so targets and visited state cannot diverge.
+    const selectId = (card, id) => {
+        const first = !hostVisited.has(id);
+        hostSelection = selectAndVisit(hostSelection, Number(card.dataset.i), id);
+        applySelection(strip);
+        if (first)
+            applyVisited(strip);
+        wiring.onTarget();
+        // a fresh selection also opens the element's code, when it carries any;
+        // a toggle-off never does, and the chip's own path stays select-free
+        if (hostSelection) {
+            const chip = card.querySelector(codeChipSelector(id));
+            if (chip)
+                wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
+        }
+    };
     strip.addEventListener("click", (e) => {
         const t = e.target;
         if (!t)
@@ -286,20 +378,15 @@ function wireVisualHost(strip, wiring) {
             wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
             return;
         }
-        const el = t.closest("[data-anchor]");
+        // either side of the prose ↔ visual handshake selects the element
+        const el = t.closest("[data-anchor]") ?? t.closest(".plink[data-link-anchor]");
         const card = t.closest(".nibble");
         if (!card)
             return;
         if (el) {
-            const id = el.getAttribute("data-anchor");
-            if (id) {
-                const first = !hostVisited.has(id);
-                hostSelection = selectAndVisit(hostSelection, Number(card.dataset.i), id);
-                applySelection(strip);
-                if (first)
-                    applyVisited(strip);
-                wiring.onTarget();
-            }
+            const id = el.getAttribute("data-anchor") ?? el.getAttribute("data-link-anchor");
+            if (id)
+                selectId(card, id);
         }
         else if (hostSelection && hostSelection.card === Number(card.dataset.i)) {
             // background click inside the card clears its selection
@@ -309,14 +396,56 @@ function wireVisualHost(strip, wiring) {
     strip.addEventListener("keydown", (e) => {
         if (e.key !== "Enter" && e.key !== " ")
             return;
-        const chip = e.target?.closest?.("[data-code]");
+        const t = e.target;
+        const chip = t?.closest?.("[data-code]");
         if (chip) {
             e.preventDefault();
             const anchorId = chip.closest("[data-anchor]")?.getAttribute("data-anchor");
             if (anchorId && markVisited(anchorId))
                 applyVisited(strip);
             wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
+            return;
         }
+        // Enter on a focused prose link selects, like clicking it (a .plink is
+        // an <a> without href, so the browser gives it no default activation)
+        if (e.key !== "Enter")
+            return;
+        const pl = t?.closest?.(".plink[data-link-anchor]");
+        const card = t?.closest?.(".nibble");
+        const id = pl?.getAttribute("data-link-anchor");
+        if (pl && card && id) {
+            e.preventDefault();
+            selectId(card, id);
+        }
+    });
+    // The two-way hover: a prose phrase lights its element, an element lights
+    // its phrases. Idempotent relight (clear, then mark) on delegated events,
+    // so rebuilt cards and live arrivals need no re-wiring; keyboard focus
+    // takes the same path as the pointer.
+    let litNode = null;
+    const hoverNode = (t) => t instanceof Element ? t.closest("[data-link-anchor], [data-anchor]") : null;
+    const relight = (node) => {
+        if (node === litNode)
+            return;
+        strip.querySelectorAll(".lit").forEach((el) => el.classList.remove("lit"));
+        litNode = node;
+        if (!node)
+            return;
+        const sel = hoverCounterpart(node.getAttribute("data-link-anchor"), node.getAttribute("data-anchor"));
+        const card = node.closest(".nibble");
+        if (!sel || !card)
+            return;
+        card.querySelectorAll(sel).forEach((el) => el.classList.add("lit"));
+    };
+    strip.addEventListener("mouseover", (e) => relight(hoverNode(e.target)));
+    strip.addEventListener("mouseout", (e) => {
+        if (!hoverNode(e.relatedTarget))
+            relight(null);
+    });
+    strip.addEventListener("focusin", (e) => relight(hoverNode(e.target)));
+    strip.addEventListener("focusout", (e) => {
+        if (!hoverNode(e.relatedTarget))
+            relight(null);
     });
 }
 // map — services and modules as tiered columns. Layout is pure (tested in
@@ -1371,16 +1500,8 @@ const visualOfCard = (card) => plate?.nibbles[card]?.visual ?? null;
 // cards: the nibbles plus the ledger card when the plate carries a ledger
 const cards = () => (plate ? cardCount(plate.nibbles.length, plate.ledger) : 0);
 const isLedgerCard = (i) => plate?.ledger != null && i === plate.nibbles.length;
-// --- tiny markdown: titles and descriptions get bold/code/italic only ---
-function esc(s) {
-    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function mdLite(s) {
-    return esc(s)
-        .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-        .replace(/`([^`]+)`/g, "<code>$1</code>")
-        .replace(/\*([^*]+)\*/g, "<i>$1</i>");
-}
+// tiny markdown (esc, mdLite) and anchor-linked prose live in src/prose.ts,
+// shared with the node test build.
 // --- visual summary: typed card standing in for per-kind rendering ---
 function visualSummary(v) {
     let detail = "";
@@ -1423,6 +1544,10 @@ function aboutLabel(p) {
 function buildNibbleCard(nb, i) {
     const vs = visualSummary(nb.visual);
     const desc = descriptionAt(nb.description, dialLevel);
+    // Prose anchor links resolve against what the dial actually draws: an
+    // undrawn target renders inert, and a dial turn rebuilds the strip, so
+    // links re-evaluate for free.
+    const drawn = (id) => anchorDrawnAt(nb.visual, id, dialLevel);
     const tpl = document.createElement("template");
     tpl.innerHTML = `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
     <div class="nbody">
@@ -1433,8 +1558,8 @@ function buildNibbleCard(nb, i) {
       </div>
       <aside class="nside">
         <h2>nibble ${nb.n}</h2>
-        <p class="ntitle">${mdLite(nb.title)}</p>
-        ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
+        <p class="ntitle">${proseToHtml(nb.title, drawn)}</p>
+        ${desc !== null ? `<p class="desc">${proseToHtml(desc, drawn)}</p>` : ""}
         ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
       </aside>
     </div>

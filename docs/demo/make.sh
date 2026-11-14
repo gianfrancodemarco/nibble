@@ -28,8 +28,8 @@ PLATE=$("$BIN" new --title "Why checkout slows down every hour" --about code \
 
 "$BIN" add "$PLATE" \
   --title "One \`getPrice\` call touches three things; the **cache** is where the trouble starts." \
-  --description "The cache sits between checkout and Postgres; misses go straight through." \
-  --description-standard "checkout-api calls getPrice per item. A hit returns from memory; a miss runs a SELECT through the shared pool. The pool has 20 connections, so correlated misses are the only way this picture hurts — which is exactly what synchronized expiry produces." \
+  --description "The [cache](@cache) sits between checkout and [Postgres](@db); misses go straight through." \
+  --description-standard "[checkout-api](@checkout) calls getPrice per item. A hit returns from memory; a miss runs a SELECT through the shared [pool](@db). The pool has 20 connections, so correlated misses are the only way this picture hurts — which is exactly what synchronized expiry produces." \
   --visual "$ROOT/docs/demo/visuals/map.json" \
   --ref "src/api/checkout.ts:3-9 @checkout the endpoint" \
   --ref "src/cache/prices.ts:9-11 @cache the cache-first read" \

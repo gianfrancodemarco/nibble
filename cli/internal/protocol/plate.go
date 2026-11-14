@@ -196,6 +196,9 @@ func ParsePlate(dir string) (*Plate, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := validatePlateProse(desc); err != nil {
+		return nil, err
+	}
 	p.Header = PlateHeader{
 		Version: hdr.Version, Title: hdr.Title, Description: desc, Repo: hdr.Repo,
 		HeadSHA: hdr.HeadSHA, About: hdr.About, CreatedAt: hdr.CreatedAt,
@@ -287,6 +290,9 @@ func parseNibble(raw []byte, n int) (*Nibble, error) {
 		return nil, err
 	}
 	anchors := CollectAnchors(nib.Visual)
+	if err := ValidateNibbleProse(fmt.Sprintf("n%d.json", n), nib.Title, nib.Description, anchors); err != nil {
+		return nil, err
+	}
 	for _, r := range nib.Refs {
 		ref, err := ParseRef(r.Ref)
 		if err != nil {

@@ -52,17 +52,8 @@ const visualOfCard = (card: number): Visual | null => plate?.nibbles[card]?.visu
 const cards = (): number => (plate ? cardCount(plate.nibbles.length, plate.ledger) : 0);
 const isLedgerCard = (i: number): boolean => plate?.ledger != null && i === plate.nibbles.length;
 
-// --- tiny markdown: titles and descriptions get bold/code/italic only ---
-
-function esc(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-function mdLite(s: string): string {
-  return esc(s)
-    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*([^*]+)\*/g, "<i>$1</i>");
-}
+// tiny markdown (esc, mdLite) and anchor-linked prose live in src/prose.ts,
+// shared with the node test build.
 
 // --- visual summary: typed card standing in for per-kind rendering ---
 
@@ -106,6 +97,10 @@ function aboutLabel(p: Plate): string {
 function buildNibbleCard(nb: NibbleData, i: number): HTMLElement {
   const vs = visualSummary(nb.visual);
   const desc = descriptionAt(nb.description, dialLevel);
+  // Prose anchor links resolve against what the dial actually draws: an
+  // undrawn target renders inert, and a dial turn rebuilds the strip, so
+  // links re-evaluate for free.
+  const drawn = (id: string): boolean => anchorDrawnAt(nb.visual, id, dialLevel);
   const tpl = document.createElement("template");
   tpl.innerHTML = `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
     <div class="nbody">
@@ -116,8 +111,8 @@ function buildNibbleCard(nb: NibbleData, i: number): HTMLElement {
       </div>
       <aside class="nside">
         <h2>nibble ${nb.n}</h2>
-        <p class="ntitle">${mdLite(nb.title)}</p>
-        ${desc !== null ? `<p class="desc">${mdLite(desc)}</p>` : ""}
+        <p class="ntitle">${proseToHtml(nb.title, drawn)}</p>
+        ${desc !== null ? `<p class="desc">${proseToHtml(desc, drawn)}</p>` : ""}
         ${nb.because ? `<p class="because">over budget because: ${esc(nb.because)}</p>` : ""}
       </aside>
     </div>

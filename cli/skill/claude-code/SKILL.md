@@ -80,8 +80,8 @@ $ nibble serve <plate> --timeout 45m &
 reader: http://127.0.0.1:52314
 
 $ nibble add <plate> \
-    --title "The upload handler no longer resizes anything — the red edge is the window where a thumbnail GET can 404." \
-    --description "It stores the original, enqueues a job and returns. The new resize-worker drains the queue." \
+    --title "The [upload handler](@api) no longer resizes anything — the red edge is the window where a thumbnail GET can 404." \
+    --description "It stores the original, enqueues a job and returns. The new [resize-worker](@worker) drains the queue." \
     --visual map.json \
     --ref "diff:src/upload/handler.ts@worktree:8-21 @api store, enqueue, return" \
     --ref "src/worker/resize.ts:1-18 @worker the whole worker"
@@ -143,6 +143,15 @@ otherwise (`--description-standard` alone is rejected). Give the plate a
 description when the plate needs framing; give a nibble one when its claim
 needs context the title can't hold. Many nibbles need none — the title and
 the visual carry it.
+
+Nibble prose can point into the visual: `[phrase](@id)` links the phrase to
+the element with that id: the reader lights one up when the other is
+hovered, and clicking either selects the element and opens its code. Link an element's **first mention** in the title or description —
+"the new [resize-worker](@worker) drains the queue" — and stop there: a
+prose full of links reads like a legal document, and a phrase that merely
+repeats the node's label adds nothing. The id must belong to the nibble's
+own visual, or the add is rejected with `nibble.prose.anchor.dangling`
+(plate-level prose takes no links — there is no visual to point into).
 
 ## Choosing the visual
 

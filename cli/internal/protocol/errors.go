@@ -48,6 +48,8 @@ const (
 	CodeReviewExists            = "review.exists"
 	CodeRefAnchorDangling       = "ref.anchor.dangling"
 	CodeRefFPInvalid            = "ref.fp.invalid"
+	CodeNibbleProseDangling     = "nibble.prose.anchor.dangling"
+	CodePlateProseAnchor        = "plate.prose.anchor"
 )
 
 // Error is a protocol validation error with a stable code.
