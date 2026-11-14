@@ -67,7 +67,21 @@ optional, shown at the dial's standard level, **falling back to `overview`**
 when absent (never the other way: the overview never shows the long text). A
 description of any other shape fails with `plate.description` /
 `nibble.description`. Word budgets (overview ≤ 100, standard ≤ 250) are
-enforced by the CLI at authoring time, not by the protocol.
+enforced by the CLI at authoring time, not by the protocol; a linked phrase
+counts as its phrase text.
+
+### prose anchor links
+
+Nibble prose — the `title` and both `description` variants — may name
+elements of the nibble's own visual with markdown links whose target is an
+anchor: `[phrase](@id)`, the id in the same `[A-Za-z0-9_-]+` charset ref
+anchors use. The reader turns the phrase and the element into a two-way
+highlight. A link to an id the visual does not declare, or with an empty
+phrase, fails with `nibble.prose.anchor.dangling` (the message lists the ids
+the visual declares). Links inside backtick code spans are literal text, and
+`[text](url)` without the `@` form is untouched. The plate header's
+description has no visual, so an anchor link there fails with
+`plate.prose.anchor`.
 
 ### done
 
@@ -262,6 +276,8 @@ can return:
 | `plate.ledger` | ledger.json malformed, or present on a plate whose `about` names no diff |
 | `nibble.title.missing` | nibble has no `title` (or still carries the pre-rename `caption`) |
 | `nibble.description` | nibble description is not `{overview, standard?}` with a non-empty overview |
+| `nibble.prose.anchor.dangling` | prose links `[phrase](@id)` to no element of the nibble's visual, or with an empty phrase |
+| `plate.prose.anchor` | anchor link in the plate description, which has no visual to resolve it |
 | `plate.version.missing` | no `version` field |
 | `plate.version.unsupported` | version this consumer does not implement |
 | `plate.nibbles.gap` | nibble numbering has a hole |

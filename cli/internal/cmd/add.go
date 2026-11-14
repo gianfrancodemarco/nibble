@@ -118,6 +118,17 @@ func RunAdd(ctx Ctx, args []string) int {
 	}
 	anchors := protocol.CollectAnchors(visualRaw)
 
+	// Prose anchor links resolve against this nibble's own visual; reject a
+	// dangling one now, with the declared ids in the message, rather than
+	// writing a nibble the next ParsePlate would refuse.
+	var proseDesc *protocol.Description
+	if *description != "" || *descStandard != "" {
+		proseDesc = &protocol.Description{Overview: *description, Standard: *descStandard}
+	}
+	if err := protocol.ValidateNibbleProse("nibble", *title, proseDesc, anchors); err != nil {
+		return fail(ctx, *jsonOut, err)
+	}
+
 	g, err := openGit(plate.Header.Repo)
 	if err != nil {
 		return fail(ctx, *jsonOut, err)

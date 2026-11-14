@@ -16,6 +16,7 @@
     "../src/visual/types.gen.d.ts",
     "harness.ts",
     "../src/highlight.ts",
+    "../src/prose.ts",
     "../src/visual/host.ts",
     "../src/visual/map.ts",
     "../src/visual/sequence.ts",
@@ -34,6 +35,8 @@
     "wiring.test.ts",
     "live.test.ts",
     "highlight.test.ts",
+    "prose.test.ts",
+    "proselink.test.ts",
     "types.test.ts",
     "run.ts"
   ]

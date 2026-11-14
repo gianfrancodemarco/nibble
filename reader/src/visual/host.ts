@@ -149,6 +149,19 @@ function selectionAfterDial(
   return anchorDrawnAt(v, sel.id, level) ? sel : null;
 }
 
+// --- prose ↔ visual links: the two-way hover handshake ---
+
+// hoverCounterpart: what the other side of the handshake is, as a selector
+// scoped to the hovered node's card. A prose phrase (data-link-anchor)
+// lights its element; an addressable element (data-anchor) lights every
+// phrase that names it; anything else lights nothing. Ids are in the
+// ref-anchor charset, so they are selector-safe.
+function hoverCounterpart(linkAnchor: string | null, anchor: string | null): string | null {
+  if (linkAnchor) return `[data-anchor="${linkAnchor}"]`;
+  if (anchor) return `.plink[data-link-anchor="${anchor}"]`;
+  return null;
+}
+
 // --- SVG helpers shared by the renderers ---
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -162,6 +175,14 @@ function svgEl<K extends keyof SVGElementTagNameMap>(
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
   if (text !== undefined) el.textContent = text;
   return el;
+}
+
+// codeChipSelector: the card-scoped selector for an anchored element's code
+// chip. Chips carry data-for so the chip is findable from the element's id
+// alone — the compare renderer places its chip beside, not inside, the
+// [data-anchor] node. Ids share the ref-anchor charset: selector-safe.
+function codeChipSelector(id: string): string {
+  return `[data-code][data-for="${id}"]`;
 }
 
 // What activating an element's code affordance resolves to: the exact
@@ -179,7 +200,7 @@ function codeChip(ctx: RenderCtx, id: string, x: number, y: number): SVGGElement
   const act = codeActivation(ctx, id);
   if (!act) return null;
   const g = svgEl("g", {
-    class: "code-chip", "data-code": act.ref, "data-n": act.n,
+    class: "code-chip", "data-code": act.ref, "data-n": act.n, "data-for": id,
     transform: `translate(${x} ${y})`, role: "button", tabindex: 0,
   });
   g.appendChild(svgEl("title", {}, "open the code this element references"));
@@ -197,6 +218,7 @@ function codeChipHTML(ctx: RenderCtx, id: string): HTMLButtonElement | null {
   b.className = "code-chip-h";
   b.dataset.code = String(act.ref);
   b.dataset.n = String(act.n);
+  b.dataset.for = id;
   b.textContent = "</>";
   b.title = "open the code this side references";
   return b;
@@ -224,6 +246,10 @@ function applySelection(strip: HTMLElement): void {
     card.querySelectorAll("[data-anchor]").forEach((el) => {
       el.classList.toggle("sel", selId !== null && el.getAttribute("data-anchor") === selId);
     });
+    // linked phrases follow the selection, so prose and picture read as one
+    card.querySelectorAll(".plink").forEach((el) => {
+      el.classList.toggle("sel", selId !== null && el.getAttribute("data-link-anchor") === selId);
+    });
     const body = card.querySelector(".visual-body");
     if (body) body.dispatchEvent(new CustomEvent("anchorselection", { detail: { id: selId } }));
   });
@@ -245,6 +271,21 @@ function clearVisualSelection(strip: HTMLElement, wiring: HostWiring): void {
 }
 
 function wireVisualHost(strip: HTMLElement, wiring: HostWiring): void {
+  // selectId: the one selection path — element clicks and prose-link clicks
+  // both land here, so targets and visited state cannot diverge.
+  const selectId = (card: HTMLElement, id: string): void => {
+    const first = !hostVisited.has(id);
+    hostSelection = selectAndVisit(hostSelection, Number(card.dataset.i), id);
+    applySelection(strip);
+    if (first) applyVisited(strip);
+    wiring.onTarget();
+    // a fresh selection also opens the element's code, when it carries any;
+    // a toggle-off never does, and the chip's own path stays select-free
+    if (hostSelection) {
+      const chip = card.querySelector(codeChipSelector(id));
+      if (chip) wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
+    }
+  };
   strip.addEventListener("click", (e) => {
     const t = e.target as Element | null;
     if (!t) return;
@@ -256,18 +297,13 @@ function wireVisualHost(strip: HTMLElement, wiring: HostWiring): void {
       wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
       return;
     }
-    const el = t.closest("[data-anchor]");
+    // either side of the prose ↔ visual handshake selects the element
+    const el = t.closest("[data-anchor]") ?? t.closest(".plink[data-link-anchor]");
     const card = t.closest<HTMLElement>(".nibble");
     if (!card) return;
     if (el) {
-      const id = el.getAttribute("data-anchor");
-      if (id) {
-        const first = !hostVisited.has(id);
-        hostSelection = selectAndVisit(hostSelection, Number(card.dataset.i), id);
-        applySelection(strip);
-        if (first) applyVisited(strip);
-        wiring.onTarget();
-      }
+      const id = el.getAttribute("data-anchor") ?? el.getAttribute("data-link-anchor");
+      if (id) selectId(card, id);
     } else if (hostSelection && hostSelection.card === Number(card.dataset.i)) {
       // background click inside the card clears its selection
       clearVisualSelection(strip, wiring);
@@ -275,12 +311,50 @@ function wireVisualHost(strip: HTMLElement, wiring: HostWiring): void {
   });
   strip.addEventListener("keydown", (e) => {
     if (e.key !== "Enter" && e.key !== " ") return;
-    const chip = (e.target as Element | null)?.closest?.("[data-code]");
+    const t = e.target as Element | null;
+    const chip = t?.closest?.("[data-code]");
     if (chip) {
       e.preventDefault();
       const anchorId = chip.closest("[data-anchor]")?.getAttribute("data-anchor");
       if (anchorId && markVisited(anchorId)) applyVisited(strip);
       wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
+      return;
     }
+    // Enter on a focused prose link selects, like clicking it (a .plink is
+    // an <a> without href, so the browser gives it no default activation)
+    if (e.key !== "Enter") return;
+    const pl = t?.closest?.(".plink[data-link-anchor]");
+    const card = t?.closest?.<HTMLElement>(".nibble");
+    const id = pl?.getAttribute("data-link-anchor");
+    if (pl && card && id) {
+      e.preventDefault();
+      selectId(card, id);
+    }
+  });
+
+  // The two-way hover: a prose phrase lights its element, an element lights
+  // its phrases. Idempotent relight (clear, then mark) on delegated events,
+  // so rebuilt cards and live arrivals need no re-wiring; keyboard focus
+  // takes the same path as the pointer.
+  let litNode: Element | null = null;
+  const hoverNode = (t: EventTarget | null): Element | null =>
+    t instanceof Element ? t.closest("[data-link-anchor], [data-anchor]") : null;
+  const relight = (node: Element | null): void => {
+    if (node === litNode) return;
+    strip.querySelectorAll(".lit").forEach((el) => el.classList.remove("lit"));
+    litNode = node;
+    if (!node) return;
+    const sel = hoverCounterpart(node.getAttribute("data-link-anchor"), node.getAttribute("data-anchor"));
+    const card = node.closest(".nibble");
+    if (!sel || !card) return;
+    card.querySelectorAll(sel).forEach((el) => el.classList.add("lit"));
+  };
+  strip.addEventListener("mouseover", (e) => relight(hoverNode(e.target)));
+  strip.addEventListener("mouseout", (e) => {
+    if (!hoverNode((e as MouseEvent).relatedTarget)) relight(null);
+  });
+  strip.addEventListener("focusin", (e) => relight(hoverNode(e.target)));
+  strip.addEventListener("focusout", (e) => {
+    if (!hoverNode((e as FocusEvent).relatedTarget)) relight(null);
   });
 }

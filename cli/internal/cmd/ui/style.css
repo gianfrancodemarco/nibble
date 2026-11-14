@@ -208,6 +208,25 @@ button:hover { border-color: var(--accent); }
 .visual-body [data-anchor] { cursor: pointer; }
 .nibble.has-sel .visual-body [data-anchor]:not(.sel) { opacity: .4; }
 .visual-body [data-anchor], .visual-body [data-anchor] * { transition: opacity .2s; }
+
+/* prose ↔ visual links: hover a phrase, its element lights — and back.
+   Background and underline only, so hover never shifts the layout. */
+.plink {
+  color: var(--sel); cursor: pointer; border-radius: 3px;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--sel) 45%, transparent);
+  text-underline-offset: 3px;
+}
+.plink:hover, .plink:focus-visible, .plink.lit, .plink.sel {
+  outline: none;
+  text-decoration-color: var(--sel);
+  background: color-mix(in srgb, var(--sel) 16%, transparent);
+}
+/* a link whose element the dial doesn't draw: readable, plain, inert */
+.plink-inert { color: inherit; }
+/* the lit element keeps its own kind's look; the glow is kind-agnostic */
+.visual-body [data-anchor].lit { filter: drop-shadow(0 0 5px var(--sel)); }
+.nibble.has-sel .visual-body [data-anchor].lit:not(.sel) { opacity: 1; }
 .code-chip { cursor: pointer; }
 .code-chip rect { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; }
 .code-chip text { fill: var(--accent); font: 700 9px var(--mono); }
