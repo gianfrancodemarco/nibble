@@ -9,6 +9,8 @@ comments. Agents describe structure; this capability owns the pixels.
 
 ## Requirements
 
+
+
 ### Requirement: Layout from meaning, not pixels
 
 The reader SHALL compute all geometry, colour and sizing itself from the
@@ -135,3 +137,101 @@ not allowed. CI SHALL regenerate and fail on drift, exactly as it does for
 - **WHEN** a visual schema changes but the committed generated types are not
   regenerated
 - **THEN** the CI drift job fails on the diff
+
+### Requirement: Level-aware drawing
+At the overview level the renderer SHALL omit every standard-only element; at
+standard it SHALL draw everything. Omission SHALL NOT re-layout what remains:
+an element drawn at both levels keeps identical position and geometry at both,
+so the levels read as layers of one picture, never as two pictures. Layout is
+computed from the full (standard) document.
+
+#### Scenario: Overview hides standard-only elements in place
+- **WHEN** a map with two overview nodes and one standard-only node is drawn
+  at overview
+- **THEN** only the two overview nodes and their edges are drawn, at exactly
+  the positions they have at standard
+
+#### Scenario: Returning to standard restores the full picture
+- **WHEN** the level changes from overview back to standard
+- **THEN** every element is drawn again, with nothing moved
+
+### Requirement: Interactions follow the drawn set
+Stepping, scrubbing and selection SHALL operate on drawn elements only: at
+overview, sequence stepping advances through overview steps, the timeline
+scrubber and states reflect overview events, and a standard-only element is
+not selectable, carries no code marker, and cannot be a comment target.
+
+#### Scenario: Sequence stepping skips hidden steps
+- **WHEN** a sequence with five steps, two of them standard-only, is stepped
+  through at overview
+- **THEN** advancing visits exactly the three overview steps, in order
+
+#### Scenario: Hidden element is not interactive
+- **WHEN** a standard-only node with an anchored ref is hidden at overview
+- **THEN** it cannot be selected and opens no code drawer until the level
+  returns to standard
+
+### Requirement: Ring layout
+A ringed map (every node declaring `ring`) SHALL render as three concentric
+zones read inside-out — `changed` at the centre, `dependent` around it,
+`rest` outside — each zone visibly delimited and labelled, no two nodes
+overlapping at the 12-node budget. An unringed map keeps its existing layout.
+Layout SHALL be deterministic and computed from the full document; the dial
+only changes which nodes are drawn, never where.
+
+#### Scenario: Golden ringed map renders as rings
+- **WHEN** the reader renders a golden ringed map (changed, dependent and
+  rest nodes with edges across rings)
+- **THEN** every node sits in the zone its `ring` names, the three zones are
+  visibly delimited and labelled, and every node and edge is visible
+
+#### Scenario: Dial does not re-layout rings
+- **WHEN** a ringed map with a standard-only dependent node is flipped to
+  overview
+- **THEN** that node is omitted and every remaining node keeps its position
+
+#### Scenario: Unringed map unchanged
+- **WHEN** the reader renders a map with no `ring` hints
+- **THEN** it renders with the existing tiered layout, with no ring zones
+
+### Requirement: Visited dependents
+The reader SHALL track, per open reader session, which `dependent` nodes the
+reader has looked at: a dependent counts as visited once it is selected or
+its code drawer is opened. Visited state SHALL persist across nibbles and
+dial changes within the session, SHALL apply per element id across every
+rendering of the same map, and SHALL NOT be written to the plate, the review,
+or anywhere outside the open tab.
+
+#### Scenario: Selecting a dependent visits it
+- **WHEN** the reader selects dependent node `pricing-tests` and then clears
+  the selection
+- **THEN** `pricing-tests` remains visited for the rest of the session
+
+#### Scenario: Opening code visits the node
+- **WHEN** the reader opens the code drawer from dependent node `caller-api`
+- **THEN** `caller-api` is visited
+
+#### Scenario: Visited state stays out of the review
+- **WHEN** the reader submits a review after visiting some dependents
+- **THEN** the posted review carries no visited information
+
+### Requirement: Unvisited dependents badged
+On a ringed map, every unvisited `dependent` node SHALL carry a visible badge
+that distinguishes it from visited dependents; visiting removes the badge
+without re-layout. The map SHALL show a count of unvisited dependents (e.g.
+"2 of 4 dependents unvisited") that updates as the reader visits them and
+reads as done when none remain. `changed` and `rest` nodes are never badged.
+
+#### Scenario: Badges mark the unvisited
+- **WHEN** a ringed map with four dependent nodes renders and the reader has
+  visited one of them
+- **THEN** the three unvisited dependents carry the badge, the visited one
+  does not, and the count reads 3 of 4 unvisited
+
+#### Scenario: Visiting the last dependent
+- **WHEN** the reader visits the final unvisited dependent
+- **THEN** its badge disappears in place and the count reads as done
+
+#### Scenario: Badge survives the dial
+- **WHEN** the dial flips to overview and back to standard
+- **THEN** visited dependents stay unbadged and unvisited ones stay badged

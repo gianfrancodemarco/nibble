@@ -7,6 +7,7 @@ still being written, and any tool can parse without nibble installed.
 
 ## Requirements
 
+
 ### Requirement: Plate folder layout
 
 A plate SHALL be a single directory containing `plate.json` (the header),
@@ -31,8 +32,10 @@ against: absolute, or relative to the plate directory — a relative root makes
 a plate portable, e.g. a fixture or an export bundled with a snapshot of its
 files), `head_sha` (the commit the working tree was at), `about` (one of
 `code`, `worktree`, or `{pr: <number>}` / `{range: "<base>..<head>"}`), and
-`created_at` (RFC 3339). Unknown fields SHALL be preserved by tools that
-rewrite the file.
+`created_at` (RFC 3339). It MAY carry `description` per the levelled
+description requirement, and an optional `because` (string, the over-budget
+reason, round-tripping untouched like a nibble's). Unknown fields SHALL be
+preserved by tools that rewrite the file.
 
 #### Scenario: Missing version
 - **WHEN** `plate.json` lacks the `version` field
@@ -48,22 +51,35 @@ rewrite the file.
   `<dir>/plate`
 - **THEN** consumers resolve refs against `<dir>/repo`
 
+#### Scenario: Plate description accepted
+- **WHEN** `plate.json` carries `"description": {"overview": "the gist",
+  "standard": "the full story"}`
+- **THEN** the plate parses and both variants are available to consumers
+
 ### Requirement: Nibble files
 
-Each nibble file SHALL carry: `caption` (markdown string), `visual` (a visual
-document per the visual-schemas capability), optional `view` (camera hint),
-and `refs` (array, MAY be empty, each entry per the refs-and-trust
-capability). A nibble whose `visual` is absent SHALL be invalid, with error
-code `nibble.visual.missing`. An optional `because` (string) field is
-reserved for over-budget reasons and SHALL round-trip untouched.
+Each nibble file SHALL carry: `title` (markdown string — the nibble's claim,
+renamed from protocol drafts' `caption`, which is no longer accepted),
+`visual` (a visual document per the visual-schemas capability), optional
+`description` per the levelled description requirement, optional `view`
+(camera hint), and `refs` (array, MAY be empty, each entry per the
+refs-and-trust capability). A nibble whose `visual` is absent SHALL be
+invalid, with error code `nibble.visual.missing`. An optional `because`
+(string) field is reserved for over-budget reasons and SHALL round-trip
+untouched.
 
 #### Scenario: Nibble without a visual
-- **WHEN** a nibble file has a caption and refs but no `visual`
+- **WHEN** a nibble file has a title and refs but no `visual`
 - **THEN** validation fails with error code `nibble.visual.missing`
 
 #### Scenario: Contiguous numbering
 - **WHEN** a plate contains `n1.json` and `n3.json` but no `n2.json`
 - **THEN** validation fails with error code `plate.nibbles.gap`
+
+#### Scenario: Old caption field refused
+- **WHEN** a nibble file carries `caption` and no `title`
+- **THEN** validation fails with error code `nibble.title.missing`, and the
+  message names the rename
 
 ### Requirement: Plate lifecycle
 
@@ -138,3 +154,64 @@ predating the ledger, or sealed by other tools).
 #### Scenario: Diff plate without a ledger still valid
 - **WHEN** a sealed `about: worktree` plate has no `ledger.json`
 - **THEN** the plate parses with no ledger
+
+### Requirement: Levelled descriptions
+
+A plate header and a nibble MAY each carry `description`: an object with
+`overview` (required, non-empty markdown) and `standard` (optional, non-empty
+markdown). The variants follow the detail dial: `overview` is the skim text,
+`standard` the fuller text shown at the standard level, falling back to
+`overview` when absent. A `description` that is not such an object SHALL be
+invalid: `plate.description` on the header, `nibble.description` on a nibble.
+
+#### Scenario: Overview-only description
+- **WHEN** a nibble carries `"description": {"overview": "why this matters"}`
+- **THEN** it is valid, and both dial levels read the overview text
+
+#### Scenario: Description without overview rejected
+- **WHEN** a nibble carries `"description": {"standard": "only the long form"}`
+- **THEN** validation fails with error code `nibble.description`
+
+#### Scenario: Malformed plate description rejected
+- **WHEN** `plate.json` carries `"description": "just a string"`
+- **THEN** parsing fails with error code `plate.description`
+
+### Requirement: Prose anchor links
+
+Nibble prose — the `title` and each `description` variant — MAY carry anchor
+links in markdown link syntax, `[phrase](@id)`, where `id` names a stable
+element id of that nibble's own visual (per the visual-schemas anchors
+requirement). Validation SHALL reject a link whose id no element of the
+visual declares, with error code `nibble.prose.anchor.dangling` and a message
+naming the ids the visual does declare. Link text SHALL be non-empty.
+
+#### Scenario: Linked phrase accepted
+- **WHEN** a nibble's title reads `the [cache](@cache) misses fall through`
+  and its map has a node `cache`
+- **THEN** the nibble validates
+
+#### Scenario: Dangling prose anchor
+- **WHEN** a nibble's description overview carries `[the pool](@pool)` and no
+  element of its visual has id `pool`
+- **THEN** validation fails with `nibble.prose.anchor.dangling`, and the
+  message lists the visual's element ids
+
+#### Scenario: Empty link text rejected
+- **WHEN** a nibble's title carries `[](@cache)`
+- **THEN** validation fails with `nibble.prose.anchor.dangling` naming the
+  empty phrase
+
+### Requirement: Plate prose carries no anchor links
+
+A plate header's `description` has no visual to resolve against, so anchor
+links there SHALL be rejected with error code `plate.prose.anchor`. Markdown
+that merely resembles a link without the `@` form (for example
+`[text](url)`) is not an anchor link and SHALL pass this check unchanged.
+
+#### Scenario: Anchor link in plate description rejected
+- **WHEN** `plate.json`'s description overview carries `[the cache](@cache)`
+- **THEN** validation fails with error code `plate.prose.anchor`
+
+#### Scenario: Ordinary bracketed text untouched
+- **WHEN** a plate description carries `see [RFC 42](https://example.com)`
+- **THEN** validation passes and the text round-trips unchanged
