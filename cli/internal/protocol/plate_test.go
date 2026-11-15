@@ -14,6 +14,9 @@ type plateExpected struct {
 	Error   string `json:"error,omitempty"`
 	Nibbles int    `json:"nibbles,omitempty"`
 	Open    *bool  `json:"open,omitempty"`
+	Turn    string `json:"turn,omitempty"`    // whose move, when the fixture cares
+	Rounds  *int   `json:"rounds,omitempty"`  // review rounds on the plate
+	Threads *int   `json:"threads,omitempty"` // conversations reassembled
 }
 
 func init() {
@@ -51,6 +54,15 @@ func init() {
 		}
 		if want.Open != nil && p.Open != *want.Open {
 			t.Errorf("%s: open = %v, want %v", path, p.Open, *want.Open)
+		}
+		if want.Turn != "" && string(p.Turn()) != want.Turn {
+			t.Errorf("%s: turn = %q, want %q", path, p.Turn(), want.Turn)
+		}
+		if want.Rounds != nil && len(p.Rounds) != *want.Rounds {
+			t.Errorf("%s: %d rounds, want %d", path, len(p.Rounds), *want.Rounds)
+		}
+		if want.Threads != nil && len(p.Threads()) != *want.Threads {
+			t.Errorf("%s: %d threads, want %d", path, len(p.Threads()), *want.Threads)
 		}
 	}
 }

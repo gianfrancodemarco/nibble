@@ -41,13 +41,13 @@ const liveN3 = {
 };
 
 t("arrivalPlan: growth and the seal append; nothing changed is none", () => {
-  const open2 = plateShape([liveN1, liveN2], true, false, false);
-  const open3 = plateShape([liveN1, liveN2, liveN3], true, false, false);
+  const open2 = plateShape([liveN1, liveN2], true, null, false);
+  const open3 = plateShape([liveN1, liveN2, liveN3], true, null, false);
   eq(arrivalPlan(open2, open3), "append", "a nibble arrives");
   eq(arrivalPlan(open2, open2), "none", "identical reload");
-  const sealed = plateShape([liveN1, liveN2, liveN3], false, false, true);
+  const sealed = plateShape([liveN1, liveN2, liveN3], false, null, true);
   eq(arrivalPlan(open3, sealed), "append", "seal brings the ledger card");
-  const sealedNoLedger = plateShape([liveN1, liveN2, liveN3], false, false, false);
+  const sealedNoLedger = plateShape([liveN1, liveN2, liveN3], false, null, false);
   eq(arrivalPlan(open3, sealedNoLedger), "append", "seal without a ledger still updates progress");
   eq(arrivalPlan(null, open2), "rebuild", "first paint");
 });
@@ -63,13 +63,24 @@ t("latestWins: an older reload may not render after a newer one resolved", () =>
 });
 
 t("arrivalPlan: a rewrite, a shrink or a review rebuilds", () => {
-  const open2 = plateShape([liveN1, liveN2], true, false, false);
-  const rewritten = plateShape([liveN1, { ...liveN2, title: "rewritten" }, liveN3], true, false, false);
+  const open2 = plateShape([liveN1, liveN2], true, null, false);
+  const rewritten = plateShape([liveN1, { ...liveN2, title: "rewritten" }, liveN3], true, null, false);
   eq(arrivalPlan(open2, rewritten), "rebuild", "n2 rewritten mid-stream");
-  eq(arrivalPlan(open2, plateShape([liveN1], true, false, false)), "rebuild", "shrinking reload");
-  eq(arrivalPlan(open2, plateShape([liveN1, liveN2], true, true, false)), "rebuild", "review landed");
-  const sealed = plateShape([liveN1, liveN2], false, false, true);
-  eq(arrivalPlan(sealed, plateShape([liveN1, liveN2], false, false, false)), "rebuild", "ledger vanished");
-  eq(arrivalPlan(sealed, plateShape([liveN1, liveN2, liveN3], false, false, true)), "rebuild",
+  eq(arrivalPlan(open2, plateShape([liveN1], true, null, false)), "rebuild", "shrinking reload");
+  eq(arrivalPlan(open2, plateShape([liveN1, liveN2], true, { turn: "agent", rounds: [1] }, false)), "thread", "review landed: only the conversation moved");
+  const sealed = plateShape([liveN1, liveN2], false, null, true);
+  eq(arrivalPlan(sealed, plateShape([liveN1, liveN2], false, null, false)), "rebuild", "ledger vanished");
+  eq(arrivalPlan(sealed, plateShape([liveN1, liveN2, liveN3], false, null, true)), "rebuild",
     "growth after the ledger card would mis-index an append");
+});
+
+t("arrivalPlan: the conversation moving alone patches in place; with cards, rebuilds", () => {
+  const quiet = plateShape([liveN1, liveN2], false, { turn: "agent", rounds: [{ n: 1 }] }, true);
+  const replied = plateShape([liveN1, liveN2], false, { turn: "reader", rounds: [{ n: 1, replied: true }] }, true);
+  eq(arrivalPlan(quiet, replied), "thread", "a reply landed");
+  eq(arrivalPlan(replied, replied), "none", "identical");
+  const open2 = plateShape([liveN1, liveN2], true, null, false);
+  const grownAndReviewed = plateShape([liveN1, liveN2, liveN3], true, { turn: "agent", rounds: [{ n: 1 }] }, false);
+  eq(arrivalPlan(open2, grownAndReviewed), "rebuild", "a nibble and the thread at once");
+  eq(arrivalPlan(open2, plateShape([liveN1, liveN2, liveN3], true, null, false)), "append", "a nibble with the thread unchanged");
 });

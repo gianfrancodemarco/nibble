@@ -18,6 +18,9 @@ func run(t *testing.T, ctx Ctx, args ...string) (int, string, string) {
 	if c.Dir == "" {
 		c.Dir = t.TempDir()
 	}
+	if c.Keep == nil {
+		c.Keep = inProcessKeep // never spawn the test binary as a keeper
+	}
 	var code int
 	if len(args) == 0 {
 		code = Main(nil, &out, &errb)

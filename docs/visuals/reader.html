@@ -9,6 +9,8 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div id="app">
+<div id="page">
 <header id="top">
   <span class="brand">nibble<span class="bite"></span></span>
   <span id="plate-title">loading…</span>
@@ -16,7 +18,6 @@
   <span class="spacer"></span>
   <span id="rail" aria-hidden="true"></span>
   <span id="progress" class="meta"></span>
-  <button id="send" title="send the review and wake the agent (s) — your held comments, or done with none">done</button>
 </header>
 <div id="plate-desc" hidden></div>
 <div id="notice" hidden></div>
@@ -26,17 +27,47 @@
   <div class="krow"><kbd>← →</kbd><span>previous / next nibble</span></div>
   <div class="krow"><kbd>d</kbd><span id="dial" role="group" aria-label="detail dial" title="detail dial (d) — skim the overview, or read everything at standard"><button class="dial-pos" data-level="overview">overview</button><button class="dial-pos on" data-level="standard">standard</button></span></div>
   <div class="krow"><kbd>⎵</kbd><span>step the visual — sequence steps, timeline cursor, compare flip</span></div>
-  <div class="krow"><kbd>c</kbd><span>comment — on the selection, or the nibble; hold for review, or ask now</span></div>
-  <div class="krow"><kbd>s</kbd><span>send the review — your held comments, or done with none</span></div>
+  <div class="krow"><kbd>c</kbd><span>write in the chat — a thread on the selection or the nibble; the agent replies in place</span></div>
+  <div class="krow"><kbd>s</kbd><span>send your held drafts</span></div>
   <div class="krow"><kbd>esc</kbd><span>close the drawer</span></div>
   <div class="krow"><kbd>?</kbd><span>pin this legend open</span></div>
-  <p class="kfoot">Refs open the code drawer. Held comments are a draft — the <b>send</b> button is what ends the agent's wait.</p>
+  <p class="kfoot">Refs open the code drawer. <b>Send</b> in the chat is what wakes the agent; held drafts go out with the next send.</p>
 </aside>
 
 <main id="canvas">
   <div id="strip"></div>
 </main>
 </div>
+</div>
+
+<aside id="chat" aria-label="conversation">
+  <button id="chat-rail" title="open the chat (c)">
+    <span class="rlabel">chat</span>
+    <span id="rail-count" class="rcount" hidden></span>
+    <span id="rail-live" class="pulse" hidden></span>
+  </button>
+  <div id="chat-body">
+    <header>
+      <div class="chat-head">
+        <span class="chat-name">Chat <span id="chat-count" class="rcount" hidden></span> <span id="chat-live" class="pulse" hidden title="the agent is answering"></span></span>
+        <span class="spacer"></span>
+        <button id="chat-close" title="collapse the chat (c)">›</button>
+      </div>
+      <div id="chat-turn" class="meta"></div>
+    </header>
+    <div id="threads"></div>
+    <div id="composer">
+      <div id="composer-on" class="meta mono"></div>
+      <textarea id="composer-text" rows="3" placeholder="disagree on the thing itself…"></textarea>
+      <div class="acts">
+        <button id="composer-hold" title="keep as a draft, to send with the next message (⇧⌘⏎)">Hold <small>⇧⌘⏎</small></button>
+        <button id="composer-send" class="primary" title="send this message and every draft; the agent wakes (⌘⏎)">Send <small>⌘⏎</small></button>
+      </div>
+    </div>
+  </div>
+</aside>
+</div>
+
 
 <aside id="drawer" hidden>
   <header>
@@ -50,20 +81,6 @@
   <div id="drawer-note" class="meta" hidden></div>
   <pre id="drawer-code" class="mono"></pre>
 </aside>
-
-<div id="pop" role="dialog" aria-label="comment" hidden>
-  <div class="on" id="pop-target"></div>
-  <textarea id="pop-text" rows="3" placeholder="disagree on the thing itself…"></textarea>
-  <div class="acts">
-    <button id="pop-hold" title="pin the comment; the send button posts the review (⌘⏎)">Hold for review <small>⌘⏎</small></button>
-    <button id="pop-ask" class="primary" title="end the agent’s wait now, with this question and everything pinned (⇧⌘⏎)">Ask now <small>⇧⌘⏎</small></button>
-  </div>
-</div>
-
-<footer id="reviewbar">
-  <div id="pending"></div>
-  <div id="submitted" hidden></div>
-</footer>
 
 <script src="highlight.min.js"></script>
 <script src="data.js"></script>

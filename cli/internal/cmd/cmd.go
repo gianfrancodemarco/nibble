@@ -15,6 +15,10 @@ type Ctx struct {
 	Stderr io.Writer
 	Dir    string // working directory (git discovery starts here)
 	Home   string // plates home; empty means $NIBBLE_HOME or ~/.nibble
+	// Keep takes over serving the plate after serve exits on a round, so
+	// the open tab outlives the wake-up. nil spawns `nibble serve --keeper`
+	// detached; tests run the keeper in-process.
+	Keep func(Keeper)
 }
 
 // PlatesDir resolves the directory plates live in.
@@ -42,7 +46,8 @@ usage:
                --visual <file.json> [--ref <ref>]... [--because <reason>] [--json]
   nibble done  <plate> [--json]
   nibble lint  <visual.json> [--json]
-  nibble serve <plate> [--timeout <dur>] [--json]
+  nibble serve <plate> [--timeout <dur>] [--addr <host:port>] [--no-ui] [--json]
+  nibble reply <plate> --to <N> --text <md> [--ref <ref>]... [--because <reason>] [--json]
   nibble setup [--agent claude-code] [--json]
 
 exit codes: 0 ok · 1 validation/protocol error · 2 usage
@@ -73,6 +78,8 @@ func Main(args []string, stdout, stderr io.Writer) int {
 		return RunLint(ctx, rest)
 	case "serve":
 		return RunServe(ctx, rest)
+	case "reply":
+		return RunReply(ctx, rest)
 	case "setup":
 		return RunSetup(ctx, rest)
 	case "help", "-h", "--help":

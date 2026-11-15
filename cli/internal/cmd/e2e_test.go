@@ -16,9 +16,10 @@ const testTimeline = `{"kind":"timeline","title":"expiries on the hour","lanes":
 
 const testCompare = `{"kind":"compare","title":"ttl today vs jitter","before":{"label":"today","content":{"ref":"src/prices.ts:3"}},"after":{"label":"jitter","content":{"ref":"diff:src/prices.ts@main..feat#head:3"}}}`
 
-// TestEndToEnd drives the full authoring loop the way an agent would:
-// new → add ×3 (one per remaining visual kind, one over budget with a reason)
-// → done → serve, with the review arriving mid-wait.
+// TestEndToEnd drives the full loop the way an agent would: new → add ×3
+// (one per remaining visual kind, one over budget with a reason) → done →
+// serve, with the review arriving mid-wait — then the conversation: reply,
+// serve again, a follow-up round, reply, and done.
 func TestEndToEnd(t *testing.T) {
 	repo := gitInit(t)
 	tmp := t.TempDir()
@@ -62,9 +63,53 @@ func TestEndToEnd(t *testing.T) {
 		t.Fatalf("serve: exit %d out %q", code, stdout.String())
 	}
 
+	// The agent answers on the plate, serves again, and the reader follows
+	// up in the same thread; the agent answers that too, and the reader is
+	// done.
+	if code, _, errb := run(t, ctx, "reply", plate, "--to", "1",
+		"--text", "Billing reads through the same [db](@db) pool, so the lines below are the ones it sees.",
+		"--ref", "src/pool.ts:1-2 the pool and its idle timeout"); code != 0 {
+		t.Fatalf("reply: %s", errb)
+	}
+	url, stdout, codeCh = startServe(t, ctx, plate)
+	resp, err = http.Post(url+"/api/review", "application/json",
+		strings.NewReader(`{"comments":[{"thread":"1.1","text":"then is the pool size enough for billing too?"}]}`))
+	if err != nil || resp.StatusCode != 200 {
+		t.Fatalf("POST round 2: %v %v", err, resp)
+	}
+	resp.Body.Close()
+	select {
+	case code = <-codeCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("serve did not exit after round 2")
+	}
+	if code != 2 || !strings.Contains(stdout.String(), "continues 1.1") || !strings.Contains(stdout.String(), "agent · round 1") {
+		t.Fatalf("serve round 2: exit %d out %q", code, stdout.String())
+	}
+	if code, _, errb := run(t, ctx, "reply", plate, "--to", "1",
+		"--text", "It is sized for both: billing's reads are hits once the cache is warm."); code != 0 {
+		t.Fatalf("reply 2: %s", errb)
+	}
+	url, _, codeCh = startServe(t, ctx, plate)
+	if resp, err = http.Post(url+"/api/review", "application/json", strings.NewReader(`{"comments":[]}`)); err != nil || resp.StatusCode != 200 {
+		t.Fatalf("POST done: %v %v", err, resp)
+	}
+	resp.Body.Close()
+	select {
+	case code = <-codeCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("serve did not exit after done")
+	}
+	if code != 0 {
+		t.Fatalf("done should exit 0, got %d", code)
+	}
+
 	p, err := protocol.ParsePlate(plate)
-	if err != nil || len(p.Nibbles) != 3 || p.Open || p.Review == nil {
+	if err != nil || len(p.Nibbles) != 3 || p.Open || len(p.Rounds) != 3 || p.Turn() != protocol.TurnReader {
 		t.Fatalf("final plate: %+v err %v", p, err)
+	}
+	if len(p.Threads()) != 1 || len(p.Threads()[0].Messages) != 4 {
+		t.Fatalf("threads = %+v", p.Threads())
 	}
 	if p.Nibbles[2].Because == "" {
 		t.Fatal("because missing on the over-budget nibble")
@@ -114,7 +159,7 @@ func exportGolden(t *testing.T, plate, dest string) {
 		t.Fatal("plate.json had no repo to snapshot")
 	}
 	copyTree(t, realRepo, filepath.Join(dest, "repo"))
-	expected := []byte("{ \"valid\": true, \"nibbles\": 3, \"open\": false }\n")
+	expected := []byte("{ \"valid\": true, \"nibbles\": 3, \"open\": false, \"turn\": \"reader\", \"rounds\": 3, \"threads\": 1 }\n")
 	if err := os.WriteFile(filepath.Join(dest, "expected.json"), expected, 0o644); err != nil {
 		t.Fatal(err)
 	}

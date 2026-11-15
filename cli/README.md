@@ -1,6 +1,6 @@
 # nibble CLI
 
-The agent-facing half of nibble: six commands over the
+The agent-facing half of nibble: seven commands over the
 [protocol](../protocol/PROTOCOL.md). Agents drive these; humans mostly don't.
 
 ```sh
@@ -36,11 +36,28 @@ nibble done  <plate> [--check] [--json]
 nibble lint  <visual.json>    # validate a visual standalone
 nibble serve <plate> [--timeout <dur>] [--addr <host:port>] [--no-ui] [--json]
              # serves the reader on 127.0.0.1 (random port; the one
-             # "reader: http://…" line goes to stderr) and blocks until
-             # review.json appears — submitted in the reader or written by
-             # any tool — then prints the review and exits with the
-             # review's code. That exit is what wakes the agent.
-             # --no-ui waits headless; --addr pins the port (loopback only)
+             # "reader: http://…" line goes to stderr) and blocks until the
+             # next review round lands — submitted in the reader or written
+             # by any tool — then prints it (a follow-up with its thread's
+             # history) and exits with its code. That exit is what wakes
+             # the agent — but the page outlives the exit: a detached keeper
+             # takes the listening socket, so replies show in the open tab
+             # as they land, and the next serve takes the address back
+             # (.serve.json in the plate dir records it; --addr overrides).
+             # A round the agent already answered is waited past; the one
+             # it was just handed is served while the replies stream in; a
+             # round that landed while nothing was waiting prints at once.
+             # --no-ui waits headless, prints any owed round at once, and
+             # leaves no keeper; --addr pins the port (loopback only)
+
+nibble reply <plate> --to <N> --text <md> [--ref <ref>]... [--because <reason>] [--json]
+             # answers comment N of the latest round on the same plate:
+             # refs verified and fingerprinted like add (no @anchor; prose
+             # [phrase](@id) links resolve against the thread's nibble),
+             # appended to reply.json (reply.<k>.json for round k) under
+             # the plate lock; reports "N of M" and when the round is
+             # answered. reply.target names the round's comments when N
+             # is off; reply.duplicate refuses a second answer
 
 nibble setup [--agent claude-code] [--json]
              # installs the embedded agent skill into the current repo at
@@ -64,8 +81,8 @@ for `app.js`):
 | --- | --- |
 | `GET /api/plate` | header + nibbles, each ref with trust (`exact` / `shifted ±N` / `stale`) computed against the code as it is now |
 | `GET /api/code?n=2&ref=0` | the drawer: referenced lines ±3 context from the live repo (diff sides via git), at the trust-resolved position |
-| `POST /api/review` | writes `review.json` atomically; `409 review.exists` if the plate already has one |
-| `GET /api/events` | SSE: `nibble`, `sealed`, `review` — an open reader follows a plate still being written |
+| `POST /api/review` | writes the next round (`review.json`, then `review.2.json`…) atomically; a comment may carry `thread` to continue one; `409 review.exists` while the agent still owes replies |
+| `GET /api/events` | SSE: `nibble`, `sealed`, `review`, `reply` — an open reader follows a plate still being written and a thread still being answered |
 
 Serving degrades per ref by what is available: a full git repo serves
 everything; a plain directory of files (the plate’s `repo` may be relative
@@ -73,15 +90,14 @@ to the plate dir) verifies plain and `@worktree` refs and marks
 `base..head` refs `unverified`; a missing root serves titles, descriptions
 and visuals with every ref `unverified` — the review loop works regardless.
 
-A plate that already has a review serves read-only (review shown, input
-locked) until interrupted or `--timeout`, exiting with the review's code;
-`--no-ui` keeps the print-and-exit path for scripts. So the bundled example
-plate works in place:
+Done is not an end: a round with no comments means nothing to address now,
+the chat stays open, and `serve` waits for the next round like after any
+answered one. So the bundled example plate works in place:
 
 ```sh
-nibble serve protocol/golden/plates/cli-authored/plate   # read-only: it ships reviewed
-# to answer it yourself, serve an unreviewed copy:
-tmp=$(mktemp -d) && cp -R protocol/golden/plates/cli-authored/* "$tmp" && rm "$tmp/plate/review.json"
+nibble serve protocol/golden/plates/cli-authored/plate   # ships with a conversation; waits for your next word
+# to answer it yourself, serve a copy with the thread removed:
+tmp=$(mktemp -d) && cp -R protocol/golden/plates/cli-authored/* "$tmp" && rm "$tmp"/plate/review*.json "$tmp"/plate/reply*.json
 nibble serve "$tmp/plate"
 ```
 
@@ -101,6 +117,7 @@ and shown to the reader:
 
 - titles: **40 words**
 - description overview: **100 words** · description standard: **250 words**
+- replies: **150 words** (`because` is stored on the reply)
 - nibbles per plate: **7** (`code`, `worktree`) · **12** (`<base>..<head>`)
 
 Over budget without `--because "<reason>"` → `cli.budget`, with the limit and
@@ -110,13 +127,15 @@ the override named in the message.
 
 | code | meaning |
 | --- | --- |
-| 0 | success — and `serve`: review done, no comments |
+| 0 | success — and `serve`: the reader sent done, nothing to address now |
 | 1 | validation / protocol error (code + fix-it on stderr, or `{"error":…}` with `--json`) |
-| 2 | usage error — and `serve`: review has comments to handle |
-| 5 | `serve`: timeout |
+| 2 | usage error — and `serve`: a round with comments the agent still owes replies to |
+| 5 | `serve`: it stopped waiting (timeout or interrupt) with nothing owed |
 
 (`serve` only emits 2 for a review after a successful wait; its usage errors
-print before blocking, so scripts can tell them apart by stderr.)
+print before blocking, so scripts can tell them apart by stderr. On a
+timeout while a round is still unanswered it exits 2, not 5: the review
+exists and is owed.)
 
 ## Environment
 

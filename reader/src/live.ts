@@ -15,21 +15,30 @@ function progressLabel(open: boolean, nibbles: number, total: number): ProgressL
 // --- the append-or-rebuild decision on a reload ---
 
 // A plate's shape: just enough to tell "new cards at the end" from "the
-// plate under me changed". Nibbles are compared as verbatim JSON.
-interface PlateShape { nibbles: string[]; open: boolean; reviewed: boolean; ledger: boolean; }
-type ArrivalPlan = "append" | "rebuild" | "none";
+// plate under me changed", and "only the conversation moved" from either.
+// Nibbles and the thread are compared as verbatim JSON.
+interface PlateShape { nibbles: string[]; open: boolean; thread: string; ledger: boolean; }
+type ArrivalPlan = "append" | "rebuild" | "thread" | "none";
 
-function plateShape(nibbles: unknown[], open: boolean, reviewed: boolean, ledger: boolean): PlateShape {
-  return { nibbles: nibbles.map((n) => JSON.stringify(n)), open, reviewed, ledger };
+function plateShape(nibbles: unknown[], open: boolean, thread: unknown, ledger: boolean): PlateShape {
+  return { nibbles: nibbles.map((n) => JSON.stringify(n)), open, thread: JSON.stringify(thread ?? null), ledger };
 }
 
 // arrivalPlan: append only when the shown plate is a strict prefix of the
 // new one — new nibbles at the end, or the ledger card (and sealed state)
-// arriving at the seal. Anything else that differs rebuilds wholesale;
-// identical shapes do nothing.
+// arriving at the seal. A reload where only the thread differs (a reply, a
+// new round) patches the conversation in place; the strip is untouched.
+// Anything else that differs rebuilds wholesale; identical shapes do
+// nothing.
 function arrivalPlan(prev: PlateShape | null, next: PlateShape): ArrivalPlan {
   if (!prev) return "rebuild";
-  if (prev.reviewed !== next.reviewed) return "rebuild";
+  const threadMoved = prev.thread !== next.thread;
+  const cardsPlan = cardsArrivalPlan(prev, next);
+  if (!threadMoved) return cardsPlan;
+  return cardsPlan === "none" ? "thread" : "rebuild";
+}
+
+function cardsArrivalPlan(prev: PlateShape, next: PlateShape): ArrivalPlan {
   if (next.nibbles.length < prev.nibbles.length) return "rebuild";
   for (let i = 0; i < prev.nibbles.length; i++) {
     if (prev.nibbles[i] !== next.nibbles[i]) return "rebuild";

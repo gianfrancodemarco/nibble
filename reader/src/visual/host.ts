@@ -270,12 +270,23 @@ function clearVisualSelection(strip: HTMLElement, wiring: HostWiring): void {
   wiring.onTarget();
 }
 
-function wireVisualHost(strip: HTMLElement, wiring: HostWiring): void {
+// HostController: what the shell may drive from outside the strip — the
+// chat panel's target chips and reply links select through the same path
+// a click takes, so targets and visited state cannot diverge.
+interface HostController {
+  // select the element; force keeps an existing selection instead of
+  // toggling it off
+  select: (card: HTMLElement, id: string, force?: boolean) => void;
+}
+
+function wireVisualHost(strip: HTMLElement, wiring: HostWiring): HostController {
   // selectId: the one selection path — element clicks and prose-link clicks
   // both land here, so targets and visited state cannot diverge.
-  const selectId = (card: HTMLElement, id: string): void => {
+  const selectId = (card: HTMLElement, id: string, force = false): void => {
+    const idx = Number(card.dataset.i);
+    if (force && hostSelection && hostSelection.card === idx && hostSelection.id === id) return;
     const first = !hostVisited.has(id);
-    hostSelection = selectAndVisit(hostSelection, Number(card.dataset.i), id);
+    hostSelection = selectAndVisit(hostSelection, idx, id);
     applySelection(strip);
     if (first) applyVisited(strip);
     wiring.onTarget();
@@ -357,4 +368,5 @@ function wireVisualHost(strip: HTMLElement, wiring: HostWiring): void {
   strip.addEventListener("focusout", (e) => {
     if (!hoverNode((e as FocusEvent).relatedTarget)) relight(null);
   });
+  return { select: selectId };
 }
