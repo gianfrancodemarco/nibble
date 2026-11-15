@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nibble roadmap</title>
-<meta name="description" content="nibble's roadmap: v0.1 MVP, v0.2, v1 with the Tauri pill, and what comes later.">
+<meta name="description" content="nibble's roadmap: v0.1 MVP, v0.2, v1 with more visual types and the Tauri pill, and what comes later.">
 <link rel="icon" href="assets/mark-light.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -109,7 +109,7 @@ footer a { color: var(--muted); }
 <div class="stage now">
   <span class="tag">in progress · v0.2</span>
   <h2>Depth and breadth</h2>
-  <p class="goal">You can ask for more without leaving the plate, and bigger reviews get structure.</p>
+  <p class="goal">You can ask for more without leaving the plate, and what you read is grounded in the real code.</p>
   <div class="items">
     <div class="it done"><b>UI improvement &amp; design adherence</b> <span>— polish the reader's UI and bring it in line with the design mockups</span></div>
     <div class="it done"><b>Live-reading polish</b> <span>— refine the reader while nibbles are streaming in: smooth animations for arriving cards, and fix the bugs around the nibble count and progress</span></div>
@@ -120,20 +120,20 @@ footer a { color: var(--muted); }
     <div class="it"><b>Ask for more</b> <span>— what you can ask for: select any node, step or phrase and request depth; the answer lands on the plate as a deep-dial layer or a new visual, through the review loop above</span></div>
     <div class="it"><b>ELI5 version</b> <span>— a plate readable with no knowledge of the codebase: the dial gets a level below overview that explains each step in plain words</span></div>
     <div class="it"><b>Real names in visuals</b> <span>— node and step labels carry the actual filenames and function names from the code, not names the agent makes up</span></div>
-    <div class="it"><b>Step-by-step sequences</b> <span>— each step of a sequence diagram carries its own description; the reader starts with the diagram empty and unveils it one step at a time, drawing the arrow and showing its description together, so you follow the flow instead of reading the whole picture at once</span></div>
-    <div class="it"><b>Chapter flow</b> <span>— big PRs split into chapters you approve before the walkthrough starts</span></div>
-    <div class="it"><b>state · data · chart</b> <span>— three more visual types: state machines, data structures and charts</span></div>
-    <div class="it"><b>What-if toggles</b> <span>— flip a switch to see the same picture under a different scenario, precomputed by the agent</span></div>
     <div class="it"><b>More agents</b> <span>— Codex and Cursor learn to build plates too, via <span class="mono">nibble setup</span></span></div>
-    <div class="it"><b>nibble lint &amp; export</b> <span>— check a plate's visuals without opening it, and save a plate into a repo to share</span></div>
   </div>
 </div>
 
 <div class="stage">
   <span class="tag">v1</span>
-  <h2>The pill, and polish</h2>
-  <p class="goal">Calm by default, installable in one line, documented.</p>
+  <h2>More to see, the pill, and polish</h2>
+  <p class="goal">Bigger reviews get structure and more ways to show a change; calm by default, installable in one line, documented.</p>
   <div class="items">
+    <div class="it"><b>Step-by-step sequences</b> <span>— each step of a sequence diagram carries its own description; the reader starts with the diagram empty and unveils it one step at a time, drawing the arrow and showing its description together, so you follow the flow instead of reading the whole picture at once</span></div>
+    <div class="it"><b>Chapter flow</b> <span>— big PRs split into chapters you approve before the walkthrough starts</span></div>
+    <div class="it"><b>state · data · chart</b> <span>— three more visual types: state machines, data structures and charts</span></div>
+    <div class="it"><b>What-if toggles</b> <span>— flip a switch to see the same picture under a different scenario, precomputed by the agent</span></div>
+    <div class="it"><b>nibble lint &amp; export</b> <span>— check a plate's visuals without opening it, and save a plate into a repo to share</span></div>
     <div class="it"><b>Tauri pill</b> <span>— a small menu-bar app whose floating pill tells you a plate is waiting (decided 2026-11-01)</span></div>
     <div class="it"><b>Auto-open</b> <span>— plates you asked for open themselves; ones the agent volunteers wait quietly in the pill</span></div>
     <div class="it"><b>Install</b> <span>— one-line install script and a Homebrew tap, with signed builds</span></div>
