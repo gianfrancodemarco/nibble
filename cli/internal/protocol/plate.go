@@ -61,8 +61,8 @@ type PlateHeader struct {
 // fp1 fingerprint record.
 type NibbleRef struct {
 	Ref       string   `json:"ref"`
-	FP        string   `json:"fp"`
-	Lines     []string `json:"lines"`
+	FP        string   `json:"fp,omitempty"`    // optional only on a comment ref (hand-written)
+	Lines     []string `json:"lines,omitempty"` // likewise
 	CtxBefore []string `json:"ctx_before,omitempty"`
 	CtxAfter  []string `json:"ctx_after,omitempty"`
 }
@@ -85,14 +85,18 @@ type Review struct {
 }
 
 // ReviewComment is one pinned comment, targeted at a nibble or an element.
-// Thread, when set, names the comment (of an earlier round) that opened the
-// conversation this one continues; the target is then the opener's. ID is
+// Ref, when set, names the lines the comment is about — a stored ref in the
+// nibble form, whose fingerprint is optional (the reader's send stores one;
+// a hand-written review may not) and which takes no anchor. Thread, when
+// set, names the comment (of an earlier round) that opened the conversation
+// this one continues; the target and ref are then the opener's. ID is
 // derived at load time: "<round>.<index>".
 type ReviewComment struct {
-	Target string `json:"target,omitempty"`
-	Text   string `json:"text"`
-	Thread string `json:"thread,omitempty"`
-	ID     string `json:"-"`
+	Target string     `json:"target,omitempty"`
+	Ref    *NibbleRef `json:"ref,omitempty"`
+	Text   string     `json:"text"`
+	Thread string     `json:"thread,omitempty"`
+	ID     string     `json:"-"`
 }
 
 // Plate is a parsed, validated plate folder.

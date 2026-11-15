@@ -156,6 +156,9 @@ func listComments(r *protocol.Round) string {
 		if target == "" {
 			target = "plate"
 		}
+		if nr := r.Ref(i + 1); nr != nil {
+			target += " · " + refLabel(*nr)
+		}
 		fmt.Fprintf(&b, "  %d. %s — %s\n", i+1, target, c.Text)
 	}
 	return strings.TrimRight(b.String(), "\n")

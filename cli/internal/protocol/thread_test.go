@@ -247,3 +247,88 @@ func TestRoundFileNames(t *testing.T) {
 		t.Fatalf("round k = %s / %s", ReviewFile(2), ReplyFile(3))
 	}
 }
+
+// Comment refs: a comment may point at lines in the stored ref form; the
+// fingerprint is optional (a hand-written review need not hash lines), an
+// anchor is refused, and a follow-up inherits its opener's ref.
+func TestCommentRefs(t *testing.T) {
+	answered := map[string]string{"review.json": twoComments, "reply.json": twoReplies}
+	with := func(extra map[string]string) map[string]string {
+		m := map[string]string{}
+		for k, v := range answered {
+			m[k] = v
+		}
+		for k, v := range extra {
+			m[k] = v
+		}
+		return m
+	}
+	lineComment := `{"comments":[{"target":"n2:a","ref":` + storedRef + `,"text":"this swallows the error"}]}`
+	cases := []struct {
+		name    string
+		files   map[string]string
+		want    string
+		wantRef string // resolved ref string of round 1 (or round 2's first comment when wantRound2)
+		round2  bool
+	}{
+		{name: "fingerprinted ref", files: map[string]string{"review.json": lineComment}, wantRef: "src/a.ts:1-2 note"},
+		{name: "bare ref (hand-written)", files: map[string]string{"review.json": `{"comments":[{"target":"n1","ref":{"ref":"src/a.ts:2"},"text":"here"}]}`}, wantRef: "src/a.ts:2"},
+		{name: "ref on a ledger base target", files: map[string]string{"review.json": `{"comments":[{"target":"ledger:src/b.ts#base","ref":{"ref":"diff:src/b.ts@abc..def#base:10-12"},"text":"gone"}]}`}, wantRef: "diff:src/b.ts@abc..def#base:10-12"},
+		{name: "no range", files: map[string]string{"review.json": `{"comments":[{"target":"n1","ref":{"ref":"src/a.ts"},"text":"x"}]}`}, want: "ref.syntax"},
+		{name: "anchor refused", files: map[string]string{"review.json": `{"comments":[{"target":"n1","ref":{"ref":"src/a.ts:1-3 @cache"},"text":"x"}]}`}, want: "review.ref"},
+		{name: "bad fingerprint", files: map[string]string{"review.json": `{"comments":[{"target":"n1","ref":{"ref":"src/a.ts:1-3","fp":"nope"},"text":"x"}]}`}, want: "ref.fp.invalid"},
+		{name: "ref not an object", files: map[string]string{"review.json": `{"comments":[{"target":"n1","ref":"src/a.ts:1-3","text":"x"}]}`}, want: "review.malformed"},
+		{
+			name:    "follow-up inherits the opener's ref",
+			files:   with(map[string]string{"review.json": lineComment, "reply.json": `{"replies":[{"to":1,"text":"ok"}]}`, "review.2.json": `{"comments":[{"thread":"1.1","text":"still?"}]}`}),
+			wantRef: "src/a.ts:1-2 note", round2: true,
+		},
+		{
+			name:  "follow-up with its own ref",
+			files: with(map[string]string{"review.json": lineComment, "reply.json": `{"replies":[{"to":1,"text":"ok"}]}`, "review.2.json": `{"comments":[{"thread":"1.1","ref":{"ref":"src/a.ts:5"},"text":"still?"}]}`}),
+			want:  "review.thread",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p, err := ParsePlate(threadPlate(t, tc.files))
+			if tc.want != "" {
+				if got := ErrCode(err); got != tc.want {
+					t.Fatalf("error = %q (%v), want %q", got, err, tc.want)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			r := &p.Rounds[0]
+			if tc.round2 {
+				r = &p.Rounds[1]
+			}
+			ref := r.Ref(1)
+			if ref == nil || ref.Ref != tc.wantRef {
+				t.Fatalf("resolved ref = %+v, want %q", ref, tc.wantRef)
+			}
+			if tc.round2 {
+				if p.Rounds[1].Review.Comments[0].Ref != nil {
+					t.Fatalf("the follow-up must not carry a ref of its own")
+				}
+				ths := p.Threads()
+				if ths[0].Ref == nil || ths[0].Ref.Ref != tc.wantRef {
+					t.Fatalf("thread ref = %+v, want %q", ths[0].Ref, tc.wantRef)
+				}
+			}
+			if r.Ref(2) != nil && len(r.Review.Comments) < 2 {
+				t.Fatalf("Ref beyond the round must be nil")
+			}
+		})
+	}
+	// A comment without a ref resolves to nil.
+	p, err := ParsePlate(threadPlate(t, map[string]string{"review.json": twoComments}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.Rounds[0].Ref(1) != nil || p.Rounds[0].Ref(3) != nil {
+		t.Fatalf("plain comments have no ref")
+	}
+}

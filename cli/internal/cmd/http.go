@@ -124,10 +124,25 @@ type apiRef struct {
 	Path   string   `json:"path"`
 	Start  int      `json:"start"`
 	End    int      `json:"end"`
+	At     string   `json:"at"` // the lines' address in the ref grammar, without a range
 	Anchor string   `json:"anchor,omitempty"`
 	Note   string   `json:"note,omitempty"`
 	Diff   bool     `json:"diff,omitempty"`
 	Trust  apiTrust `json:"trust"`
+}
+
+// refAt is the location part of a ref string — what a client prefixes to
+// `:<start>-<end>` to name lines of the same file and side without knowing
+// the grammar: `src/a.ts`, `diff:src/a.ts@worktree`,
+// `diff:src/a.ts@<base>..<head>#<side>`.
+func refAt(ref protocol.Ref) string {
+	if ref.Diff == nil {
+		return ref.Path
+	}
+	if ref.Diff.Worktree {
+		return "diff:" + ref.Path + "@worktree"
+	}
+	return fmt.Sprintf("diff:%s@%s..%s#%s", ref.Path, ref.Diff.Base, ref.Diff.Head, ref.Diff.Side)
 }
 
 // unverifiable says why a ref cannot be checked with what is available, or
@@ -152,7 +167,7 @@ func (s *apiServer) resolveRef(nr protocol.NibbleRef) (apiRef, *protocol.FileCon
 		return apiRef{}, nil, err
 	}
 	out := apiRef{
-		Ref: nr.Ref, Path: ref.Path, Start: ref.Start, End: ref.End,
+		Ref: nr.Ref, Path: ref.Path, Start: ref.Start, End: ref.End, At: refAt(ref),
 		Anchor: ref.Anchor, Note: ref.Note, Diff: ref.Diff != nil,
 		Trust: apiTrust{Level: trustUnverified, Line: ref.Start},
 	}
@@ -162,6 +177,12 @@ func (s *apiServer) resolveRef(nr protocol.NibbleRef) (apiRef, *protocol.FileCon
 	content, err := loadRefContent(s.root, s.git, ref)
 	if err != nil {
 		return apiRef{}, nil, err
+	}
+	if nr.FP == "" {
+		// A bare ref (a hand-written comment's): nothing to check against,
+		// so the lines are served at their stated range, unverified. An
+		// empty fingerprint would otherwise match at every position.
+		return out, content, nil
 	}
 	fp := &protocol.Fingerprint{
 		Sum: nr.FP, Lines: nr.Lines,
@@ -255,6 +276,7 @@ type apiReply struct {
 type apiComment struct {
 	ID     string    `json:"id"`
 	Target string    `json:"target,omitempty"`
+	Ref    *apiRef   `json:"ref,omitempty"` // the lines the thread is on, resolved (a follow-up shows its opener's)
 	Thread string    `json:"thread,omitempty"`
 	Text   string    `json:"text"`
 	Reply  *apiReply `json:"reply"`
@@ -276,6 +298,13 @@ func (s *apiServer) threadOut(p *protocol.Plate) (apiThread, error) {
 		round := apiRound{N: r.N, Comments: []apiComment{}}
 		for i, c := range r.Review.Comments {
 			ac := apiComment{ID: c.ID, Target: r.Target(i + 1), Thread: c.Thread, Text: c.Text}
+			if nr := r.Ref(i + 1); nr != nil {
+				ref, _, err := s.resolveRef(*nr)
+				if err != nil {
+					return out, err
+				}
+				ac.Ref = &ref
+			}
 			if rep := r.ReplyTo(i + 1); rep != nil {
 				ar := &apiReply{Text: rep.Text, Because: rep.Because, Refs: []apiRef{}}
 				for _, nr := range rep.Refs {
@@ -294,7 +323,7 @@ func (s *apiServer) threadOut(p *protocol.Plate) (apiThread, error) {
 	return out, nil
 }
 
-// --- GET /api/code?n=<N>&ref=<I> · ?round=<K>&comment=<I>&ref=<J> ---
+// --- GET /api/code?n=<N>&ref=<I> · ?round=<K>&comment=<I>&ref=<J> · ?comment=<id> ---
 
 const drawerContext = 3
 
@@ -314,7 +343,15 @@ func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	ri, _ := strconv.Atoi(q.Get("ref"))
 	var refs []protocol.NibbleRef
-	if q.Has("round") {
+	if q.Has("comment") && !q.Has("round") {
+		// a comment's lines, by its id (a follow-up serves its opener's)
+		nr := commentRef(p, q.Get("comment"))
+		if nr == nil {
+			httpError(w, http.StatusNotFound, errf(protocol.CodeReviewRef, "no comment %q with lines", q.Get("comment")))
+			return
+		}
+		refs, ri = []protocol.NibbleRef{*nr}, 0
+	} else if q.Has("round") {
 		// a reply's ref: round K's reply to comment I
 		k, _ := strconv.Atoi(q.Get("round"))
 		ci, _ := strconv.Atoi(q.Get("comment"))
@@ -354,30 +391,46 @@ func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 		why = s.unverifiable(pref)
 	}
 	out := map[string]any{
-		"ref": ar.Ref, "path": ar.Path, "trust": ar.Trust,
+		"ref": ar.Ref, "path": ar.Path, "at": ar.At, "trust": ar.Trust,
 		"missing": content == nil && why == "", "lines": []lineOut{},
 	}
 	if why != "" {
 		out["why"] = "code unavailable — " + why
 	}
 	if content != nil {
-		// Show the range where trust resolved it (shifted follows the code).
-		start, end := ar.Start, ar.End
-		if ar.Trust.Level == string(protocol.TrustShifted) {
-			start += ar.Trust.Shift
-			end += ar.Trust.Shift
-		}
-		lo := max(1, start-drawerContext)
-		hi := min(len(content.Lines), end+drawerContext)
-		lines := make([]lineOut, 0, hi-lo+1)
-		for i := lo; i <= hi; i++ {
-			lines = append(lines, lineOut{
-				No: i, Text: content.Lines[i-1], In: i >= start && i <= end,
-			})
-		}
-		out["lines"] = lines
+		out["lines"] = rangeLines(ar, content, drawerContext)
 	}
 	writeJSON(w, out)
+}
+
+// rangeLines is a resolved ref's lines with ctxN lines of context each
+// side, the range marked in-range — shown where trust resolved it (shifted
+// follows the code; stale shows the original range).
+func rangeLines(ar apiRef, content *protocol.FileContent, ctxN int) []lineOut {
+	start, end := ar.Start, ar.End
+	if ar.Trust.Level == string(protocol.TrustShifted) {
+		start += ar.Trust.Shift
+		end += ar.Trust.Shift
+	}
+	lo := max(1, start-ctxN)
+	hi := min(len(content.Lines), end+ctxN)
+	lines := make([]lineOut, 0, max(0, hi-lo+1))
+	for i := lo; i <= hi; i++ {
+		lines = append(lines, lineOut{
+			No: i, Text: content.Lines[i-1], In: i >= start && i <= end,
+		})
+	}
+	return lines
+}
+
+// commentRef finds the lines comment id ("<round>.<index>") points at, or
+// nil when there is no such comment or it is on a target, not lines.
+func commentRef(p *protocol.Plate, id string) *protocol.NibbleRef {
+	var k, i int
+	if _, err := fmt.Sscanf(id, "%d.%d", &k, &i); err != nil || k < 1 || k > len(p.Rounds) {
+		return nil
+	}
+	return p.Rounds[k-1].Ref(i)
 }
 
 // --- GET /api/ledger?file=<path>&side=<head|base> ---
@@ -430,6 +483,7 @@ func (s *apiServer) serveLedger(w http.ResponseWriter, r *http.Request) {
 	}
 	out := map[string]any{
 		"path": path, "side": side, "hunks": len(hunks),
+		"at":      refAt(ledgerHunkRef(p.Header, hunks[0])),
 		"missing": false, "lines": []lineOut{},
 	}
 	if hunks[0].Binary {
@@ -495,6 +549,10 @@ func (s *apiServer) serveReview(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusBadRequest, perr)
 		return
 	}
+	if err := s.fingerprintCommentRefs(rev); err != nil {
+		httpError(w, http.StatusBadRequest, err)
+		return
+	}
 	unlock, err := lockDir(s.plateDir)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err)
@@ -528,6 +586,44 @@ func (s *apiServer) serveReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true, "round": round.N})
+}
+
+// fingerprintCommentRefs verifies each comment's ref — the reader posts
+// `{"ref": "<at>:<start>-<end>"}` built from a drawer — against the code as
+// `add` would (grammar, no anchor, the range inside the file) and stores
+// its fingerprint, so the lines carry trust from then on. Code that is not
+// available on this machine (per-ref degradation) leaves the ref bare:
+// stored as given, unverified when served.
+func (s *apiServer) fingerprintCommentRefs(rev *protocol.Review) error {
+	for i := range rev.Comments {
+		nr := rev.Comments[i].Ref
+		if nr == nil || nr.FP != "" {
+			continue
+		}
+		ref, err := protocol.ParseRef(nr.Ref)
+		if err != nil {
+			return err
+		}
+		if ref.Anchor != "" {
+			return errf(protocol.CodeReviewRef, "comment %d: ref %q carries @%s, but a comment ref takes no anchor — the target already names the element", i+1, nr.Ref, ref.Anchor)
+		}
+		if s.unverifiable(ref) != "" {
+			continue
+		}
+		content, err := loadRefContent(s.root, s.git, ref)
+		if err != nil {
+			return err
+		}
+		if err := protocol.CheckRef(ref, content); err != nil {
+			return err
+		}
+		fp, err := protocol.NewFingerprint(content, ref.Start, ref.End)
+		if err != nil {
+			return err
+		}
+		nr.FP, nr.Lines, nr.CtxBefore, nr.CtxAfter = fp.Sum, fp.Lines, fp.CtxBefore, fp.CtxAfter
+	}
+	return nil
 }
 
 // --- POST /api/handoff ---

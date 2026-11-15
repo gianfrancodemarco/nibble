@@ -64,11 +64,26 @@ REVIEW
 "$BIN" reply "$PLATE" --to 1 \
   --text "Through it: every write lands in the [cache](@cache) first and the [pool](@db) only sees the misses — these are the lines." \
   --ref "src/cache/prices.ts:9-11 the cache-first read"
-cat >"$PLATE/review.2.json" <<'REVIEW'
-{ "comments": [ { "thread": "1.1", "text": "so a stale write is served until the TTL runs out?" } ] }
+# Round 2 goes through the API, as the reader sends it, so the comment on
+# lines carries a real fingerprint: serve, post, let serve exit with the
+# round, stand its keeper down.
+ADDR=127.0.0.1:4799
+"$BIN" serve "$PLATE" --addr "$ADDR" >/dev/null 2>&1 &
+SERVE=$!
+for _ in $(seq 1 40); do curl -sf "http://$ADDR/api/plate" >/dev/null && break; sleep 0.25; done
+curl -sf -X POST "http://$ADDR/api/review" -H 'Content-Type: application/json' -d @- >/dev/null <<'REVIEW'
+{ "comments": [
+    { "thread": "1.1", "text": "so a stale write is served until the TTL runs out?" },
+    { "target": "n3:expiry", "ref": { "ref": "src/cache/prices.ts:6-7" }, "text": "is this one clock for every key, or a TTL per key?" } ] }
 REVIEW
+wait "$SERVE" || true
+curl -s -X POST "http://$ADDR/api/handoff" -d @"$PLATE/.serve.json" >/dev/null || true
+for _ in $(seq 1 40); do curl -sf "http://$ADDR/api/plate" >/dev/null || break; sleep 0.25; done
 "$BIN" reply "$PLATE" --to 1 \
   --text "Yes — up to one TTL. With jitter that window varies per key instead of expiring all at once."
+"$BIN" reply "$PLATE" --to 2 \
+  --text "One clock: these two lines set the same expiry for every key written in the same second, which is the whole problem." \
+  --ref "src/cache/prices.ts:6-7 the flat ttl"
 
 # nudge pool.ts so its ref demos a shifted badge at snapshot time
 python3 - "$WORK/shop/src/db/pool.ts" <<'EOF'
@@ -79,7 +94,6 @@ lines.insert(1, "import { metrics } from \"../metrics\";\n")
 open(p, "w").writelines(lines)
 EOF
 
-ADDR=127.0.0.1:4799
 "$BIN" serve "$PLATE" --addr "$ADDR" >/dev/null 2>&1 &
 SERVE=$!
 for _ in $(seq 1 40); do curl -sf "http://$ADDR/api/plate" >/dev/null && break; sleep 0.25; done
@@ -94,11 +108,15 @@ for nb in d["nibbles"]:
         print("n", nb["n"], i, 0)
 for r in d["thread"]["rounds"]:
     for i, cm in enumerate(r["comments"], 1):
+        if cm.get("ref") and not cm.get("thread"):
+            print("comment", cm["id"], 0, 0)
         for j in range(len((cm.get("reply") or {}).get("refs", []))):
             print("reply", r["n"], i, j)
 EOF
   if [ "$kind" = n ]; then
     curl -s "http://$ADDR/api/code?n=$a&ref=$b" >"$OUT/data/code-$a-$b.json"
+  elif [ "$kind" = comment ]; then
+    curl -s "http://$ADDR/api/code?comment=$a" >"$OUT/data/comment-$a.json"
   else
     curl -s "http://$ADDR/api/code?round=$a&comment=$b&ref=$c" >"$OUT/data/reply-$a-$b-$c.json"
   fi
@@ -125,4 +143,4 @@ cp "$ROOT/cli/internal/cmd/ui/style.css" "$OUT/style.css"
 sed 's#<script src="app.js"></script>#<script src="data.js"></script>\n<script src="shim.js"></script>\n<script src="app.js"></script>#' \
   "$ROOT/cli/internal/cmd/ui/index.html" >"$OUT/reader.html"
 
-echo "demo data written to docs/visuals/ (plate + $(ls "$OUT/data" | grep -c code) code snapshots + $(ls "$OUT/data" | grep -c reply) reply ref snapshots)"
+echo "demo data written to docs/visuals/ (plate + $(ls "$OUT/data" | grep -c code) code snapshots + $(ls "$OUT/data" | grep -c reply) reply ref snapshots + $(ls "$OUT/data" | grep -c comment) comment line snapshots)"

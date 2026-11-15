@@ -319,7 +319,7 @@ func RunServe(ctx Ctx, args []string) int {
 	// one — the chat never closes.
 	if latest := plate.Latest(); latest != nil && !latest.Answered() {
 		if seen := rec != nil && rec.Printed == latest.N; *noUI || !seen {
-			printRound(ctx, *jsonOut, plate, latest)
+			printRound(ctx, *jsonOut, plateDir, plate, latest)
 			keep(latest.N)
 			return 2
 		}
@@ -338,7 +338,7 @@ func RunServe(ctx Ctx, args []string) int {
 			return fail(ctx, *jsonOut, err)
 		}
 		if latest := fresh.Latest(); latest != nil && !latest.Answered() {
-			printRound(ctx, *jsonOut, fresh, latest)
+			printRound(ctx, *jsonOut, plateDir, fresh, latest)
 			return roundExit(latest)
 		}
 		fmt.Fprintf(ctx.Stderr, "nibble serve: no review after %s\n", *timeout)
@@ -354,7 +354,7 @@ func RunServe(ctx Ctx, args []string) int {
 			fresh, perr := protocol.ParsePlate(plateDir)
 			if perr == nil && len(fresh.Rounds) > known {
 				latest := fresh.Latest()
-				printRound(ctx, *jsonOut, fresh, latest)
+				printRound(ctx, *jsonOut, plateDir, fresh, latest)
 				keep(latest.N) // the page stays up: replies land live, and done is no end
 				return roundExit(latest)
 			}
@@ -375,12 +375,46 @@ func RunServe(ctx Ctx, args []string) int {
 // printRound prints the round that ended the wait: markdown by default, the
 // review object with `round`, per-comment `id` and thread `history` as JSON.
 // A follow-up prints the conversation it continues before its own text, so
-// the agent reads the thread, not a fragment.
-func printRound(ctx Ctx, jsonOut bool, p *protocol.Plate, r *protocol.Round) {
+// the agent reads the thread, not a fragment; a comment on lines prints its
+// location on the heading and quotes the lines, so the agent reads the code
+// the human pointed at without opening the file.
+func printRound(ctx Ctx, jsonOut bool, plateDir string, p *protocol.Plate, r *protocol.Round) {
+	// the API server doubles as the ref resolver: the plate's root, git when
+	// the root is a repository, per-ref degradation when they are missing
+	res, _ := newAPIServer(plateDir)
+	type refOut struct {
+		apiRef
+		Lines []lineOut `json:"lines"`
+		Why   string    `json:"why,omitempty"`
+	}
+	resolve := func(nr *protocol.NibbleRef) *refOut {
+		if nr == nil || res == nil {
+			return nil
+		}
+		ar, content, err := res.resolveRef(*nr)
+		if err != nil {
+			return nil
+		}
+		out := &refOut{apiRef: ar, Lines: []lineOut{}}
+		if pref, err := protocol.ParseRef(nr.Ref); err == nil {
+			if why := res.unverifiable(pref); why != "" {
+				out.Why = "code unavailable — " + why
+			}
+		}
+		if content == nil {
+			if out.Why == "" {
+				out.Why = "the file is gone"
+			}
+			return out
+		}
+		out.Lines = rangeLines(ar, content, 0)
+		return out
+	}
 	if jsonOut {
 		type commentOut struct {
 			ID      string             `json:"id"`
 			Target  string             `json:"target,omitempty"`
+			Ref     *refOut            `json:"ref,omitempty"`
 			Thread  string             `json:"thread,omitempty"`
 			Text    string             `json:"text"`
 			History []protocol.Message `json:"history,omitempty"`
@@ -391,7 +425,7 @@ func printRound(ctx Ctx, jsonOut bool, p *protocol.Plate, r *protocol.Round) {
 		}{Round: r.N, Comments: []commentOut{}}
 		for i, c := range r.Review.Comments {
 			out.Comments = append(out.Comments, commentOut{
-				ID: c.ID, Target: r.Target(i + 1), Thread: c.Thread, Text: c.Text,
+				ID: c.ID, Target: r.Target(i + 1), Ref: resolve(r.Ref(i + 1)), Thread: c.Thread, Text: c.Text,
 				History: p.History(r.N, i+1),
 			})
 		}
@@ -410,13 +444,40 @@ func printRound(ctx Ctx, jsonOut bool, p *protocol.Plate, r *protocol.Round) {
 			fmt.Fprintf(&b, "> %s\n", line)
 		}
 	}
+	lines := func(nr *protocol.NibbleRef) {
+		ro := resolve(nr)
+		if ro == nil {
+			return
+		}
+		switch {
+		case ro.Why != "":
+			fmt.Fprintf(&b, "(the lines could not be read: %s)\n", ro.Why)
+			return
+		case ro.Trust.Level == string(protocol.TrustShifted):
+			fmt.Fprintf(&b, "(moved: now %s)\n", rangeLabel(ro.Trust.Line, ro.Trust.Line+ro.End-ro.Start))
+		case ro.Trust.Level == string(protocol.TrustStale):
+			fmt.Fprintf(&b, "(stale: the code at these lines was rewritten — showing the original range)\n")
+		}
+		if len(ro.Lines) == 0 {
+			return
+		}
+		b.WriteString("```\n")
+		for _, l := range ro.Lines {
+			fmt.Fprintf(&b, "%d  %s\n", l.No, l.Text)
+		}
+		b.WriteString("```\n")
+	}
 	for i, c := range r.Review.Comments {
 		target := r.Target(i + 1)
 		if target == "" {
 			target = "plate"
 		}
+		if nr := r.Ref(i + 1); nr != nil {
+			target += " · " + refLabel(*nr)
+		}
 		if c.Thread != "" {
 			fmt.Fprintf(&b, "\n## %s · %s continues %s\n", target, c.ID, c.Thread)
+			lines(r.Ref(i + 1))
 			for _, m := range p.History(r.N, i+1) {
 				fmt.Fprintf(&b, "%s · round %d\n", m.From, m.Round)
 				quote(m.Text)
@@ -424,8 +485,30 @@ func printRound(ctx Ctx, jsonOut bool, p *protocol.Plate, r *protocol.Round) {
 			fmt.Fprintf(&b, "reader · round %d\n", r.N)
 		} else {
 			fmt.Fprintf(&b, "\n## %s · %s\n", target, c.ID)
+			lines(r.Ref(i + 1))
 		}
 		quote(c.Text)
 	}
 	fmt.Fprint(ctx.Stdout, b.String())
+}
+
+// refLabel names a stored ref's lines the way the reader shows them:
+// `<path>:<start>-<end>`, with the diff side when it has one.
+func refLabel(nr protocol.NibbleRef) string {
+	ref, err := protocol.ParseRef(nr.Ref)
+	if err != nil {
+		return nr.Ref
+	}
+	label := ref.Path + ":" + rangeLabel(ref.Start, ref.End)
+	if ref.Diff != nil && !ref.Diff.Worktree && ref.Diff.Side == "base" {
+		label += " (base side)"
+	}
+	return label
+}
+
+func rangeLabel(start, end int) string {
+	if end > start {
+		return fmt.Sprintf("%d-%d", start, end)
+	}
+	return fmt.Sprintf("%d", start)
 }

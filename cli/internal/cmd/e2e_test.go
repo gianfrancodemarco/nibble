@@ -72,8 +72,11 @@ func TestEndToEnd(t *testing.T) {
 		t.Fatalf("reply: %s", errb)
 	}
 	url, stdout, codeCh = startServe(t, ctx, plate)
+	// Round 2: a follow-up in the thread, and a comment on one line the
+	// reader selected in the drawer (the API fingerprints its ref).
 	resp, err = http.Post(url+"/api/review", "application/json",
-		strings.NewReader(`{"comments":[{"thread":"1.1","text":"then is the pool size enough for billing too?"}]}`))
+		strings.NewReader(`{"comments":[{"thread":"1.1","text":"then is the pool size enough for billing too?"},`+
+			`{"target":"n2:cache","ref":{"ref":"src/pool.ts:2"},"text":"is a 30s idle timeout right for billing's bursts?"}]}`))
 	if err != nil || resp.StatusCode != 200 {
 		t.Fatalf("POST round 2: %v %v", err, resp)
 	}
@@ -86,9 +89,17 @@ func TestEndToEnd(t *testing.T) {
 	if code != 2 || !strings.Contains(stdout.String(), "continues 1.1") || !strings.Contains(stdout.String(), "agent · round 1") {
 		t.Fatalf("serve round 2: exit %d out %q", code, stdout.String())
 	}
+	if out := stdout.String(); !strings.Contains(out, "n2:cache · src/pool.ts:2 · 2.2") || !strings.Contains(out, "2  idle = 30") {
+		t.Fatalf("serve round 2 should print the line comment's location and quote its line: %q", out)
+	}
 	if code, _, errb := run(t, ctx, "reply", plate, "--to", "1",
 		"--text", "It is sized for both: billing's reads are hits once the cache is warm."); code != 0 {
 		t.Fatalf("reply 2: %s", errb)
+	}
+	if code, _, errb := run(t, ctx, "reply", plate, "--to", "2",
+		"--text", "Yes: billing's longest burst is under ten seconds, so an idle connection outlives it.",
+		"--ref", "src/pool.ts:2 the idle timeout"); code != 0 {
+		t.Fatalf("reply to the line comment: %s", errb)
 	}
 	url, _, codeCh = startServe(t, ctx, plate)
 	if resp, err = http.Post(url+"/api/review", "application/json", strings.NewReader(`{"comments":[]}`)); err != nil || resp.StatusCode != 200 {
@@ -108,8 +119,11 @@ func TestEndToEnd(t *testing.T) {
 	if err != nil || len(p.Nibbles) != 3 || p.Open || len(p.Rounds) != 3 || p.Turn() != protocol.TurnReader {
 		t.Fatalf("final plate: %+v err %v", p, err)
 	}
-	if len(p.Threads()) != 1 || len(p.Threads()[0].Messages) != 4 {
+	if ths := p.Threads(); len(ths) != 2 || len(ths[0].Messages) != 4 || len(ths[1].Messages) != 2 {
 		t.Fatalf("threads = %+v", p.Threads())
+	}
+	if r := p.Rounds[1].Ref(2); r == nil || !strings.HasPrefix(r.FP, "fp1:") {
+		t.Fatalf("the posted line comment should carry a fingerprint, got %+v", r)
 	}
 	if p.Nibbles[2].Because == "" {
 		t.Fatal("because missing on the over-budget nibble")
@@ -133,6 +147,9 @@ func exportGolden(t *testing.T, plate, dest string) {
 	}
 	var realRepo string
 	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue // .serve.json and friends: the protocol ignores them, the fixture must not carry them
+		}
 		raw, err := os.ReadFile(filepath.Join(plate, e.Name()))
 		if err != nil {
 			t.Fatal(err)
@@ -159,7 +176,7 @@ func exportGolden(t *testing.T, plate, dest string) {
 		t.Fatal("plate.json had no repo to snapshot")
 	}
 	copyTree(t, realRepo, filepath.Join(dest, "repo"))
-	expected := []byte("{ \"valid\": true, \"nibbles\": 3, \"open\": false, \"turn\": \"reader\", \"rounds\": 3, \"threads\": 1 }\n")
+	expected := []byte("{ \"valid\": true, \"nibbles\": 3, \"open\": false, \"turn\": \"reader\", \"rounds\": 3, \"threads\": 2 }\n")
 	if err := os.WriteFile(filepath.Join(dest, "expected.json"), expected, 0o644); err != nil {
 		t.Fatal(err)
 	}

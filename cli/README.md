@@ -79,9 +79,9 @@ for `app.js`):
 
 | endpoint | does |
 | --- | --- |
-| `GET /api/plate` | header + nibbles, each ref with trust (`exact` / `shifted ±N` / `stale`) computed against the code as it is now |
-| `GET /api/code?n=2&ref=0` | the drawer: referenced lines ±3 context from the live repo (diff sides via git), at the trust-resolved position |
-| `POST /api/review` | writes the next round (`review.json`, then `review.2.json`…) atomically; a comment may carry `thread` to continue one; `409 review.exists` while the agent still owes replies |
+| `GET /api/plate` | header + nibbles, each ref with trust (`exact` / `shifted ±N` / `stale`) computed against the code as it is now, and the thread — every comment with its reply, a comment's `ref` (the lines it is on) resolved the same way |
+| `GET /api/code?n=2&ref=0` | the drawer: referenced lines ±3 context from the live repo (diff sides via git), at the trust-resolved position; `?round=1&comment=1&ref=0` for a reply's ref, `?comment=1.1` for the lines a comment is on. Every drawer response (and every ref) carries `at`, the lines' address in the ref grammar (`src/a.ts`, `diff:src/a.ts@abc..def#base`), so a client names a range as `<at>:<start>-<end>` |
+| `POST /api/review` | writes the next round (`review.json`, then `review.2.json`…) atomically; a comment may carry `thread` to continue one, or `ref: {"ref": "<at>:<start>-<end>"}` to point at lines — verified against the code and fingerprinted on the way in (`400 ref.range.beyond-eof`, `400 review.ref` for an anchor), stored bare when the code is not on this machine; `409 review.exists` while the agent still owes replies |
 | `GET /api/events` | SSE: `nibble`, `sealed`, `review`, `reply` — an open reader follows a plate still being written and a thread still being answered |
 
 Serving degrades per ref by what is available: a full git repo serves

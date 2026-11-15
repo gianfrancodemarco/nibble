@@ -130,7 +130,8 @@ pair of files per round. Round 1 is `review.json` (the v1 name) and
 are numbered without gaps and a round may only follow a round whose every
 comment has a reply (a done round trivially is) — either break is
 `review.round`. Fixtures: [`golden/plates/review-loop/`](golden/plates/review-loop/)
-(a three-round conversation) and the `review-*` / `reply-*` plates beside it.
+(a three-round conversation), [`golden/plates/line-comments/`](golden/plates/line-comments/)
+(a thread on specific lines) and the `review-*` / `reply-*` plates beside them.
 
 **review.k.json** — a review is the reader's comments, nothing more:
 `{"comments": [{"target": "n2:cache", "text": "…"}]}`, each pinned to a
@@ -143,11 +144,26 @@ not an end — the chat stays open and a later round may follow. There is no ver
 requests a change is read from the comment itself. A bad shape, or a
 comment without text, is `review.malformed`.
 
+A comment may point at **lines**, not just a target: `"ref"` is one stored
+ref in the nibble form — `{"target": "n2:s4", "ref": {"ref":
+"src/upload/handler.ts:16-18", "fp": "fp1:…", "lines": […]}, "text": "this
+swallows the error"}` — naming the lines the comment is about, beside the
+target whose drawer showed them (a ref may accompany any target). The ref
+string is the v1 grammar (plain, worktree or range form) and takes **no
+`@anchor`** — the target already names the element (`review.ref`). The
+fingerprint is optional: the reader's send stores one, computed server-side
+against the code; a hand-written review may give `{"ref": "src/x.ts:17"}`
+alone, and the ref's trust is then `unverified` rather than computed. When
+present it must have the stored-ref shape (`ref.fp.invalid`); a ref that
+does not parse is `ref.syntax`; a `ref` that is not an object is
+`review.malformed`.
+
 Every comment has the derived id `<round>.<index>` (1-based index in its
 round; nothing is stored). A comment may **continue a thread** an earlier
 comment opened: `{"thread": "1.2", "text": "and if the queue is full?"}`
-belongs to the conversation comment 1.2 started and inherits its target (a
-`target` it carries must match). `thread` must name a comment of an
+belongs to the conversation comment 1.2 started and inherits its target and
+its lines (a `target` it carries must match; a `ref` of its own is
+`review.thread`). `thread` must name a comment of an
 earlier round that is itself an opener (no chains of links) — anything else
 is `review.thread`. A thread is therefore flat: the opener, then the
 agent's replies and the reader's follow-ups alternating round by round.
@@ -335,7 +351,8 @@ can return:
 | `review.malformed` | a review file is not a review: bad shape, or a comment without text |
 | `review.exists` | the latest round still awaits the agent's reply; no new round until it is answered |
 | `review.round` | rounds out of order: a numbering gap, or a round after an unanswered round |
-| `review.thread` | a comment's `thread` names no opener of an earlier round, or its target mismatches |
+| `review.thread` | a comment's `thread` names no opener of an earlier round, its target mismatches, or it carries a `ref` of its own |
+| `review.ref` | a comment ref carries `@anchor` — the target already names the element |
 | `reply.malformed` | a reply file is not a replies object, or a reply has no text or a non-integer `to` |
 | `reply.target` | `to` names no comment of its round, or the round is done |
 | `reply.duplicate` | two replies to one comment |

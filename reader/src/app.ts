@@ -17,7 +17,7 @@ interface Plate {
   nibbles: NibbleData[];
 }
 interface CodeLine { no: number; text: string; in: boolean; }
-interface CodeResponse { ref: string; path: string; missing: boolean; why?: string; trust: Trust; lines: CodeLine[]; }
+interface CodeResponse { ref: string; path: string; at: string; missing: boolean; why?: string; trust: Trust; lines: CodeLine[]; }
 
 function flash(msg: string): void {
   const el = document.getElementById("notice");
@@ -41,6 +41,13 @@ const drafts: Draft[] = [];
 let draftSeq = 0;
 let focusedThread: string | null = null;
 let chatOpen = true; // the chat is a full-height column; it collapses to a rail
+// the drawer: the address of the lines it shows (for naming a range and
+// matching threads to it), which target its lines belong to, and the
+// reader's line selection — all reset when the content changes
+let drawerAt: string | null = null;
+let drawerTarget: string | null = null; // a reply ref's drawer belongs to its thread's target
+let drawerLines: LineSel | null = null;
+let drawerQuery: string | null = null; // what the drawer shows; re-opening the same code keeps the selection
 const read = new Set<number>(); // cards visited, for the rail only
 let knownCards = 0; // cards already on screen, for the arrival animation
 let painted = false; // first paint done — later cards are arrivals, animated
@@ -267,12 +274,27 @@ function currentTarget(): string {
     : commentTarget(plate.nibbles[active].n, hostSelection, active);
 }
 
+// currentLines: the ref string of the drawer's selected lines, if any —
+// the most specific pointer the reader has made.
+function currentLines(): string | undefined {
+  return drawerAt !== null && drawerLines ? lineRef(drawerAt, drawerLines) : undefined;
+}
+
+// placeTarget: the target a new thread would open on — while lines are
+// selected in the drawer, the drawer's own target when it has a fixed one
+// (a thread's, a ledger file's side), else the live selection or the card.
+function placeTarget(): string {
+  return drawerLines && drawerTarget !== null ? drawerTarget : currentTarget();
+}
+
 // onSelectionMoved: the chat follows the selection — the thread on the
-// selected thing is focused, or the composer offers a new one there.
+// selected thing (and lines) is focused, or the composer offers a new one
+// there.
 function onSelectionMoved(): void {
   if (!plate) return;
-  const target = currentTarget();
-  const th = buildThreads(plate.thread, drafts).find((t) => t.target === target);
+  const target = placeTarget();
+  const lines = currentLines();
+  const th = buildThreads(plate.thread, drafts).find((t) => t.target === target && (t.lines ?? "") === (lines ?? ""));
   focusedThread = th ? th.key : null;
   renderChat();
 }
@@ -333,19 +355,41 @@ function closeDrawer(): void {
   const d = $("#drawer");
   d.hidden = true;
   document.body.appendChild(d);
+  drawerQuery = null;
+  resetDrawerLines(null, null);
+}
+
+// resetDrawerLines: new content, no selection — and the composer follows.
+function resetDrawerLines(at: string | null, target: string | null): void {
+  const had = drawerLines !== null;
+  drawerAt = at;
+  drawerTarget = target;
+  drawerLines = null;
+  if (had) onSelectionMoved();
 }
 
 async function openDrawer(n: number, ref: number): Promise<void> {
-  await openCode(`n=${n}&ref=${ref}`);
+  await openCode(`n=${n}&ref=${ref}`, null); // lines here follow the card's live selection
 }
 
-// openReplyRef: a reply's ref opens in the drawer inside the thread's card.
-async function openReplyRef(card: number, round: number, comment: number, ref: number): Promise<void> {
+// openReplyRef: a reply's ref opens in the drawer inside the thread's card;
+// lines selected there belong to the thread's target.
+async function openReplyRef(card: number, round: number, comment: number, ref: number, target: string): Promise<void> {
   setActive(card);
-  await openCode(`round=${round}&comment=${comment}&ref=${ref}`);
+  await openCode(`round=${round}&comment=${comment}&ref=${ref}`, target);
 }
 
-async function openCode(query: string): Promise<void> {
+// openCommentLines: a line thread's chip opens the drawer on the lines the
+// comment is about, inside the thread's card.
+async function openCommentLines(th: ChatThread): Promise<void> {
+  if (!th.id) return;
+  await openCode(`comment=${th.id}`, th.target);
+}
+
+// openCode fills the drawer from /api/code. target is what lines selected
+// in it belong to when that is fixed (a thread's target); null means the
+// card's live selection — the nibble, or the selected element.
+async function openCode(query: string, target: string | null): Promise<void> {
   let resp: Response;
   try {
     resp = await fetch(`api/code?${query}`);
@@ -379,9 +423,13 @@ async function openCode(query: string): Promise<void> {
   }
   const hl = highlightLines(c.path, c.lines.map((l) => l.text));
   $("#drawer-code").innerHTML = c.lines
-    .map((l, i) => `<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${hl[i]}</span></div>`)
+    .map((l, i) => `<div class="ln${l.in ? " in" : ""}" data-no="${l.no}"><span class="no" role="button" tabindex="0" title="select this line to comment on it (shift-click for a range)">${l.no}</span><span>${hl[i]}</span></div>`)
     .join("");
+  if (drawerQuery === query && !$("#drawer").hidden) paintDrawerLines(); // the same code again: keep the lines
+  else resetDrawerLines(c.at, target);
+  drawerQuery = query;
   attachDrawer();
+  applyDrawerBadges();
 }
 
 // openLedgerDrawer shows one file's not-shown hunks, served by /api/ledger
@@ -396,7 +444,7 @@ async function openLedgerDrawer(path: string, side: string): Promise<void> {
     return;
   }
   if (!resp.ok) return;
-  const c = (await resp.json()) as { path: string; side: string; missing: boolean; why?: string; lines: CodeLine[] };
+  const c = (await resp.json()) as { path: string; side: string; at: string; missing: boolean; why?: string; lines: CodeLine[] };
   $("#drawer-path").textContent = c.path;
   $("#drawer-range").textContent = "";
   $("#drawer-trust").outerHTML = `<span id="drawer-trust" class="trust unverified">not shown · ${esc(c.side)}</span>`;
@@ -424,7 +472,7 @@ async function openLedgerDrawer(path: string, side: string): Promise<void> {
   const flushSeg = (): void => {
     if (seg.length === 0) return;
     const hl = highlightLines(c.path, seg.map((l) => l.text));
-    seg.forEach((l, i) => parts.push(`<div class="ln${l.in ? " in" : ""}"><span class="no">${l.no}</span><span>${hl[i]}</span></div>`));
+    seg.forEach((l, i) => parts.push(`<div class="ln${l.in ? " in" : ""}" data-no="${l.no}"><span class="no" role="button" tabindex="0" title="select this line to comment on it (shift-click for a range)">${l.no}</span><span>${hl[i]}</span></div>`));
     seg = [];
   };
   let prev = 0;
@@ -438,7 +486,51 @@ async function openLedgerDrawer(path: string, side: string): Promise<void> {
   }
   flushSeg();
   $("#drawer-code").innerHTML = parts.join("");
+  const query = `ledger:${path}#${side}`;
+  if (drawerQuery === query && !$("#drawer").hidden) paintDrawerLines();
+  else resetDrawerLines(c.at, `ledger:${path}${side === "base" ? "#base" : ""}`);
+  drawerQuery = query;
   attachDrawer();
+  applyDrawerBadges();
+}
+
+// --- the review gutter: lines selected in the drawer, threads on lines ---
+
+// toggleLine: the gutter's click — select, extend with shift, clear.
+function toggleLine(no: number, extend: boolean): void {
+  drawerLines = selectLine(drawerLines, no, extend);
+  paintDrawerLines();
+  onSelectionMoved();
+}
+
+function paintDrawerLines(): void {
+  document.querySelectorAll<HTMLElement>("#drawer-code .ln").forEach((row) => {
+    const no = Number(row.dataset.no);
+    row.classList.toggle("sel", drawerLines !== null && no >= drawerLines.start && no <= drawerLines.end);
+  });
+}
+
+// applyDrawerBadges: a message count in the gutter on the first shown line
+// of every thread on lines of what the drawer shows — derived on each
+// render, never stored.
+function applyDrawerBadges(): void {
+  const code = $("#drawer-code");
+  code.querySelectorAll(".msg-badge").forEach((b) => b.remove());
+  if (drawerAt === null || !plate) return;
+  const rows = Array.from(code.querySelectorAll<HTMLElement>(".ln[data-no]"));
+  const shown = rows.map((r) => Number(r.dataset.no));
+  const badges = drawerBadges(threads(), drawerAt, shown);
+  for (const row of rows) {
+    const b = badges.get(Number(row.dataset.no));
+    if (!b) continue;
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = "msg-badge msg-badge-h gutter-badge";
+    el.textContent = String(b.count);
+    el.title = `${b.count} message${b.count > 1 ? "s" : ""} on these lines — open the thread`;
+    el.dataset.badgeKey = b.key;
+    row.querySelector(".no")!.appendChild(el);
+  }
 }
 
 // --- the chat: threads pinned to things, the agent's replies in place ---
@@ -480,25 +572,30 @@ function goToThread(th: ChatThread): void {
   const id = anchorOfTarget(th.target);
   const cardEl = document.querySelectorAll<HTMLElement>(".nibble")[card];
   if (id && cardEl && cardEl.querySelector(`[data-anchor="${id}"]`)) host.select(cardEl, id, true);
+  if (th.ref) void openCommentLines(th);
   focusThread(th.key);
 }
 
 // composerDestination: what a typed message becomes — a follow-up in the
 // focused (or the selection's) sent thread, or an opener on the selection.
-function composerDestination(): { label: string; thread?: string; target?: string } {
+function composerDestination(): { label: string; thread?: string; target?: string; ref?: string } {
   const ths = threads();
-  const name = (t: string): string => t || "plate";
   if (focusedThread) {
     const th = ths.find((t) => t.key === focusedThread);
     if (th) {
-      return th.id
-        ? { label: `reply in ${name(th.target)}`, thread: th.id }
-        : { label: `new thread on ${name(th.target)}`, target: th.target };
+      if (th.id) return { label: destinationLabel("reply", th.target, th.lines), thread: th.id };
+      const d: { label: string; target: string; ref?: string } = { label: destinationLabel("new", th.target, th.lines), target: th.target };
+      if (th.lines) d.ref = th.lines;
+      return d;
     }
   }
-  const target = currentTarget();
-  const sent = sentThreadOn(ths, target);
-  return sent ? { label: `reply in ${target}`, thread: sent } : { label: `new thread on ${target}`, target };
+  const target = placeTarget();
+  const lines = currentLines();
+  const sent = sentThreadOn(ths, target, lines);
+  if (sent) return { label: destinationLabel("reply", target, lines), thread: sent };
+  const d: { label: string; target: string; ref?: string } = { label: destinationLabel("new", target, lines), target };
+  if (lines) d.ref = lines;
+  return d;
 }
 
 // holdDraft keeps the typed message as a draft bubble; the send button
@@ -510,10 +607,13 @@ function holdDraft(): boolean {
   const dest = composerDestination();
   const d: Draft = { key: ++draftSeq, text };
   if (dest.thread !== undefined) d.thread = dest.thread;
-  else if (dest.target) d.target = dest.target;
+  else {
+    if (dest.target) d.target = dest.target;
+    if (dest.ref) d.ref = dest.ref;
+  }
   drafts.push(d);
   ta.value = "";
-  focusedThread = dest.thread ?? (dest.target !== undefined ? NEW_THREAD + dest.target : null);
+  focusedThread = dest.thread ?? (dest.target !== undefined ? NEW_THREAD + dest.target + "|" + (dest.ref ?? "") : null);
   const sent = threads().find((t) => t.id === dest.thread);
   if (sent) focusedThread = sent.key;
   renderChat();
@@ -573,7 +673,10 @@ function renderChat(): void {
       const v = card === null ? null : visualOfCard(card);
       return v !== null && anchorDrawnAt(v, id, dialLevel);
     };
-    const head = `<header><button type="button" class="tchip mono" title="go to it on the plate">${esc(th.target || "plate")}</button></header>`;
+    const lines = th.ref
+      ? `<button type="button" class="mref tlines" title="${esc(th.ref.ref)} — open these lines in the drawer"><span class="mono">${esc(th.ref.path)}:${th.ref.start}${th.ref.end > th.ref.start ? `–${th.ref.end}` : ""}</span>${trustBadge(th.ref.trust)}</button>`
+      : th.lines ? `<span class="mref tlines unsent" title="${esc(th.lines)}"><span class="mono">${esc(linesLabel(th.lines))}</span></span>` : "";
+    const head = `<header><button type="button" class="tchip mono" title="go to it on the plate">${esc(th.target || "plate")}</button>${lines}</header>`;
     const msgs = th.messages.map((m) => {
       if (m.from === "draft") {
         return `<div class="msg draft"><span class="who">you · unsent</span><p>${esc(m.text)}</p><button type="button" class="rm" data-draft="${m.draftKey}" title="remove this draft">×</button></div>`;
@@ -599,6 +702,7 @@ function renderChat(): void {
   $<HTMLButtonElement>("#composer-hold").disabled = turn.locked;
 
   applyBadges(ths);
+  applyDrawerBadges();
 }
 
 // applyBadges: a message count on every element and card with a thread —
@@ -747,6 +851,7 @@ function listen(): void {
   // address (the agent re-serving after its replies), pick it up.
   let probing = false;
   let dead = false;
+  let dropped = false; // the stream broke at least once since it last opened
   const back = (): void => {
     dead = false;
     const el = document.getElementById("notice");
@@ -754,6 +859,7 @@ function listen(): void {
     void loadPlate();
   };
   es.addEventListener("error", () => {
+    dropped = true;
     if (probing || dead) return;
     probing = true;
     fetch("api/plate").then(
@@ -770,8 +876,14 @@ function listen(): void {
       },
     );
   });
-  // a stream that reopens after a drop missed events: reload once
-  es.addEventListener("open", () => { if (dead) back(); });
+  // a stream that reopens after a drop missed whatever was emitted while
+  // it was down — a reply landing right after the serve → keeper hand-over,
+  // typically — so reload once, whether or not the plate ever looked dead
+  es.addEventListener("open", () => {
+    if (dead) back();
+    else if (dropped) void loadPlate();
+    dropped = false;
+  });
 }
 
 // --- wire up ---
@@ -783,6 +895,29 @@ document.querySelectorAll<HTMLButtonElement>("#dial .dial-pos").forEach((btn) =>
   });
 });
 $("#drawer-close").addEventListener("click", closeDrawer);
+// The review gutter: a line number selects the line, shift extends the
+// range; a badge in the gutter opens its thread instead.
+$("#drawer-code").addEventListener("click", (e) => {
+  const t = e.target as Element | null;
+  const badge = t?.closest?.<HTMLElement>(".gutter-badge");
+  if (badge) {
+    e.preventDefault();
+    setChatOpen(true);
+    focusThread(badge.dataset.badgeKey ?? null);
+    return;
+  }
+  const no = t?.closest?.<HTMLElement>(".ln[data-no] .no");
+  if (!no) return;
+  e.preventDefault(); // a shift-click must not select text
+  toggleLine(Number(no.closest<HTMLElement>(".ln")!.dataset.no), e.shiftKey);
+});
+$("#drawer-code").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const no = (e.target as Element | null)?.closest?.<HTMLElement>(".ln[data-no] .no");
+  if (!no || (e.target as Element).closest(".gutter-badge")) return;
+  e.preventDefault();
+  toggleLine(Number(no.closest<HTMLElement>(".ln")!.dataset.no), e.shiftKey);
+});
 const legend = $("#legend");
 // The composer: send posts this message and every held draft (⌘⏎, the
 // default) — that is what wakes the agent; hold keeps a draft for the next
@@ -816,9 +951,10 @@ threadList.addEventListener("click", (e) => {
   const rm = t.closest<HTMLElement>("[data-draft]");
   if (rm) { removeDraft(Number(rm.dataset.draft)); return; }
   if (t.closest(".tchip")) { if (th) goToThread(th); return; }
+  if (t.closest(".tlines")) { if (th && th.ref) goToThread(th); return; }
   const mref = t.closest<HTMLElement>(".mref");
-  if (mref && section.dataset.card !== undefined) {
-    void openReplyRef(Number(section.dataset.card), Number(mref.dataset.round), Number(mref.dataset.comment), Number(mref.dataset.ref));
+  if (mref && section.dataset.card !== undefined && th) {
+    void openReplyRef(Number(section.dataset.card), Number(mref.dataset.round), Number(mref.dataset.comment), Number(mref.dataset.ref), th.target);
     return;
   }
   const link = t.closest(".plink[data-link-anchor]");
@@ -862,6 +998,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "s") void submit();
   if (e.key === "Escape") {
     if (legend.classList.contains("pinned")) legend.classList.remove("pinned");
+    else if (drawerLines) { drawerLines = null; paintDrawerLines(); onSelectionMoved(); }
     else if (!($("#drawer") as HTMLElement).hidden) closeDrawer();
     else clearVisualSelection($("#strip"), hostWiring);
   }
