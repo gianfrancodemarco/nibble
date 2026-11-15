@@ -48,6 +48,7 @@ const (
 	CodeReviewExists            = "review.exists"
 	CodeReviewRound             = "review.round"
 	CodeReviewThread            = "review.thread"
+	CodeReviewRef               = "review.ref"
 	CodeReplyMalformed          = "reply.malformed"
 	CodeReplyTarget             = "reply.target"
 	CodeReplyDuplicate          = "reply.duplicate"

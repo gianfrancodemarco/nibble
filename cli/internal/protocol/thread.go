@@ -61,8 +61,10 @@ type Round struct {
 	N       int
 	Review  *Review
 	Replies []Reply
-	// targets resolved per comment (a continuation inherits its opener's)
+	// targets and refs resolved per comment (a continuation inherits its
+	// opener's)
 	targets []string
+	refs    []*NibbleRef
 }
 
 // ReplyTo returns the reply to comment i (1-based), or nil.
@@ -82,6 +84,16 @@ func (r *Round) Target(i int) string {
 		return ""
 	}
 	return r.targets[i-1]
+}
+
+// Ref returns the resolved ref of comment i (1-based): the lines it points
+// at, its own or the opener's when it continues a thread; nil when the
+// comment is on a target, not lines.
+func (r *Round) Ref(i int) *NibbleRef {
+	if i < 1 || i > len(r.refs) {
+		return nil
+	}
+	return r.refs[i-1]
 }
 
 // Answered reports whether every comment of the round has a reply.
@@ -137,11 +149,13 @@ type Message struct {
 	Because string      `json:"because,omitempty"`
 }
 
-// Thread is one conversation: the opener's id and target, then the
-// messages in order — opener, reply, follow-up, reply…
+// Thread is one conversation: the opener's id, target and lines (when the
+// opener points at some), then the messages in order — opener, reply,
+// follow-up, reply…
 type Thread struct {
 	ID       string
 	Target   string
+	Ref      *NibbleRef
 	Messages []Message
 }
 
@@ -161,7 +175,7 @@ func (p *Plate) Threads() []Thread {
 			if !ok {
 				ti = len(out)
 				index[key] = ti
-				out = append(out, Thread{ID: key, Target: r.Target(i + 1)})
+				out = append(out, Thread{ID: key, Target: r.Target(i + 1), Ref: r.Ref(i + 1)})
 			}
 			out[ti].Messages = append(out[ti].Messages, Message{
 				From: "reader", Round: r.N, Index: i + 1, ID: id, Text: c.Text,
@@ -272,7 +286,16 @@ func NextRound(rounds []Round, review *Review) (Round, error) {
 		c := &review.Comments[i]
 		c.ID = fmt.Sprintf("%d.%d", k, i+1)
 		target := c.Target
+		ref := c.Ref
+		if ref != nil {
+			if err := checkCommentRef(fmt.Sprintf("%s comment %d", ReviewFile(k), i+1), ref); err != nil {
+				return Round{}, err
+			}
+		}
 		if c.Thread != "" {
+			if ref != nil {
+				return Round{}, errf(CodeReviewThread, "%s comment %d: a follow-up carries no ref of its own — it is on thread %s's lines", ReviewFile(k), i+1, c.Thread)
+			}
 			tr, ti, ok := parseThreadID(c.Thread)
 			if !ok {
 				return Round{}, errf(CodeReviewThread, "%s comment %d: thread %q is not a comment id (<round>.<index>)", ReviewFile(k), i+1, c.Thread)
@@ -292,10 +315,30 @@ func NextRound(rounds []Round, review *Review) (Round, error) {
 				return Round{}, errf(CodeReviewThread, "%s comment %d: target %q differs from thread %s's target %q", ReviewFile(k), i+1, c.Target, c.Thread, oc.Target)
 			}
 			target = oc.Target
+			ref = opener.Ref(ti)
 		}
 		r.targets = append(r.targets, target)
+		r.refs = append(r.refs, ref)
 	}
 	return r, nil
+}
+
+// checkCommentRef validates the lines a comment points at: a ref in the v1
+// grammar with no anchor (the target already names the element), and the
+// stored-ref shape when a fingerprint is present. A bare ref is valid and
+// reports unverified trust.
+func checkCommentRef(where string, nr *NibbleRef) error {
+	ref, err := ParseRef(nr.Ref)
+	if err != nil {
+		return err
+	}
+	if ref.Anchor != "" {
+		return errf(CodeReviewRef, "%s: ref %q carries @%s, but a comment ref takes no anchor — the target already names the element", where, nr.Ref, ref.Anchor)
+	}
+	if nr.FP == "" && len(nr.Lines) == 0 && len(nr.CtxBefore) == 0 && len(nr.CtxAfter) == 0 {
+		return nil
+	}
+	return checkStoredRefShape(where, *nr)
 }
 
 // loadRounds reads review.json / reply.json, review.2.json / reply.2.json…

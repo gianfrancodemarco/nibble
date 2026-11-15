@@ -1,0 +1,18 @@
+{
+  "comments": [
+    {
+      "target": "n1:cache",
+      "ref": {
+        "ref": "src/prices.ts:3-4",
+        "fp": "fp1:eb015778895cfad210721954f6fcdd817ce5b48c6fdffee670bda55b2ddb7149",
+        "lines": [
+          "0ee268a7c40487096da732e96ac41540d1aab8dc54c0f2e4bc310ed2d2a9a2bd",
+          "4dd4a1edc06a90ef7a5c38d25580c24cc12ea4651f8b888885d24aa92a8cbffb"
+        ]
+      },
+      "text": "the TTL is hard-coded here — shouldn't billing be able to set its own?"
+    },
+    { "target": "n1", "ref": { "ref": "src/prices.ts:7" }, "text": "is this branch reachable at all?" },
+    { "target": "n1", "text": "why not jitter the TTL?" }
+  ]
+}

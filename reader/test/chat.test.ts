@@ -1,7 +1,7 @@
 // The chat's pure seams: threads from rounds, drafts, targets → cards and
 // elements, badge counts, the turn's wording.
 
-const chatRef = (): Ref => ({ ref: "src/a.ts:1-2", path: "src/a.ts", start: 1, end: 2, trust: { level: "exact", line: 1, shift: 0 } });
+const chatRef = (): Ref => ({ ref: "src/a.ts:1-2", path: "src/a.ts", start: 1, end: 2, at: "src/a.ts", trust: { level: "exact", line: 1, shift: 0 } });
 
 const twoRounds: ThreadData = {
   turn: "agent",
@@ -114,4 +114,98 @@ t("sendLabel: plain send, or send plus the held drafts", () => {
   eq(sendLabel(0), "Send", "none held");
   eq(sendLabel(1), "Send +1", "one held");
   eq(sendLabel(3), "Send +3", "three held");
+});
+
+// --- line comments: threads on lines, drafts on a drawer selection ---
+
+const lineRefData = (): Ref => ({ ref: "src/a.ts:16-18", path: "src/a.ts", start: 16, end: 18, at: "src/a.ts", trust: { level: "exact", line: 16, shift: 0 } });
+
+const lineRounds: ThreadData = {
+  turn: "reader",
+  rounds: [
+    { n: 1, comments: [
+      { id: "1.1", target: "n2:s4", ref: lineRefData(), text: "this swallows the error", reply: { text: "fixed", refs: [] } },
+      { id: "1.2", target: "n2:s4", text: "the whole arrow", reply: { text: "ok", refs: [] } },
+    ] },
+    { n: 2, comments: [
+      { id: "2.1", thread: "1.1", target: "n2:s4", ref: lineRefData(), text: "still?", reply: null },
+    ] },
+  ],
+};
+
+t("buildThreads carries the opener's ref and keys drafts by target and lines", () => {
+  const ths = buildThreads(lineRounds, [
+    { key: 1, target: "n2:s4", ref: "src/a.ts:30-31", text: "other lines" },
+    { key: 2, target: "n2:s4", text: "the arrow again" },
+  ]);
+  eq(ths.length, 4, "two sent threads, two new ones");
+  eq(ths[0].ref?.ref, "src/a.ts:16-18", "the opener's ref");
+  eq(ths[0].lines, "src/a.ts:16-18", "the thread's lines");
+  eq(ths[0].messages.length, 3, "opener, reply, follow-up");
+  eq(ths[1].ref, undefined, "a target thread has no ref");
+  eq(ths[2].key, "new:n2:s4|src/a.ts:30-31", "draft on other lines opens its own thread");
+  eq(ths[2].lines, "src/a.ts:30-31", "draft lines");
+  eq(ths[3].key, "new:n2:s4|", "draft on the target alone");
+});
+
+t("sentThreadOn matches target and lines together", () => {
+  const ths = buildThreads(lineRounds, []);
+  eq(sentThreadOn(ths, "n2:s4", "src/a.ts:16-18"), "1.1", "same lines continue the thread");
+  eq(sentThreadOn(ths, "n2:s4", "src/a.ts:30-31"), null, "other lines do not");
+  eq(sentThreadOn(ths, "n2:s4"), "1.2", "no lines: the target thread");
+  eq(sentThreadOn(ths, "n2:s4", undefined), "1.2", "undefined is no lines");
+});
+
+t("draftComments carries the ref the reader built", () => {
+  eq(draftComments([{ key: 1, target: "n2:s4", ref: "src/a.ts:16-18", text: "x" }]),
+    [{ target: "n2:s4", ref: { ref: "src/a.ts:16-18" }, text: "x" }], "shape");
+});
+
+t("linesLabel reads path and range out of a ref string", () => {
+  eq(linesLabel("src/a.ts:16-18"), "src/a.ts:16-18", "plain");
+  eq(linesLabel("diff:src/a.ts@worktree:4"), "src/a.ts:4", "worktree");
+  eq(linesLabel("diff:src/b.ts@abc..def#base:10-12"), "src/b.ts:10-12", "range side");
+});
+
+t("destinationLabel names the lines and the target", () => {
+  eq(destinationLabel("new", "n2:s4", "src/a.ts:16-18"), "new thread on src/a.ts:16-18 in n2:s4", "new on lines");
+  eq(destinationLabel("new", "n2:s4"), "new thread on n2:s4", "new on the target");
+  eq(destinationLabel("reply", "n2:s4", "src/a.ts:16-18"), "reply in n2:s4 · src/a.ts:16-18", "reply on lines");
+  eq(destinationLabel("new", ""), "new thread on plate", "untargeted");
+});
+
+t("lineRef builds the ref the server verifies", () => {
+  eq(lineRef("src/a.ts", { start: 16, end: 18 }), "src/a.ts:16-18", "range");
+  eq(lineRef("diff:src/b.ts@abc..def#base", { start: 10, end: 10 }), "diff:src/b.ts@abc..def#base:10", "one line");
+});
+
+t("selectLine: click, shift-click, click again", () => {
+  eq(selectLine(null, 16, false), { start: 16, end: 16 }, "click selects");
+  eq(selectLine({ start: 16, end: 16 }, 18, true), { start: 16, end: 18 }, "shift extends down");
+  eq(selectLine({ start: 16, end: 18 }, 14, true), { start: 14, end: 18 }, "shift extends up");
+  eq(selectLine({ start: 16, end: 18 }, 20, false), { start: 20, end: 20 }, "plain click moves");
+  eq(selectLine({ start: 16, end: 16 }, 16, false), null, "clicking the only selected line clears");
+  eq(selectLine({ start: 16, end: 18 }, 16, false), { start: 16, end: 16 }, "clicking inside a range narrows to it");
+});
+
+t("drawerBadges marks a thread's first shown line, where trust resolved it", () => {
+  const shifted = buildThreads({
+    turn: "reader",
+    rounds: [{ n: 1, comments: [
+      { id: "1.1", target: "n2:s4", ref: { ...lineRefData(), trust: { level: "shifted", line: 18, shift: 2 } }, text: "a", reply: { text: "b", refs: [] } },
+      { id: "1.2", target: "n2", ref: { ref: "src/other.ts:1-3", path: "src/other.ts", start: 1, end: 3, at: "src/other.ts", trust: { level: "exact", line: 1, shift: 0 } }, text: "c", reply: null },
+      { id: "1.3", target: "n2:s4", ref: { ...lineRefData(), ref: "src/a.ts:12-30", start: 12, end: 30 }, text: "d", reply: null },
+    ] }],
+  }, []);
+  const shown = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22];
+  const b = drawerBadges(shifted, "src/a.ts", shown);
+  eq(b.get(18), { count: 2, key: "1.1" }, "shifted +2: badge at 18");
+  eq(b.get(12), { count: 1, key: "1.3" }, "wide range: its first shown line");
+  eq(b.get(16), undefined, "the original range is not marked");
+  eq(b.size, 2, "the other file's thread stays out");
+  const partial = drawerBadges(shifted, "src/a.ts", [25, 26]);
+  eq(partial.get(25), { count: 1, key: "1.3" }, "a range starting before the shown lines badges the first shown one");
+  eq(partial.size, 1, "a range outside the shown lines is skipped");
+  const merged = drawerBadges(shifted, "src/a.ts", [20, 21]);
+  eq(merged.get(20), { count: 3, key: "1.1" }, "two threads meeting one line sum (2 + 1), the first thread's key wins");
 });

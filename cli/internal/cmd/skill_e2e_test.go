@@ -217,8 +217,8 @@ func TestSkillConversationTranscript(t *testing.T) {
 			replies++
 		}
 	}
-	if files < 2 || replies < 3 {
-		t.Fatalf("transcript has %d review files and %d replies; want two rounds answered", files, replies)
+	if files < 2 || replies < 4 {
+		t.Fatalf("transcript has %d review files and %d replies; want two rounds answered, the second with a follow-up and a line comment", files, replies)
 	}
 
 	// The plate the authoring transcript built, sealed at 4 nibbles.
@@ -256,6 +256,12 @@ func TestSkillConversationTranscript(t *testing.T) {
 	}
 	if h := p.History(2, 1); len(h) != 2 {
 		t.Fatalf("round 2's comment should continue a thread with two messages of history, got %d", len(h))
+	}
+	if r := p.Rounds[1].Ref(2); r == nil || r.Ref != "src/upload/handler.ts:16-18" {
+		t.Fatalf("round 2's second comment should be on lines 16-18 of the handler, got %+v", r)
+	}
+	if rep := p.Rounds[1].ReplyTo(2); rep == nil || len(rep.Refs) != 1 || !strings.HasPrefix(rep.Refs[0].Ref, "src/upload/handler.ts:16-18") {
+		t.Fatalf("the line comment's reply should point at the same lines, got %+v", rep)
 	}
 }
 

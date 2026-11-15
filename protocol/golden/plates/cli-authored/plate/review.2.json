@@ -3,6 +3,20 @@
     {
       "text": "then is the pool size enough for billing too?",
       "thread": "1.1"
+    },
+    {
+      "target": "n2:cache",
+      "ref": {
+        "ref": "src/pool.ts:2",
+        "fp": "fp1:1b58026bf2d7ac7c8a5851c39c34a72945c9b5cf37067a39cb9a5902090acdf9",
+        "lines": [
+          "1b58026bf2d7ac7c8a5851c39c34a72945c9b5cf37067a39cb9a5902090acdf9"
+        ],
+        "ctx_before": [
+          "f52314814c6173c17f7dca9738380b2679d3df670dcc0b30703b71cffa2e38ae"
+        ]
+      },
+      "text": "is a 30s idle timeout right for billing's bursts?"
     }
   ]
 }

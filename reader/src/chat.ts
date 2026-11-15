@@ -8,6 +8,7 @@
 interface Trust { level: "exact" | "shifted" | "stale" | "unverified"; line: number; shift: number; }
 interface Ref {
   ref: string; path: string; start: number; end: number;
+  at: string; // the lines' address in the ref grammar, without a range
   anchor?: string; note?: string; diff?: boolean; trust: Trust;
 }
 
@@ -15,7 +16,7 @@ interface Ref {
 
 interface ThreadReplyData { text: string; because?: string; refs: Ref[] }
 interface ThreadCommentData {
-  id: string; target?: string; thread?: string; text: string;
+  id: string; target?: string; ref?: Ref; thread?: string; text: string;
   reply: ThreadReplyData | null;
 }
 interface ThreadRoundData { n: number; comments: ThreadCommentData[] }
@@ -23,8 +24,10 @@ type Turn = "reader" | "agent";
 interface ThreadData { turn: Turn; rounds: ThreadRoundData[] }
 
 // A draft: a message typed but not sent. It continues a sent thread (by the
-// opener's id) or opens a new one on a target. key is the panel's handle.
-interface Draft { key: number; thread?: string; target?: string; text: string }
+// opener's id) or opens a new one on a target — and, when the drawer had
+// lines selected, on those lines (ref: the ref string the server verifies).
+// key is the panel's handle.
+interface Draft { key: number; thread?: string; target?: string; ref?: string; text: string }
 
 // --- the conversation, as the panel shows it ---
 
@@ -41,9 +44,11 @@ interface ChatMessage {
 }
 
 interface ChatThread {
-  key: string; // the opener's id, or "new:<target>" for a draft-only thread
+  key: string; // the opener's id, or "new:<target>|<lines>" for a draft-only thread
   id: string | null; // the opener's id once sent
   target: string; // "" for an untargeted comment
+  lines?: string; // the ref string of the lines the thread is on, when it is on lines
+  ref?: Ref; // those lines resolved by the server, once sent
   messages: ChatMessage[];
   awaiting: boolean; // the last reader message has no reply yet and the turn is the agent's
 }
@@ -65,7 +70,9 @@ function buildThreads(thread: ThreadData | null, drafts: readonly Draft[]): Chat
       if (ti === undefined) {
         ti = out.length;
         index.set(key, ti);
-        out.push({ key, id: key, target: c.target ?? "", messages: [], awaiting: false });
+        const th: ChatThread = { key, id: key, target: c.target ?? "", messages: [], awaiting: false };
+        if (c.ref) { th.ref = c.ref; th.lines = c.ref.ref; }
+        out.push(th);
       }
       const th = out[ti];
       th.messages.push({ from: "reader", round: r.n, id: c.id, text: c.text });
@@ -84,12 +91,14 @@ function buildThreads(thread: ThreadData | null, drafts: readonly Draft[]): Chat
     let ti: number | undefined;
     if (d.thread !== undefined) ti = index.get(d.thread);
     if (ti === undefined) {
-      const key = d.thread !== undefined ? d.thread : NEW_THREAD + (d.target ?? "");
+      const key = d.thread !== undefined ? d.thread : NEW_THREAD + (d.target ?? "") + "|" + (d.ref ?? "");
       ti = index.get(key);
       if (ti === undefined) {
         ti = out.length;
         index.set(key, ti);
-        out.push({ key, id: null, target: d.target ?? "", messages: [], awaiting: false });
+        const th: ChatThread = { key, id: null, target: d.target ?? "", messages: [], awaiting: false };
+        if (d.ref) th.lines = d.ref;
+        out.push(th);
       }
     }
     out[ti].messages.push({ from: "draft", text: d.text, draftKey: d.key });
@@ -97,22 +106,80 @@ function buildThreads(thread: ThreadData | null, drafts: readonly Draft[]): Chat
   return out;
 }
 
-// sentThreadOn: the sent thread (opener id) a target already has, if any —
-// a new message on that target continues it rather than opening a second.
-function sentThreadOn(threads: readonly ChatThread[], target: string): string | null {
+// sentThreadOn: the sent thread (opener id) a place already has, if any — a
+// new message there continues it rather than opening a second. A place is
+// a target plus the lines: other lines of the same element are elsewhere.
+function sentThreadOn(threads: readonly ChatThread[], target: string, lines?: string): string | null {
   for (const th of threads) {
-    if (th.id !== null && th.target === target) return th.id;
+    if (th.id !== null && th.target === target && (th.lines ?? "") === (lines ?? "")) return th.id;
   }
   return null;
 }
 
 // draftComments turns drafts into the review's comments: a follow-up carries
-// its thread and no target of its own; an opener carries its target.
-function draftComments(drafts: readonly Draft[]): { target?: string; thread?: string; text: string }[] {
+// its thread and no target of its own; an opener carries its target and, on
+// lines, the ref the reader built — the server verifies and fingerprints it.
+function draftComments(drafts: readonly Draft[]): { target?: string; ref?: { ref: string }; thread?: string; text: string }[] {
   return drafts.map((d) => {
     if (d.thread !== undefined) return { thread: d.thread, text: d.text };
-    return d.target ? { target: d.target, text: d.text } : { text: d.text };
+    return { ...(d.target ? { target: d.target } : {}), ...(d.ref ? { ref: { ref: d.ref } } : {}), text: d.text };
   });
+}
+
+// --- lines: the drawer selection, its ref, its label ---
+
+interface LineSel { start: number; end: number }
+
+// selectLine: the gutter's reducer. A click selects one line; with shift it
+// extends the selection to a contiguous range either way; clicking the
+// only selected line clears; clicking inside a range narrows to that line.
+function selectLine(cur: LineSel | null, no: number, extend: boolean): LineSel | null {
+  if (cur && extend) return { start: Math.min(cur.start, no), end: Math.max(cur.end, no) };
+  if (cur && cur.start === no && cur.end === no) return null;
+  return { start: no, end: no };
+}
+
+// lineRef: the ref string for selected lines of a drawer — its address
+// (from the server) and the numbers it showed; the server parses it.
+function lineRef(at: string, sel: LineSel): string {
+  return sel.end > sel.start ? `${at}:${sel.start}-${sel.end}` : `${at}:${sel.start}`;
+}
+
+// linesLabel: `<path>:<range>` out of a ref string, for a chip or a label —
+// the only grammar the reader reads, and only to show it.
+function linesLabel(ref: string): string {
+  const m = /^diff:([^@\s]+)@[^:\s]*:(\d+(?:-\d+)?)/.exec(ref);
+  if (m) return `${m[1]}:${m[2]}`;
+  const i = ref.indexOf(" ");
+  return i > 0 ? ref.slice(0, i) : ref;
+}
+
+// destinationLabel: what the composer says it writes — a new thread on the
+// lines in the target, or a reply in the thread there.
+function destinationLabel(kind: "new" | "reply", target: string, lines?: string): string {
+  const name = target || "plate";
+  if (kind === "reply") return lines ? `reply in ${name} · ${linesLabel(lines)}` : `reply in ${name}`;
+  return lines ? `new thread on ${linesLabel(lines)} in ${name}` : `new thread on ${name}`;
+}
+
+// drawerBadges: for a drawer showing `at`'s lines, the threads on lines of
+// it — badged on the first shown line of each thread's trust-resolved
+// range (shifted follows the code; stale keeps the original range, which is
+// what the drawer shows for it too).
+function drawerBadges(threads: readonly ChatThread[], at: string, shown: readonly number[]): Map<number, { count: number; key: string }> {
+  const out = new Map<number, { count: number; key: string }>();
+  for (const th of threads) {
+    const r = th.ref;
+    if (!r || r.at !== at) continue;
+    const start = r.trust.level === "shifted" ? r.trust.line : r.start;
+    const end = start + (r.end - r.start);
+    const first = shown.find((no) => no >= start && no <= end);
+    if (first === undefined) continue;
+    const cur = out.get(first);
+    if (cur) cur.count += th.messages.length;
+    else out.set(first, { count: th.messages.length, key: th.key });
+  }
+  return out;
 }
 
 // --- targets → the plate ---

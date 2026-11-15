@@ -340,6 +340,26 @@ read something you didn't walk through, so look at those exact lines before
 answering. `1.1` is the comment's id: round 1, comment 1. Map each comment
 back to what it points at.
 
+A comment can point at **lines**, not just a thing: the reviewer selected
+them in the code drawer. It prints with the location on its heading and the
+lines quoted under it, at their current position (a `(moved: now 18-20)`
+note when the code shifted since):
+
+````
+## n2:s4 · src/upload/handler.ts:16-18 · 1.2
+```
+16  } catch (err) {
+17    log.warn("enqueue failed", err);
+18  }
+```
+> this swallows the error — the client still gets a 200
+````
+
+Those lines are what the comment is about — not the whole ref, not the
+element. Read them as quoted, change them if the comment asks, and answer
+with a `--ref` on those lines or on what replaced them, so the reply lands
+on the code the reviewer pointed at.
+
 - done (exit 0, no comments): the reader is done with the plate. Report it
   and move on; don't re-serve.
 - comments (exit 2): read the whole round first, then answer every comment
@@ -364,8 +384,10 @@ changed, with a `--ref` on the new lines. The loop, in order:
    150 words or fewer (`--because` to go over, like every budget); it may
    link `[phrase](@id)` into the visual of the nibble the thread is on.
    Refs are verified and fingerprinted like a nibble's and take no
-   `@anchor`. A comment answered twice is `reply.duplicate`; an index the
-   round doesn't have is `reply.target` (the message lists the comments).
+   `@anchor`; for a comment on lines, point the `--ref` at those lines (or
+   at what replaced them). A comment answered twice is `reply.duplicate`;
+   an index the round doesn't have is `reply.target` (the message lists
+   the comments).
 3. `nibble serve <plate> &` again, then `wait` on it. It takes the address
    the tab is on back from the keeper by itself — no `--addr` needed — and
    blocks for the next round. Once every comment has a reply, the reader
@@ -379,8 +401,9 @@ changed, with a `--ref` on the new lines. The loop, in order:
 
 The image-resize plate above comes back with two comments. The agent
 answers both — the open tab shows each reply as it lands — serves again to
-wait, and gets a follow-up in the first thread. The reviews below are what
-`serve` found on disk; the commands are what you run.
+wait, and gets a follow-up in the first thread plus a comment on three
+lines of the handler. The reviews below are what `serve` found on disk;
+the commands are what you run.
 
 ```
 $ wait %1
@@ -399,7 +422,7 @@ comments: 2 · round 1
     { "target": "ledger:src/upload/handler.ts", "text": "is the header comment change really all that's left?" } ] }
 ```
 
-```
+````
 $ nibble reply <plate> --to 1 \
     --text "A 503, and nothing is stored: the [enqueue](@s4) is wrapped in a try, and a failure rolls the stored original back before the handler returns." \
     --ref "src/upload/handler.ts:15-19 the try around the enqueue"
@@ -413,7 +436,7 @@ $ nibble serve <plate> --timeout 45m &                            # back on the 
 reader: http://127.0.0.1:52314
 
 $ wait %1
-comments: 1 · round 2
+comments: 2 · round 2
 
 ## n2:s4 · 2.1 continues 1.1
 reader · round 1
@@ -422,17 +445,36 @@ agent · round 1
 > A 503, and nothing is stored: the enqueue is wrapped in a try…
 reader · round 2
 > and if the queue is full — does the client wait?
+
+## n2:s4 · src/upload/handler.ts:16-18 · 2.2
 ```
+16  } catch (err) {
+17    log.warn("enqueue failed", err);
+18  }
+```
+> this swallows the error — the client still gets a 200
+````
 
 ```json review.2.json
-{ "comments": [ { "thread": "1.1", "text": "and if the queue is full — does the client wait?" } ] }
+{ "comments": [
+    { "thread": "1.1", "text": "and if the queue is full — does the client wait?" },
+    { "target": "n2:s4", "ref": { "ref": "src/upload/handler.ts:16-18" }, "text": "this swallows the error — the client still gets a 200" } ] }
 ```
+
+The second comment is on lines: the reviewer selected 16-18 in the drawer,
+so the fix goes there — rethrow after the log — and the reply points at the
+changed lines.
 
 ```
 $ nibble reply <plate> --to 1 \
     --text "No: the enqueue is non-blocking; a full queue fails fast and takes the same 503 path." \
     --ref "src/upload/handler.ts:15-19 same path"
-✓ reply 1 of 1 — round 2 answered; the reader can send the next round
+✓ reply 1 of 2
+
+$ nibble reply <plate> --to 2 \
+    --text "It did. The catch now rethrows after logging, so the 503 path runs; these are the lines." \
+    --ref "src/upload/handler.ts:16-18 the rethrow"
+✓ reply 2 of 2 — round 2 answered; the reader can send the next round
 
 $ nibble serve <plate> --timeout 45m &
 reader: http://127.0.0.1:52314
@@ -443,6 +485,7 @@ done — no comments · round 3
 
 The thread on `s4` ran three messages deep without the plate changing: the
 nibble and its picture stayed where the human first looked, and the answers
-gathered under it. When a comment needs a new picture rather than an
+gathered under it — and the comment on lines 16-18 got its fix exactly
+there, with the reply's ref proving it. When a comment needs a new picture rather than an
 answer, say so in the reply — adding nibbles in reply arrives with the next
 version.

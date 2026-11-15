@@ -1,0 +1,7 @@
+{
+  "replies": [
+    { "to": 1, "text": "Not in this change: the [cache](@cache) has one TTL for every caller; a per-caller one is the next step." },
+    { "to": 2, "text": "Only when the cache is cold — the first call of a process takes it." },
+    { "to": 3, "text": "Jitter is the fix this plate proposes; the next nibble shows the spread." }
+  ]
+}

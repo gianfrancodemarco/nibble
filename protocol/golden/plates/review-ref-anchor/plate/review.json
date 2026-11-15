@@ -1,0 +1,5 @@
+{
+  "comments": [
+    { "target": "n1:cache", "ref": { "ref": "src/prices.ts:3-4 @cache" }, "text": "the anchor is redundant" }
+  ]
+}

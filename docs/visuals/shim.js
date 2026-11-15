@@ -27,7 +27,17 @@
         const all = d.thread.rounds.flatMap((r) => r.comments);
         d.thread.rounds.push({ n, comments: sent.comments.map((c, i) => {
           const opener = c.thread && all.find((x) => x.id === c.thread);
-          return { id: `${n}.${i + 1}`, target: c.target || (opener && opener.target), thread: c.thread, text: c.text, reply: null };
+          const out = { id: `${n}.${i + 1}`, target: c.target || (opener && opener.target), thread: c.thread, text: c.text, reply: null };
+          // a comment on lines: no server to resolve it here, so it reads as
+          // unverified at the range the reader named
+          const ref = c.ref ? c.ref.ref : opener && opener.ref && opener.ref.ref;
+          const m = ref && /^(?:diff:([^@\s]+)@([^:\s]*)|([^:\s]+)):(\d+)(?:-(\d+))?/.exec(ref);
+          if (m) {
+            const start = Number(m[4]);
+            const end = m[5] ? Number(m[5]) : start;
+            out.ref = c.ref ? { ref, path: m[1] || m[3], start, end, at: m[1] ? `diff:${m[1]}@${m[2]}` : m[3], trust: { level: "unverified", line: start, shift: 0 } } : opener.ref;
+          }
+          return out;
         }) });
         d.thread.turn = sent.comments.length ? "agent" : "reader";
       }
@@ -38,6 +48,12 @@
       const d = DATA[`code-${m[1]}-${m[2]}`];
       if (d) return json(d);
       return json({ error: { code: "code.missing", message: "no snapshot for this ref" } }, 404);
+    }
+    m = u.match(/^api\/code\?comment=(\d+\.\d+)$/);
+    if (m) {
+      const d = DATA[`comment-${m[1]}`];
+      if (d) return json(d);
+      return json({ error: { code: "code.missing", message: "no snapshot for this comment's lines" } }, 404);
     }
     m = u.match(/^api\/code\?round=(\d+)&comment=(\d+)&ref=(\d+)/);
     if (m) {

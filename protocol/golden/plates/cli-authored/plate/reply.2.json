@@ -3,6 +3,22 @@
     {
       "to": 1,
       "text": "It is sized for both: billing's reads are hits once the cache is warm."
+    },
+    {
+      "to": 2,
+      "text": "Yes: billing's longest burst is under ten seconds, so an idle connection outlives it.",
+      "refs": [
+        {
+          "ref": "src/pool.ts:2 the idle timeout",
+          "fp": "fp1:1b58026bf2d7ac7c8a5851c39c34a72945c9b5cf37067a39cb9a5902090acdf9",
+          "lines": [
+            "1b58026bf2d7ac7c8a5851c39c34a72945c9b5cf37067a39cb9a5902090acdf9"
+          ],
+          "ctx_before": [
+            "f52314814c6173c17f7dca9738380b2679d3df670dcc0b30703b71cffa2e38ae"
+          ]
+        }
+      ]
     }
   ]
 }
