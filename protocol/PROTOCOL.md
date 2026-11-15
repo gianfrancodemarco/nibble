@@ -18,7 +18,9 @@ they never guess.
   n2.json
   ledger.json    the not-shown ledger (diff plates, written at seal)
   done           seals the plate: {"total": N}
-  review.json    the human's answer
+  review.json    the review thread: round 1 of the human's comments
+  reply.json     the agent's replies to round 1
+  review.2.json  round 2 (review.3.json, reply.2.json… as the thread goes on)
 ```
 
 A plate is **append-only while open**: nibbles are added with increasing
@@ -120,17 +122,63 @@ preserved by tools that rewrite the file. Fixtures:
 [`golden/plates/worktree-ledger/`](golden/plates/worktree-ledger/),
 [`golden/plates/ledger-covered/`](golden/plates/ledger-covered/).
 
-### review.json
+### The review thread
 
-The review is the reader's comments, nothing more:
+The human's answer and the agent's replies are a thread of **rounds**, one
+pair of files per round. Round 1 is `review.json` (the v1 name) and
+`reply.json`; round `k ≥ 2` is `review.k.json` and `reply.k.json`. Rounds
+are numbered without gaps and a round may only follow a round whose every
+comment has a reply (a done round trivially is) — either break is
+`review.round`. Fixtures: [`golden/plates/review-loop/`](golden/plates/review-loop/)
+(a three-round conversation) and the `review-*` / `reply-*` plates beside it.
+
+**review.k.json** — a review is the reader's comments, nothing more:
 `{"comments": [{"target": "n2:cache", "text": "…"}]}`, each pinned to a
-nibble and optionally an element or line, and each with non-empty `text`.
-A plate with a ledger also takes comments targeted `ledger` (the ledger as
-a whole) or `ledger:<path>` (one uncovered file; `ledger:<path>#base` when
-the uncovered lines are deletions, living on the diff's base side).
-An empty (or absent) `comments` array means **done**: nothing to address.
-There is no verdict — whether a comment asks a question or requests a change
-is read from the comment itself.
+nibble and optionally an element, and each with non-empty `text`. A plate
+with a ledger also takes comments targeted `ledger` (the ledger as a whole)
+or `ledger:<path>` (one uncovered file; `ledger:<path>#base` when the
+uncovered lines are deletions, living on the diff's base side). An empty
+(or absent) `comments` array means **done**: nothing to address now. It is
+not an end — the chat stays open and a later round may follow. There is no verdict — whether a comment asks a question or
+requests a change is read from the comment itself. A bad shape, or a
+comment without text, is `review.malformed`.
+
+Every comment has the derived id `<round>.<index>` (1-based index in its
+round; nothing is stored). A comment may **continue a thread** an earlier
+comment opened: `{"thread": "1.2", "text": "and if the queue is full?"}`
+belongs to the conversation comment 1.2 started and inherits its target (a
+`target` it carries must match). `thread` must name a comment of an
+earlier round that is itself an opener (no chains of links) — anything else
+is `review.thread`. A thread is therefore flat: the opener, then the
+agent's replies and the reader's follow-ups alternating round by round.
+
+**reply.k.json** — the agent's answers to that round, one per comment:
+
+```json
+{ "replies": [
+    { "to": 1,
+      "text": "Yes: billing reads through the same [cache](@cache)…",
+      "refs": [ { "ref": "src/prices.ts:3-4 the ttl lines", "fp": "fp1:…", "lines": ["…"] } ],
+      "because": "optional reason for exceeding the reply budget" } ] }
+```
+
+`to` is the comment's 1-based index in the round; `text` is non-empty
+markdown; `refs` are stored refs in the nibble form (verified and
+fingerprinted at write time, see below) and take **no `@anchor`** — the
+element already carries its own refs; `because` is a budget reason shown to
+the reader. The reply's prose may link `[phrase](@id)` into the visual of
+the nibble its thread targets (`n<N>` or `n<N>:<id>`, the opener's target
+for a follow-up); a link that resolves nowhere, a link in a reply on a
+ledger or untargeted thread, or a ref anchor is `reply.anchor`. Shape
+errors are `reply.malformed`; `to` outside the round or on a done review
+is `reply.target`; two replies to one comment `reply.duplicate`; a reply
+file without its review `reply.orphan`. Unknown fields are preserved by
+tools that rewrite the file; the file is rewritten as replies are added,
+so a reader sees them land one by one.
+
+**Whose turn** is derived, never stored: `agent` while the latest round has
+a comment without a reply; `reader` otherwise (no review yet, the latest
+round fully answered, or done).
 
 ## Refs
 
@@ -284,8 +332,15 @@ can return:
 | `plate.sealed` | nibbles beyond the sealed `total` |
 | `nibble.file` | nibble file unreadable |
 | `nibble.visual.missing` | nibble has no visual |
-| `review.malformed` | review.json is not a review: bad shape, or a comment without text |
-| `review.exists` | a plate takes one review; this one already has it |
+| `review.malformed` | a review file is not a review: bad shape, or a comment without text |
+| `review.exists` | the latest round still awaits the agent's reply; no new round until it is answered |
+| `review.round` | rounds out of order: a numbering gap, or a round after an unanswered round |
+| `review.thread` | a comment's `thread` names no opener of an earlier round, or its target mismatches |
+| `reply.malformed` | a reply file is not a replies object, or a reply has no text or a non-integer `to` |
+| `reply.target` | `to` names no comment of its round, or the round is done |
+| `reply.duplicate` | two replies to one comment |
+| `reply.orphan` | a reply file without its round's review |
+| `reply.anchor` | a reply ref carries `@anchor`, or a prose link resolves against no element of the thread's nibble |
 
 The CLI adds codes of its own, same contract:
 
@@ -298,9 +353,11 @@ The CLI adds codes of its own, same contract:
 
 ## The CLI, briefly
 
-`nibble new / add / done / lint / serve` — commands, budgets and exit codes
-are documented in [`cli/README.md`](../cli/README.md). The exit-code contract:
-0 ok, 1 validation/protocol error, 2 usage; `serve` encodes the review —
-0 done (no comments), 2 comments to handle, 5 timeout. The
+`nibble new / add / done / lint / serve / reply` — commands, budgets and
+exit codes are documented in [`cli/README.md`](../cli/README.md). The
+exit-code contract: 0 ok, 1 validation/protocol error, 2 usage; `serve`
+encodes what the agent owes when it ends — 2 a round with unanswered
+comments, 0 the reader sent done (nothing to address now), 5 it stopped
+waiting with nothing owed. The
 [`golden/plates/cli-authored/`](golden/plates/cli-authored/) fixture is a
 plate written end-to-end by the CLI's own test suite.

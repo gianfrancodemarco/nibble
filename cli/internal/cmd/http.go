@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gianfrancodemarco/nibble/cli/internal/protocol"
@@ -31,6 +32,12 @@ type apiServer struct {
 	repoName string  // the header's repo field, verbatim, for messages
 	root     string  // resolved root; "" when missing
 	git      gitRepo // nil when the root is not a git repository's top level
+
+	// the hand-over: once serve has exited and a keeper holds this server,
+	// the next serve posts the recorded token here to take the address back
+	handoffToken string
+	handoff      chan struct{}
+	handoffOnce  sync.Once
 }
 
 // trustUnverified is presentation-level only: "could not check", as opposed
@@ -44,7 +51,7 @@ func newAPIServer(plateDir string) (*apiServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &apiServer{plateDir: plateDir, repoName: p.Header.Repo}
+	s := &apiServer{plateDir: plateDir, repoName: p.Header.Repo, handoff: make(chan struct{})}
 	root := p.Header.Repo
 	if !filepath.IsAbs(root) {
 		root = filepath.Join(plateDir, root)
@@ -77,6 +84,7 @@ func (s *apiServer) handler() http.Handler {
 	mux.HandleFunc("GET /api/ledger", s.serveLedger)
 	mux.HandleFunc("POST /api/review", s.serveReview)
 	mux.HandleFunc("GET /api/events", s.serveEvents)
+	mux.HandleFunc("POST /api/handoff", s.serveHandoff)
 	ui, err := fs.Sub(uiFS, "ui")
 	if err != nil {
 		panic(err) // embed is fixed at build time
@@ -199,6 +207,11 @@ func (s *apiServer) servePlate(w http.ResponseWriter, r *http.Request) {
 		}
 		nibbles = append(nibbles, out)
 	}
+	thread, err := s.threadOut(p)
+	if err != nil {
+		httpError(w, http.StatusInternalServerError, err)
+		return
+	}
 	about := map[string]any{"kind": p.Header.About.Kind}
 	if p.Header.About.PR != 0 {
 		about["pr"] = p.Header.About.PR
@@ -213,7 +226,7 @@ func (s *apiServer) servePlate(w http.ResponseWriter, r *http.Request) {
 		"about":    about,
 		"open":     p.Open,
 		"total":    p.Total,
-		"review":   p.Review,
+		"thread":   thread,
 		"ledger":   p.Ledger,
 		"nibbles":  nibbles,
 		"source": map[string]any{
@@ -231,7 +244,57 @@ func (s *apiServer) servePlate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, out)
 }
 
-// --- GET /api/code?n=<N>&ref=<I> ---
+// --- the thread: whose turn, every round's comments with their replies ---
+
+type apiReply struct {
+	Text    string   `json:"text"`
+	Because string   `json:"because,omitempty"`
+	Refs    []apiRef `json:"refs"`
+}
+
+type apiComment struct {
+	ID     string    `json:"id"`
+	Target string    `json:"target,omitempty"`
+	Thread string    `json:"thread,omitempty"`
+	Text   string    `json:"text"`
+	Reply  *apiReply `json:"reply"`
+}
+
+type apiRound struct {
+	N        int          `json:"n"`
+	Comments []apiComment `json:"comments"`
+}
+
+type apiThread struct {
+	Turn   string     `json:"turn"`
+	Rounds []apiRound `json:"rounds"`
+}
+
+func (s *apiServer) threadOut(p *protocol.Plate) (apiThread, error) {
+	out := apiThread{Turn: string(p.Turn()), Rounds: []apiRound{}}
+	for _, r := range p.Rounds {
+		round := apiRound{N: r.N, Comments: []apiComment{}}
+		for i, c := range r.Review.Comments {
+			ac := apiComment{ID: c.ID, Target: r.Target(i + 1), Thread: c.Thread, Text: c.Text}
+			if rep := r.ReplyTo(i + 1); rep != nil {
+				ar := &apiReply{Text: rep.Text, Because: rep.Because, Refs: []apiRef{}}
+				for _, nr := range rep.Refs {
+					ref, _, err := s.resolveRef(nr)
+					if err != nil {
+						return out, err
+					}
+					ar.Refs = append(ar.Refs, ref)
+				}
+				ac.Reply = ar
+			}
+			round.Comments = append(round.Comments, ac)
+		}
+		out.Rounds = append(out.Rounds, round)
+	}
+	return out, nil
+}
+
+// --- GET /api/code?n=<N>&ref=<I> · ?round=<K>&comment=<I>&ref=<J> ---
 
 const drawerContext = 3
 
@@ -248,16 +311,38 @@ func (s *apiServer) serveCode(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusConflict, err)
 		return
 	}
-	n, _ := strconv.Atoi(r.URL.Query().Get("n"))
-	ri, _ := strconv.Atoi(r.URL.Query().Get("ref"))
-	if n < 1 || n > len(p.Nibbles) {
-		httpError(w, http.StatusNotFound, errf("nibble.file", "no nibble %d", n))
-		return
-	}
-	refs := p.Nibbles[n-1].Refs
-	if ri < 0 || ri >= len(refs) {
-		httpError(w, http.StatusNotFound, errf("ref.syntax", "nibble %d has no ref %d", n, ri))
-		return
+	q := r.URL.Query()
+	ri, _ := strconv.Atoi(q.Get("ref"))
+	var refs []protocol.NibbleRef
+	if q.Has("round") {
+		// a reply's ref: round K's reply to comment I
+		k, _ := strconv.Atoi(q.Get("round"))
+		ci, _ := strconv.Atoi(q.Get("comment"))
+		if k < 1 || k > len(p.Rounds) {
+			httpError(w, http.StatusNotFound, errf(protocol.CodeReplyTarget, "no round %d", k))
+			return
+		}
+		rep := p.Rounds[k-1].ReplyTo(ci)
+		if rep == nil {
+			httpError(w, http.StatusNotFound, errf(protocol.CodeReplyTarget, "round %d has no reply to comment %d", k, ci))
+			return
+		}
+		if ri < 0 || ri >= len(rep.Refs) {
+			httpError(w, http.StatusNotFound, errf("ref.syntax", "that reply has no ref %d", ri))
+			return
+		}
+		refs = rep.Refs
+	} else {
+		n, _ := strconv.Atoi(q.Get("n"))
+		if n < 1 || n > len(p.Nibbles) {
+			httpError(w, http.StatusNotFound, errf("nibble.file", "no nibble %d", n))
+			return
+		}
+		refs = p.Nibbles[n-1].Refs
+		if ri < 0 || ri >= len(refs) {
+			httpError(w, http.StatusNotFound, errf("ref.syntax", "nibble %d has no ref %d", n, ri))
+			return
+		}
 	}
 	ar, content, err := s.resolveRef(refs[ri])
 	if err != nil {
@@ -395,6 +480,10 @@ func (s *apiServer) serveLedger(w http.ResponseWriter, r *http.Request) {
 
 // --- POST /api/review ---
 
+// serveReview writes the posted review as the next round. It is refused
+// while the latest round still awaits the agent's replies (review.exists)
+// and when a thread link does not resolve (review.thread) — before anything
+// is written. A done round is not an end: the next round may follow it.
 func (s *apiServer) serveReview(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
 	if err != nil {
@@ -406,19 +495,27 @@ func (s *apiServer) serveReview(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusBadRequest, perr)
 		return
 	}
-	if rev.Comments == nil {
-		rev.Comments = []protocol.ReviewComment{}
-	}
 	unlock, err := lockDir(s.plateDir)
 	if err != nil {
 		httpError(w, http.StatusInternalServerError, err)
 		return
 	}
 	defer unlock()
-	reviewPath := filepath.Join(s.plateDir, "review.json")
-	if _, err := os.Stat(reviewPath); err == nil {
-		httpError(w, http.StatusConflict, errf(protocol.CodeReviewExists,
-			"this plate already has a review"))
+	p, err := protocol.ParsePlate(s.plateDir)
+	if err != nil {
+		httpError(w, http.StatusConflict, err)
+		return
+	}
+	if latest := p.Latest(); latest != nil {
+		if !latest.Answered() {
+			httpError(w, http.StatusConflict, errf(protocol.CodeReviewExists,
+				"round %d still awaits the agent's reply (%d of %d answered)", latest.N, latest.AnsweredCount(), len(latest.Review.Comments)))
+			return
+		}
+	}
+	round, err := protocol.NextRound(p.Rounds, rev)
+	if err != nil {
+		httpError(w, http.StatusBadRequest, err)
 		return
 	}
 	raw, err := json.MarshalIndent(rev, "", "  ")
@@ -426,11 +523,28 @@ func (s *apiServer) serveReview(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusInternalServerError, err)
 		return
 	}
-	if err := writeAtomic(reviewPath, append(raw, '\n')); err != nil {
+	if err := writeAtomic(filepath.Join(s.plateDir, protocol.ReviewFile(round.N)), append(raw, '\n')); err != nil {
 		httpError(w, http.StatusInternalServerError, err)
 		return
 	}
+	writeJSON(w, map[string]any{"ok": true, "round": round.N})
+}
+
+// --- POST /api/handoff ---
+
+// serveHandoff lets the next serve take the address back from a keeper:
+// the token recorded in the plate directory, and nothing else, stands the
+// keeper down. A server that is not a keeper has no token and refuses.
+func (s *apiServer) serveHandoff(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil || s.handoffToken == "" || body.Token != s.handoffToken {
+		httpError(w, http.StatusForbidden, fmt.Errorf("not a keeper, or the wrong token"))
+		return
+	}
 	writeJSON(w, map[string]any{"ok": true})
+	s.handoffOnce.Do(func() { close(s.handoff) })
 }
 
 // --- GET /api/events ---
@@ -440,8 +554,9 @@ func (s *apiServer) serveReview(w http.ResponseWriter, r *http.Request) {
 type plateSnapshot struct {
 	nibbles  int
 	total    int
-	reviewed bool
-	comments int
+	rounds   int // review rounds on disk
+	comments int // comments of the latest round
+	answered int // replies of the latest round
 }
 
 func (s *apiServer) snapshot() plateSnapshot {
@@ -460,10 +575,11 @@ func (s *apiServer) snapshot() plateSnapshot {
 			snap.total = d.Total
 		}
 	}
-	if raw, err := os.ReadFile(filepath.Join(s.plateDir, "review.json")); err == nil {
-		if r, err := protocol.ParseReview(raw); err == nil {
-			snap.reviewed = true
-			snap.comments = len(r.Comments)
+	if p, err := protocol.ParsePlate(s.plateDir); err == nil {
+		snap.rounds = len(p.Rounds)
+		if r := p.Latest(); r != nil {
+			snap.comments = len(r.Review.Comments)
+			snap.answered = r.AnsweredCount()
 		}
 	}
 	return snap
@@ -475,6 +591,9 @@ func (s *apiServer) serveEvents(w http.ResponseWriter, r *http.Request) {
 		httpError(w, http.StatusInternalServerError, fmt.Errorf("streaming unsupported"))
 		return
 	}
+	// The baseline is taken before the client hears "connected", so a
+	// change right after the connect is never missed.
+	last := s.snapshot()
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	fmt.Fprint(w, ": connected\n\n")
@@ -484,7 +603,6 @@ func (s *apiServer) serveEvents(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, data)
 		flusher.Flush()
 	}
-	last := s.snapshot()
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 	for {
@@ -499,8 +617,10 @@ func (s *apiServer) serveEvents(w http.ResponseWriter, r *http.Request) {
 			if cur.total != 0 && last.total == 0 {
 				emit("sealed", fmt.Sprintf(`{"total":%d}`, cur.total))
 			}
-			if cur.reviewed && !last.reviewed {
-				emit("review", fmt.Sprintf(`{"comments":%d}`, cur.comments))
+			if cur.rounds > last.rounds {
+				emit("review", fmt.Sprintf(`{"round":%d,"comments":%d}`, cur.rounds, cur.comments))
+			} else if cur.rounds == last.rounds && cur.rounds > 0 && cur.answered > last.answered {
+				emit("reply", fmt.Sprintf(`{"round":%d,"answered":%d,"of":%d}`, cur.rounds, cur.answered, cur.comments))
 			}
 			last = cur
 		}

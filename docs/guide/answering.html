@@ -35,15 +35,19 @@
 </aside>
 <div class="content">
 <h1>Answering</h1>
-<p class="lede">Comments are pinned to the thing itself: select a node, an edge, a moment on the timeline or some lines in the drawer, and press <kbd>c</kbd>.</p>
-<p>Two ways to send a comment:</p>
+<p class="lede">The plate has a chat, fixed on the right beside the nibble you are reading: every conversation on the plate, each pinned to the thing it is about — a node, a step, a moment on the timeline, a file in the ledger, or a whole nibble.</p>
+<p>Select something and write. Your message appears at once as a <b>draft</b> bubble under a thread headed by its target (<span class="mono">n2:cache</span>), and the composer says where it will go: a new thread on the selection, or a reply in a thread that already exists there. Drafts can be removed. Nothing has been sent yet.</p>
 <div class="cards">
-  <div class="card"><b>Ask now</b><p>Ends the agent's wait immediately with your question. The answer comes back threaded into the same plate.</p></div>
-  <div class="card"><b>Hold for review</b><p>Keeps the comment until you send your review. The review is just your comments — none means <b>done</b>.</p></div>
+  <div class="card"><b>Send</b> <kbd>⌘⏎</kbd><p>Sends this message and every held draft at once, as one round. The agent wakes immediately.</p></div>
+  <div class="card"><b>Hold</b> <kbd>⇧⌘⏎</kbd><p>Keeps the message as a draft. Write as many as you like, on as many things as you like — they go out with the next send.</p></div>
 </div>
-<p><b>Pinning a comment does not send anything.</b> The plate stays open, the agent keeps waiting, and you can change your mind or remove comments. The review is posted only when you click the <b>send</b> button — it says <b>done</b> with no comments pinned, or <b>send N comments</b> with some. That click is what ends the agent’s wait, and whether there are comments becomes its exit code. No stray click can close a review.</p>
-<p>In a PR review, check the end of the plate before you answer. The <b>not-shown ledger</b> lists every hunk of the diff no nibble referenced — each opens its code in the drawer — and the map badges <b>dependents the plate never visited</b> (callers, tests, configs of the changed code). That's where agent-written PRs usually go wrong. Both are open to comments like anything else.</p>
-<p>Comments travel back pinned to what you selected, each carrying its trust level, so the agent knows exactly what you meant even if the code moved.</p>
+<p><b>Send is the one deliberate action.</b> Only it ends the agent's wait; a round is what you send, posted together. There is no done button: when you have nothing more to say, say nothing — the agent moves on when its wait times out, and the page stays up for whenever you come back.</p>
+<h4 id="loop">The loop</h4>
+<p>After you send, the agent is awake and the panel locks: <i>sent — the agent is answering · 0 of 2</i>. Leave the tab open. The agent reads the round as a batch, makes any change you asked for in the code, and answers each message <b>on the plate</b>, pinned under your message, with the lines that prove it: a reply bubble with code chips you can open in the drawer, and phrases that light up the picture when you hover them. Replies land one by one; the count ticks up. When every message has one, the panel unlocks: <i>your turn — reply, or write elsewhere</i>.</p>
+<p>Then it is your turn again. Reply inside a thread to keep the conversation on that thing, open a new thread elsewhere, or say nothing when there is nothing to address: the agent moves on, the page stays up, and you can write again later. Elements and cards with a conversation wear a small count badge; click it to jump to that thread, and click a thread's target chip to jump back to the thing on the plate.</p>
+<p>The page stays up the whole time: when the agent's wait ends, a keeper takes over serving the plate, and the agent's next wait takes it back, so the tab never needs a new link. The chat's header carries the message count and a live marker while the agent answers; <kbd>c</kbd> puts the cursor in the composer.</p>
+<p>In a PR review, check the end of the plate before you answer. The <b>not-shown ledger</b> lists every hunk of the diff no nibble referenced — each opens its code in the drawer — and the map badges <b>dependents the plate never visited</b> (callers, tests, configs of the changed code). That's where agent-written PRs usually go wrong. Both take threads like anything else.</p>
+<p>Messages travel back pinned to what you selected, each carrying its trust level, so the agent knows exactly what you meant even if the code moved.</p>
 <nav class="pager">
   <a href="reading.html"><small>← previous</small><b>Reading a plate</b></a>
   <a class="next" href="agents.html"><small>next →</small><b>For agents</b></a>

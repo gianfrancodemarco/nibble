@@ -23,6 +23,7 @@
     "src/visual/compare.ts",
     "src/visual/ledger.ts",
     "src/live.ts",
+    "src/chat.ts",
     "src/app.ts"
   ]
 }

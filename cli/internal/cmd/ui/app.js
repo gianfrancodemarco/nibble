@@ -350,9 +350,12 @@ function clearVisualSelection(strip, wiring) {
 function wireVisualHost(strip, wiring) {
     // selectId: the one selection path — element clicks and prose-link clicks
     // both land here, so targets and visited state cannot diverge.
-    const selectId = (card, id) => {
+    const selectId = (card, id, force = false) => {
+        const idx = Number(card.dataset.i);
+        if (force && hostSelection && hostSelection.card === idx && hostSelection.id === id)
+            return;
         const first = !hostVisited.has(id);
-        hostSelection = selectAndVisit(hostSelection, Number(card.dataset.i), id);
+        hostSelection = selectAndVisit(hostSelection, idx, id);
         applySelection(strip);
         if (first)
             applyVisited(strip);
@@ -447,6 +450,7 @@ function wireVisualHost(strip, wiring) {
         if (!hoverNode(e.relatedTarget))
             relight(null);
     });
+    return { select: selectId };
 }
 // map — services and modules as tiered columns. Layout is pure (tested in
 // test/map.test.ts); rendering builds SVG on top of it and registers with
@@ -1434,18 +1438,25 @@ function progressLabel(open, nibbles, total) {
     }
     return { text: `${nibbles} of ${total} · sealed`, live: false };
 }
-function plateShape(nibbles, open, reviewed, ledger) {
-    return { nibbles: nibbles.map((n) => JSON.stringify(n)), open, reviewed, ledger };
+function plateShape(nibbles, open, thread, ledger) {
+    return { nibbles: nibbles.map((n) => JSON.stringify(n)), open, thread: JSON.stringify(thread ?? null), ledger };
 }
 // arrivalPlan: append only when the shown plate is a strict prefix of the
 // new one — new nibbles at the end, or the ledger card (and sealed state)
-// arriving at the seal. Anything else that differs rebuilds wholesale;
-// identical shapes do nothing.
+// arriving at the seal. A reload where only the thread differs (a reply, a
+// new round) patches the conversation in place; the strip is untouched.
+// Anything else that differs rebuilds wholesale; identical shapes do
+// nothing.
 function arrivalPlan(prev, next) {
     if (!prev)
         return "rebuild";
-    if (prev.reviewed !== next.reviewed)
-        return "rebuild";
+    const threadMoved = prev.thread !== next.thread;
+    const cardsPlan = cardsArrivalPlan(prev, next);
+    if (!threadMoved)
+        return cardsPlan;
+    return cardsPlan === "none" ? "thread" : "rebuild";
+}
+function cardsArrivalPlan(prev, next) {
     if (next.nibbles.length < prev.nibbles.length)
         return "rebuild";
     for (let i = 0; i < prev.nibbles.length; i++) {
@@ -1470,6 +1481,144 @@ function latestWins() {
         isCurrent: (token) => token === seq,
     };
 }
+// The chat: the pure decisions behind the conversation panel — reassembling
+// threads from the server's rounds, placing drafts, mapping targets to
+// cards and elements, counting badges, and wording the turn. No DOM here:
+// the node test build exercises it; app.ts owns the rendering.
+const NEW_THREAD = "new:";
+// buildThreads reassembles the conversation: one thread per opener in the
+// order the openers were written, replies and follow-ups interleaved round
+// by round, drafts appended to the thread they continue — or grouped by
+// target into a new thread at the end when no sent thread exists for it.
+function buildThreads(thread, drafts) {
+    const out = [];
+    const index = new Map();
+    const agentTurn = thread?.turn === "agent";
+    for (const r of thread?.rounds ?? []) {
+        r.comments.forEach((c, i) => {
+            const key = c.thread ?? c.id;
+            let ti = index.get(key);
+            if (ti === undefined) {
+                ti = out.length;
+                index.set(key, ti);
+                out.push({ key, id: key, target: c.target ?? "", messages: [], awaiting: false });
+            }
+            const th = out[ti];
+            th.messages.push({ from: "reader", round: r.n, id: c.id, text: c.text });
+            if (c.reply) {
+                th.messages.push({
+                    from: "agent", round: r.n, text: c.reply.text, refs: c.reply.refs,
+                    because: c.reply.because, at: { round: r.n, comment: i + 1 },
+                });
+                th.awaiting = false;
+            }
+            else {
+                th.awaiting = agentTurn;
+            }
+        });
+    }
+    for (const d of drafts) {
+        let ti;
+        if (d.thread !== undefined)
+            ti = index.get(d.thread);
+        if (ti === undefined) {
+            const key = d.thread !== undefined ? d.thread : NEW_THREAD + (d.target ?? "");
+            ti = index.get(key);
+            if (ti === undefined) {
+                ti = out.length;
+                index.set(key, ti);
+                out.push({ key, id: null, target: d.target ?? "", messages: [], awaiting: false });
+            }
+        }
+        out[ti].messages.push({ from: "draft", text: d.text, draftKey: d.key });
+    }
+    return out;
+}
+// sentThreadOn: the sent thread (opener id) a target already has, if any —
+// a new message on that target continues it rather than opening a second.
+function sentThreadOn(threads, target) {
+    for (const th of threads) {
+        if (th.id !== null && th.target === target)
+            return th.id;
+    }
+    return null;
+}
+// draftComments turns drafts into the review's comments: a follow-up carries
+// its thread and no target of its own; an opener carries its target.
+function draftComments(drafts) {
+    return drafts.map((d) => {
+        if (d.thread !== undefined)
+            return { thread: d.thread, text: d.text };
+        return d.target ? { target: d.target, text: d.text } : { text: d.text };
+    });
+}
+// --- targets → the plate ---
+// cardOfTarget: which card a target lives on — nibble N for n<N>…, the
+// ledger card for ledger…, the first card for an untargeted comment, null
+// for a nibble the plate does not have.
+function cardOfTarget(target, nibbles, hasLedger) {
+    if (!target)
+        return nibbles > 0 || hasLedger ? 0 : null;
+    if (target.startsWith("ledger"))
+        return hasLedger ? nibbles : null;
+    const m = /^n(\d+)(?::|$)/.exec(target);
+    if (!m)
+        return null;
+    const n = Number(m[1]);
+    return n >= 1 && n <= nibbles ? n - 1 : null;
+}
+// anchorOfTarget: the element id a target names on its card, or null for a
+// whole-card target (n2, ledger, untargeted).
+function anchorOfTarget(target) {
+    if (!target)
+        return null;
+    if (target.startsWith("ledger:"))
+        return target.slice("ledger:".length) || null;
+    const i = target.indexOf(":");
+    return i > 0 ? target.slice(i + 1) || null : null;
+}
+function badgeCounts(threads, nibbles, hasLedger) {
+    const cards = new Map();
+    const elements = new Map();
+    const keys = new Map();
+    for (const th of threads) {
+        const card = cardOfTarget(th.target, nibbles, hasLedger);
+        if (card === null)
+            continue;
+        const n = th.messages.length;
+        cards.set(card, (cards.get(card) ?? 0) + n);
+        const id = anchorOfTarget(th.target);
+        if (id) {
+            const k = `${card}:${id}`;
+            elements.set(k, (elements.get(k) ?? 0) + n);
+            if (!keys.has(k))
+                keys.set(k, th.key);
+        }
+    }
+    return { cards, elements, keys };
+}
+// Worded as a chat, not a ledger: no round numbers, just whose turn it is.
+function turnLabel(thread, justSent) {
+    const last = thread && thread.rounds.length ? thread.rounds[thread.rounds.length - 1] : null;
+    if (!thread || !last)
+        return { text: "write on anything, then send", locked: false };
+    if (last.comments.length === 0) {
+        // done is no end: the agent moved on, the chat stays open
+        return { text: justSent ? "sent done — the agent moved on; write again any time" : "done was sent — write again any time", locked: false };
+    }
+    if (thread.turn === "agent") {
+        const of = last.comments.length;
+        const answered = last.comments.filter((c) => c.reply).length;
+        const head = justSent ? "sent — the agent is answering" : "the agent is answering";
+        return { text: `${head} · ${answered} of ${of}`, locked: true };
+    }
+    return { text: "your turn — reply, or write elsewhere", locked: false };
+}
+// sendLabel: what the send button does right now — this message, plus any
+// held drafts. There is no done button: silence is done.
+function sendLabel(drafts) {
+    return drafts ? `Send ${drafts > 1 ? `+${drafts}` : "+1"}` : "Send";
+}
 // nibble reader shell — pure presentation over the Go server's JSON API.
 // Protocol logic (refs, trust, validation) never happens here: the server
 // hands us computed trust and resolved code. Hand-written types below cover
@@ -1492,7 +1641,11 @@ let plate = null;
 let active = 0;
 let justSent = false;
 let dialLevel = DIAL_DEFAULT;
-const pending = [];
+// the chat: drafts typed but not sent, the focused thread, the panel state
+const drafts = [];
+let draftSeq = 0;
+let focusedThread = null;
+let chatOpen = true; // the chat is a full-height column; it collapses to a rail
 const read = new Set(); // cards visited, for the rail only
 let knownCards = 0; // cards already on screen, for the arrival animation
 let painted = false; // first paint done — later cards are arrivals, animated
@@ -1691,8 +1844,7 @@ function render() {
     painted = true;
     syncGhost();
     applySelection(strip);
-    updateCommentTarget();
-    renderReviewBar();
+    renderChat();
     camera();
 }
 // --- the detail dial: one plate-wide level, same canvas, same camera ---
@@ -1715,12 +1867,15 @@ function currentTarget() {
         ? ledgerCommentTarget(hostSelection, active)
         : commentTarget(plate.nibbles[active].n, hostSelection, active);
 }
-// updateCommentTarget keeps an open popover honest when the selection moves
-// under it; a closed popover reads the target fresh when it opens.
-function updateCommentTarget() {
-    if ($("#pop").hidden)
+// onSelectionMoved: the chat follows the selection — the thread on the
+// selected thing is focused, or the composer offers a new one there.
+function onSelectionMoved() {
+    if (!plate)
         return;
-    $("#pop-target").textContent = currentTarget();
+    const target = currentTarget();
+    const th = buildThreads(plate.thread, drafts).find((t) => t.target === target);
+    focusedThread = th ? th.key : null;
+    renderChat();
 }
 function setActive(i) {
     if (!plate)
@@ -1732,7 +1887,7 @@ function setActive(i) {
     document.querySelectorAll(".nibble").forEach((card, idx) => {
         card.classList.toggle("active", idx === active);
     });
-    updateCommentTarget();
+    onSelectionMoved();
     camera();
 }
 function camera() {
@@ -1781,9 +1936,17 @@ function closeDrawer() {
     document.body.appendChild(d);
 }
 async function openDrawer(n, ref) {
+    await openCode(`n=${n}&ref=${ref}`);
+}
+// openReplyRef: a reply's ref opens in the drawer inside the thread's card.
+async function openReplyRef(card, round, comment, ref) {
+    setActive(card);
+    await openCode(`round=${round}&comment=${comment}&ref=${ref}`);
+}
+async function openCode(query) {
     let resp;
     try {
-        resp = await fetch(`api/code?n=${n}&ref=${ref}`);
+        resp = await fetch(`api/code?${query}`);
     }
     catch {
         flash("⚠ the plate’s server is gone — serve has exited; re-run nibble serve and reload");
@@ -1885,106 +2048,237 @@ async function openLedgerDrawer(path, side) {
     $("#drawer-code").innerHTML = parts.join("");
     attachDrawer();
 }
-// --- the comment popover: disagree on the thing itself, where it is ---
-// openPop shows the popover beside the selected element (or over the active
-// card's visual when nothing is selected), targeted like the review bar.
-function openPop() {
-    if (!plate || plate.review)
+// --- the chat: threads pinned to things, the agent's replies in place ---
+function threads() {
+    return plate ? buildThreads(plate.thread, drafts) : [];
+}
+// setChatOpen: open is a full-height column, closed a slim rail. The canvas
+// takes the width either way; the camera recentres once the panel settles.
+function setChatOpen(open) {
+    if (open === chatOpen)
         return;
-    $("#pop-target").textContent = currentTarget();
-    const pop = $("#pop");
-    pop.hidden = false;
-    const anchor = document.querySelector(".nibble.active [data-anchor].sel") ??
-        document.querySelector(".nibble.active .visual");
-    const r = anchor?.getBoundingClientRect();
-    if (r) {
-        let x = r.right + 12;
-        let y = r.top;
-        if (x + pop.offsetWidth > window.innerWidth - 12) {
-            x = Math.max(12, Math.min(r.left + r.width / 2 - pop.offsetWidth / 2, window.innerWidth - pop.offsetWidth - 12));
-            y = r.bottom + 10;
-        }
-        y = Math.max(12, Math.min(y, window.innerHeight - pop.offsetHeight - 12));
-        pop.style.left = `${x}px`;
-        pop.style.top = `${y}px`;
-    }
-    $("#pop-text").focus();
+    chatOpen = open;
+    $("#chat").classList.toggle("collapsed", !open);
+    renderChat();
+    if (open)
+        $("#composer-text").focus();
 }
-function closePop() {
-    $("#pop").hidden = true;
-    $("#pop-text").value = "";
+// focusComposer: `c` opens the chat if needed and puts the cursor in it.
+function focusComposer() {
+    setChatOpen(true);
+    $("#composer-text").focus();
 }
-// holdPop pins the comment for the review; the send button still posts it.
-function holdPop() {
-    const text = $("#pop-text").value.trim();
-    if (!text)
-        return;
-    pending.push({ target: currentTarget(), text });
-    closePop();
-    renderReviewBar();
+// focusThread: the thread the composer writes into, scrolled into view.
+function focusThread(key) {
+    focusedThread = key;
+    renderChat();
+    if (key)
+        document.querySelector(`#threads .thread[data-key="${key}"]`)?.scrollIntoView({ block: "nearest" });
 }
-// askPop ends the agent's wait now: this question, plus everything pinned.
-function askPop() {
-    const text = $("#pop-text").value.trim();
-    if (!text)
-        return;
-    pending.push({ target: currentTarget(), text });
-    closePop();
-    void submit();
-}
-// --- review ---
-function renderReviewBar() {
+// goToThread: a thread's chip moves the camera to its card and selects its
+// element, exactly as clicking the element would.
+function goToThread(th) {
     if (!plate)
         return;
-    const bar = $("#reviewbar");
-    const submitted = $("#submitted");
-    if (plate.review) {
-        bar.classList.add("locked");
-        $("#send").hidden = true;
-        submitted.hidden = false;
-        const n = plate.review.comments?.length ?? 0;
-        const badge = n
-            ? `<span class="trust shifted">${n} comment${n > 1 ? "s" : ""}</span>`
-            : `<span class="trust exact">done</span>`;
-        submitted.innerHTML = justSent
-            ? `review sent: ${badge} — the agent is awake; you can close this tab`
-            : `this plate was reviewed: ${badge} — you are reading it after the fact`;
+    const card = cardOfTarget(th.target, plate.nibbles.length, plate.ledger != null);
+    if (card === null)
         return;
+    setActive(card);
+    const id = anchorOfTarget(th.target);
+    const cardEl = document.querySelectorAll(".nibble")[card];
+    if (id && cardEl && cardEl.querySelector(`[data-anchor="${id}"]`))
+        host.select(cardEl, id, true);
+    focusThread(th.key);
+}
+// composerDestination: what a typed message becomes — a follow-up in the
+// focused (or the selection's) sent thread, or an opener on the selection.
+function composerDestination() {
+    const ths = threads();
+    const name = (t) => t || "plate";
+    if (focusedThread) {
+        const th = ths.find((t) => t.key === focusedThread);
+        if (th) {
+            return th.id
+                ? { label: `reply in ${name(th.target)}`, thread: th.id }
+                : { label: `new thread on ${name(th.target)}`, target: th.target };
+        }
     }
-    bar.classList.remove("locked");
-    submitted.hidden = true;
-    const send = $("#send");
-    send.hidden = false;
-    send.textContent = pending.length ? `send ${pending.length} comment${pending.length > 1 ? "s" : ""}` : "done";
-    $("#pending").innerHTML = pending
-        .map((c, i) => `<span class="pin"><b>${esc(c.target ?? "plate")}</b> ${esc(c.text)} <button data-i="${i}" title="remove">×</button></span>`)
-        .join("");
-    document.querySelectorAll("#pending button").forEach((btn) => {
-        btn.addEventListener("click", () => {
-            pending.splice(Number(btn.dataset.i), 1);
-            renderReviewBar();
+    const target = currentTarget();
+    const sent = sentThreadOn(ths, target);
+    return sent ? { label: `reply in ${target}`, thread: sent } : { label: `new thread on ${target}`, target };
+}
+// holdDraft keeps the typed message as a draft bubble; the send button
+// posts the round.
+function holdDraft() {
+    const ta = $("#composer-text");
+    const text = ta.value.trim();
+    if (!text || !plate || turnLabel(plate.thread, justSent).locked)
+        return false;
+    const dest = composerDestination();
+    const d = { key: ++draftSeq, text };
+    if (dest.thread !== undefined)
+        d.thread = dest.thread;
+    else if (dest.target)
+        d.target = dest.target;
+    drafts.push(d);
+    ta.value = "";
+    focusedThread = dest.thread ?? (dest.target !== undefined ? NEW_THREAD + dest.target : null);
+    const sent = threads().find((t) => t.id === dest.thread);
+    if (sent)
+        focusedThread = sent.key;
+    renderChat();
+    return true;
+}
+// sendNow: this message and every held draft go out as the round, at once.
+// There is no done button: with nothing typed and nothing held, nothing
+// happens — silence is done.
+function sendNow() {
+    if (holdDraft() || drafts.length)
+        void submit();
+}
+function removeDraft(key) {
+    const i = drafts.findIndex((d) => d.key === key);
+    if (i >= 0)
+        drafts.splice(i, 1);
+    renderChat();
+}
+// renderChat draws the panel — header, threads, composer — and the badges
+// on the plate. Thread-only reloads call it alone: the strip, the camera,
+// the selection and the drawer are never touched here.
+function renderChat() {
+    if (!plate)
+        return;
+    const ths = threads();
+    const turn = turnLabel(plate.thread, justSent);
+    const nibbleCount = plate.nibbles.length;
+    const hasLedger = plate.ledger != null;
+    $("#chat-turn").textContent = turn.text;
+    const send = $("#composer-send");
+    send.innerHTML = `${esc(sendLabel(drafts.length))} <small>⌘⏎</small>`;
+    send.disabled = turn.locked;
+    send.title = turn.locked ? turn.text : "send this message and every draft; the agent wakes (⌘⏎)";
+    // the header: the count and a live marker while the agent is answering
+    const total = ths.reduce((n, t) => n + t.messages.length, 0);
+    for (const id of ["#chat-count", "#rail-count"]) {
+        const count = $(id);
+        count.hidden = total === 0;
+        count.textContent = String(total);
+    }
+    for (const id of ["#chat-live", "#rail-live"])
+        $(id).hidden = plate.thread.turn !== "agent";
+    const list = $("#threads");
+    const scroll = list.scrollTop;
+    list.innerHTML = "";
+    if (ths.length === 0) {
+        list.innerHTML = `<p class="chat-empty">Nothing here yet. Select a node, a step or a file row and write below — or comment on the whole nibble.</p>`;
+    }
+    for (const th of ths) {
+        const card = cardOfTarget(th.target, nibbleCount, hasLedger);
+        const el = document.createElement("section");
+        el.className = "thread" + (th.key === focusedThread ? " focused" : "");
+        el.dataset.key = th.key;
+        if (card !== null)
+            el.dataset.card = String(card);
+        const drawn = (id) => {
+            const v = card === null ? null : visualOfCard(card);
+            return v !== null && anchorDrawnAt(v, id, dialLevel);
+        };
+        const head = `<header><button type="button" class="tchip mono" title="go to it on the plate">${esc(th.target || "plate")}</button></header>`;
+        const msgs = th.messages.map((m) => {
+            if (m.from === "draft") {
+                return `<div class="msg draft"><span class="who">you · unsent</span><p>${esc(m.text)}</p><button type="button" class="rm" data-draft="${m.draftKey}" title="remove this draft">×</button></div>`;
+            }
+            if (m.from === "reader") {
+                return `<div class="msg reader"><span class="who">you</span><p>${esc(m.text)}</p></div>`;
+            }
+            const refs = (m.refs ?? []).map((r, i) => `<button type="button" class="mref" data-round="${m.at?.round}" data-comment="${m.at?.comment}" data-ref="${i}" title="${esc(r.ref)}"><span class="mono">${esc(r.path)}:${r.start}${r.end > r.start ? `–${r.end}` : ""}</span>${trustBadge(r.trust)}</button>`).join("");
+            return `<div class="msg agent"><span class="who">agent</span><div class="mtext">${proseToHtml(m.text, drawn)}</div>${refs ? `<div class="mrefs">${refs}</div>` : ""}${m.because ? `<p class="because">over budget because: ${esc(m.because)}</p>` : ""}</div>`;
+        }).join("");
+        const awaiting = th.awaiting ? `<div class="msg awaiting"><span class="pulse"></span>awaiting the agent's reply…</div>` : "";
+        el.innerHTML = head + `<div class="msgs">${msgs}${awaiting}</div>`;
+        list.appendChild(el);
+    }
+    list.scrollTop = scroll;
+    const dest = composerDestination();
+    $("#composer-on").textContent = turn.locked ? turn.text : dest.label;
+    const ta = $("#composer-text");
+    ta.disabled = turn.locked;
+    ta.placeholder = turn.locked ? "the agent is answering…" : "disagree on the thing itself…";
+    $("#composer-hold").disabled = turn.locked;
+    applyBadges(ths);
+}
+// applyBadges: a message count on every element and card with a thread —
+// derived on each render, never stored, never posted.
+function applyBadges(ths) {
+    if (!plate)
+        return;
+    const strip = $("#strip");
+    strip.querySelectorAll(".msg-badge").forEach((b) => b.remove());
+    const counts = badgeCounts(ths, plate.nibbles.length, plate.ledger != null);
+    strip.querySelectorAll(".nibble").forEach((card) => {
+        const i = Number(card.dataset.i);
+        const n = counts.cards.get(i) ?? 0;
+        const h2 = card.querySelector(".nside h2");
+        if (h2 && n) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = "msg-badge card-badge";
+            b.textContent = `${n} message${n > 1 ? "s" : ""}`;
+            b.title = "open the conversation on this card";
+            b.dataset.badgeCard = String(i);
+            h2.appendChild(b);
+        }
+        counts.elements.forEach((count, k) => {
+            const sep = k.indexOf(":");
+            if (Number(k.slice(0, sep)) !== i)
+                return;
+            const id = k.slice(sep + 1);
+            const el = card.querySelector(`.visual-body [data-anchor="${id}"]`);
+            if (!el)
+                return;
+            const key = counts.keys.get(k) ?? "";
+            if (el instanceof SVGGraphicsElement) {
+                const bb = el.getBBox();
+                // on the element's top-right corner, inset so the border stays whole
+                const g = svgEl("g", { class: "msg-badge", "data-badge-key": key, transform: `translate(${bb.x + bb.width - 6} ${bb.y + 6})`, role: "button", tabindex: 0 });
+                g.appendChild(svgEl("title", {}, `${count} message${count > 1 ? "s" : ""} — open the thread`));
+                g.appendChild(svgEl("circle", { r: 8 }));
+                g.appendChild(svgEl("text", { y: 3.5, "text-anchor": "middle" }, String(count)));
+                el.appendChild(g);
+            }
+            else {
+                const b = document.createElement("button");
+                b.type = "button";
+                b.className = "msg-badge msg-badge-h";
+                b.textContent = String(count);
+                b.title = `${count} message${count > 1 ? "s" : ""} — open the thread`;
+                b.dataset.badgeKey = key;
+                el.appendChild(b);
+            }
         });
     });
 }
 async function submit() {
+    if (!plate || drafts.length === 0 || turnLabel(plate.thread, justSent).locked)
+        return;
     let resp;
     try {
         resp = await fetch("api/review", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: reviewBody(pending),
+            body: reviewBody(draftComments(drafts)),
         });
     }
     catch {
-        flash("⚠ could not submit — serve has exited; re-run nibble serve and reload");
+        flash("⚠ could not send — serve has exited; re-run nibble serve and reload");
         return;
     }
     if (resp.ok || resp.status === 409) {
+        // The round ended serve; the agent is awake. The tab stays: it
+        // reconnects when the plate is served again on this address.
+        drafts.length = 0;
         justSent = true;
         await loadPlate();
-        // The review ended serve; this tab's job is done. Browsers only honor
-        // close() for single-entry tabs — the locked state is the fallback.
-        setTimeout(() => window.close(), 900);
     }
     else {
         const body = await resp.text();
@@ -2005,14 +2299,20 @@ async function loadPlate() {
     if (!loads.isCurrent(token))
         return;
     const prev = shownShape;
-    shownShape = plateShape(next.nibbles, next.open, next.review != null, next.ledger != null);
+    shownShape = plateShape(next.nibbles, next.open, next.thread, next.ledger != null);
     const plan = arrivalPlan(prev, shownShape);
     const prevCards = prev ? prev.nibbles.length + (prev.ledger ? 1 : 0) : 0;
     plate = next;
     if (plan === "none")
         return;
+    if (plan === "thread") {
+        // only the conversation moved: the panel and the badges, nothing else
+        renderChat();
+        return;
+    }
     if (plan === "append") {
         appendCards(prevCards);
+        renderChat();
         return;
     }
     active = Math.min(active, Math.max(0, cards() - 1));
@@ -2057,19 +2357,42 @@ function listen() {
     es.addEventListener("review", () => void loadPlate());
     // The EventSource retries forever and errors on every transient reconnect,
     // so the error alone proves nothing. Probe the plate once per episode: a
-    // dead fetch means serve is gone — say so instead of silently going stale.
+    // dead fetch means serve is gone — say so instead of silently going
+    // stale, then keep probing: when the plate is served again on this
+    // address (the agent re-serving after its replies), pick it up.
     let probing = false;
     let dead = false;
+    const back = () => {
+        dead = false;
+        const el = document.getElementById("notice");
+        if (el) {
+            el.hidden = true;
+            el.textContent = "";
+        }
+        void loadPlate();
+    };
     es.addEventListener("error", () => {
         if (probing || dead)
             return;
         probing = true;
         fetch("api/plate").then(() => { probing = false; }, // still there — a reconnect, stay quiet
         () => {
+            probing = false;
             dead = true;
-            flash("⚠ the plate’s server is gone — serve has exited; re-run nibble serve and reload");
+            flash(justSent
+                ? "the agent is awake and has your round — this tab reconnects when it serves the plate again (if it relays a new link, open that instead)"
+                : "⚠ the plate’s server is gone — serve has exited; re-run nibble serve and this tab reconnects");
+            const poll = setInterval(() => {
+                fetch("api/plate").then((r) => { if (r.ok) {
+                    clearInterval(poll);
+                    back();
+                } }, () => { });
+            }, 2000);
         });
     });
+    // a stream that reopens after a drop missed events: reload once
+    es.addEventListener("open", () => { if (dead)
+        back(); });
 }
 // --- wire up ---
 document.querySelectorAll("#dial .dial-pos").forEach((btn) => {
@@ -2080,23 +2403,80 @@ document.querySelectorAll("#dial .dial-pos").forEach((btn) => {
 });
 $("#drawer-close").addEventListener("click", closeDrawer);
 const legend = $("#legend");
-// Held comments are a draft; only the send button posts the review.
-// With no comments it sends "done" — that alone ends the agent's wait.
-$("#send").addEventListener("click", () => void submit());
-// The popover: hold pins the comment, ask now sends the review with it.
-$("#pop-hold").addEventListener("click", holdPop);
-$("#pop-ask").addEventListener("click", askPop);
-$("#pop-text").addEventListener("keydown", (e) => {
+// The composer: send posts this message and every held draft (⌘⏎, the
+// default) — that is what wakes the agent; hold keeps a draft for the next
+// send (⇧⌘⏎). There is no done button: silence is done.
+$("#chat-rail").addEventListener("click", () => setChatOpen(true));
+$("#chat-close").addEventListener("click", () => setChatOpen(false));
+$("#chat").addEventListener("transitionend", camera);
+$("#composer-hold").addEventListener("click", () => { holdDraft(); });
+$("#composer-send").addEventListener("click", sendNow);
+$("#composer-text").addEventListener("keydown", (e) => {
     if (e.key === "Escape")
-        closePop();
+        setChatOpen(false);
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         if (e.shiftKey)
-            askPop();
+            holdDraft();
         else
-            holdPop();
+            sendNow();
     }
 });
+// Inside the panel: chips go to the plate, drafts can be removed, reply refs
+// open the drawer, reply links light and select the thread's visual.
+const threadList = $("#threads");
+const cardOfThreadEl = (el) => {
+    const idx = el.closest(".thread")?.dataset.card;
+    return idx === undefined ? null : document.querySelectorAll(".nibble")[Number(idx)] ?? null;
+};
+threadList.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!t)
+        return;
+    const section = t.closest(".thread");
+    if (!section)
+        return;
+    const th = threads().find((x) => x.key === section.dataset.key);
+    const rm = t.closest("[data-draft]");
+    if (rm) {
+        removeDraft(Number(rm.dataset.draft));
+        return;
+    }
+    if (t.closest(".tchip")) {
+        if (th)
+            goToThread(th);
+        return;
+    }
+    const mref = t.closest(".mref");
+    if (mref && section.dataset.card !== undefined) {
+        void openReplyRef(Number(section.dataset.card), Number(mref.dataset.round), Number(mref.dataset.comment), Number(mref.dataset.ref));
+        return;
+    }
+    const link = t.closest(".plink[data-link-anchor]");
+    const cardEl = cardOfThreadEl(t);
+    if (link && cardEl) {
+        const id = link.getAttribute("data-link-anchor");
+        if (id) {
+            setActive(Number(cardEl.dataset.i));
+            host.select(cardEl, id, true);
+        }
+        return;
+    }
+    focusThread(section.dataset.key ?? null);
+});
+// hovering a reply's phrase lights the element on the thread's card
+const lightFromPanel = (t, on) => {
+    const link = t instanceof Element ? t.closest(".plink[data-link-anchor]") : null;
+    if (!link)
+        return;
+    const cardEl = cardOfThreadEl(link);
+    const id = link.getAttribute("data-link-anchor");
+    if (!cardEl || !id)
+        return;
+    cardEl.querySelectorAll(`[data-anchor="${id}"]`).forEach((el) => el.classList.toggle("lit", on));
+};
+threadList.addEventListener("mouseover", (e) => lightFromPanel(e.target, true));
+threadList.addEventListener("mouseout", (e) => lightFromPanel(e.target, false));
 document.addEventListener("keydown", (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
         return;
@@ -2116,16 +2496,14 @@ document.addEventListener("keydown", (e) => {
         setDial(dialToggle(dialLevel));
     if (e.key === "c") {
         e.preventDefault(); // or the c itself lands in the focused textarea
-        openPop();
+        focusComposer();
     }
     if (e.key === "?")
         legend.classList.toggle("pinned");
-    if (e.key === "s" && plate && !plate.review)
+    if (e.key === "s")
         void submit();
     if (e.key === "Escape") {
-        if (!$("#pop").hidden)
-            closePop();
-        else if (legend.classList.contains("pinned"))
+        if (legend.classList.contains("pinned"))
             legend.classList.remove("pinned");
         else if (!$("#drawer").hidden)
             closeDrawer();
@@ -2137,18 +2515,34 @@ window.addEventListener("resize", camera);
 legend.addEventListener("transitionend", camera);
 const hostWiring = {
     openRef: (n, ref) => void openDrawer(n, ref),
-    onTarget: updateCommentTarget,
+    onTarget: onSelectionMoved,
 };
-// Ledger chips open the ledger drawer; registered before the host wiring so
-// stopImmediatePropagation keeps a chip click from toggling the row's
-// selection, mirroring how code chips behave inside visuals.
+// Ledger chips open the ledger drawer, message badges open the chat on
+// their thread; both registered before the host wiring so
+// stopImmediatePropagation keeps the click from toggling a selection,
+// mirroring how code chips behave inside visuals.
 $("#strip").addEventListener("click", (e) => {
-    const chip = e.target?.closest?.("[data-ledger-path]");
-    if (!chip)
+    const t = e.target;
+    const chip = t?.closest?.("[data-ledger-path]");
+    if (chip) {
+        e.stopImmediatePropagation();
+        void openLedgerDrawer(chip.getAttribute("data-ledger-path"), chip.getAttribute("data-ledger-side") ?? "head");
+        return;
+    }
+    const badge = t?.closest?.(".msg-badge");
+    if (!badge)
         return;
     e.stopImmediatePropagation();
-    void openLedgerDrawer(chip.getAttribute("data-ledger-path"), chip.getAttribute("data-ledger-side") ?? "head");
+    const key = badge.getAttribute("data-badge-key");
+    const cardIdx = badge.getAttribute("data-badge-card");
+    setChatOpen(true);
+    if (key)
+        focusThread(key);
+    else if (cardIdx !== null && plate) {
+        const th = threads().find((x) => cardOfTarget(x.target, plate.nibbles.length, plate.ledger != null) === Number(cardIdx));
+        focusThread(th ? th.key : null);
+    }
 });
-wireVisualHost($("#strip"), hostWiring);
+const host = wireVisualHost($("#strip"), hostWiring);
 void loadPlate();
 listen();

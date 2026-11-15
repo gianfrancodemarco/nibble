@@ -50,14 +50,14 @@
     <tr><td><kbd>space</kbd></td><td>play / step the active visual (step a sequence, jump the timeline cursor, flip a compare; <kbd>shift</kbd> reverses)</td></tr>
     <tr><td><kbd>d</kbd></td><td>detail dial: flip every visual between overview and standard (deep arrives in <span class="soon">v0.2</span>)</td></tr>
     <tr><td><kbd>e</kbd></td><td>open the evidence drawer (the code behind the selection)</td></tr>
-    <tr><td><kbd>c</kbd></td><td>comment on the selected thing</td></tr>
+    <tr><td><kbd>c</kbd></td><td>write in the chat, fixed on the right: a thread on the selection or the nibble</td></tr>
     <tr><td><kbd>v</kbd></td><td>request a missing visual from the selected thing <span class="soon">v0.2</span></td></tr>
     <tr><td><kbd>w</kbd></td><td>voice walk: titles read aloud, highlight in sync <span class="soon">v0.2</span></td></tr>
-    <tr><td><kbd>s</kbd></td><td>submit your review</td></tr>
+    <tr><td><kbd>s</kbd></td><td>send your held drafts</td></tr>
     <tr><td><kbd>q</kbd></td><td>close without answering</td></tr>
   </tbody>
 </table>
-<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd>, <kbd>space</kbd>, <kbd>d</kbd> (the dial), <kbd>⏎</kbd> (pin comment), <kbd>s</kbd> (send — your comments, or done with none), <kbd>esc</kbd> (drawer, then selection) and <kbd>?</kbd> (the in-reader legend) are live. Clicking does the rest: selecting an element pins comments to it (<span class="mono">n2:cache</span>), and its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer.</p>
+<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd>, <kbd>space</kbd>, <kbd>d</kbd> (the dial), <kbd>c</kbd> (write in the chat), <kbd>s</kbd> (send your held drafts), <kbd>esc</kbd> (drawer, then selection) and <kbd>?</kbd> (the in-reader legend) are live. Clicking does the rest: selecting an element pins the conversation to it (<span class="mono">n2:cache</span>), its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer, and a message-count badge on an element or a card opens its thread.</p>
 
 <h4 id="visuals">The visuals</h4>
 <p>Each visual renders as interactive SVG. The reader lays it out from what the agent declared: the agent sends the meaning, the reader draws the pixels.</p>
@@ -70,7 +70,7 @@
 <div class="demo">
   <div class="demobar">
     <b>Live demo: the real reader, on a real plate.</b>
-    <span><kbd>←</kbd> <kbd>→</kbd> nibbles · <kbd>space</kbd> step / scrub / flip · click a node to comment on it · comments stay local to this page</span>
+    <span><kbd>←</kbd> <kbd>→</kbd> nibbles · <kbd>space</kbd> step / scrub / flip · click a node, then <kbd>c</kbd> to chat about it · the agent's replies are real, rounds you send stay local to this page</span>
     <span style="margin-left:auto"><a href="../visuals/reader.html" target="_blank">open full screen ↗</a></span>
   </div>
   <iframe src="../visuals/reader.html" title="nibble reader demo: a four-nibble plate using every visual kind" loading="lazy"></iframe>

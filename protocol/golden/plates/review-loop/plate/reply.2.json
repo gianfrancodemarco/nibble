@@ -1,0 +1,5 @@
+{
+  "replies": [
+    { "to": 1, "text": "It is: billing never sets its own TTL, so jittering here covers it." }
+  ]
+}

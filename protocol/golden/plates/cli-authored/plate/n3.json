@@ -1,6 +1,5 @@
 {
   "because": "the before/after needs the full story",
-  "title": "why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why ",
   "refs": [
     {
       "ref": "diff:src/prices.ts@worktree:3",
@@ -18,6 +17,7 @@
       ]
     }
   ],
+  "title": "why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why why ",
   "visual": {
     "kind": "compare",
     "title": "ttl today vs jitter",

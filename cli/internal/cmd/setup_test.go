@@ -200,3 +200,19 @@ func TestSetupRemovesStaleAndSparesNeighbors(t *testing.T) {
 		t.Errorf("neighbor skill touched: %v %q", err, raw)
 	}
 }
+
+// The installed skill teaches the review loop: reply, and the executed
+// conversation transcript.
+func TestSetupInstallsConversationSection(t *testing.T) {
+	repo := gitInit(t)
+	mustSetup(t, repo)
+	got, err := os.ReadFile(filepath.Join(skillDir(repo), "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"nibble reply", "## A worked conversation", "--addr"} {
+		if !strings.Contains(string(got), want) {
+			t.Errorf("installed SKILL.md lacks %q", want)
+		}
+	}
+}

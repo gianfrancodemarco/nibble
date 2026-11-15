@@ -4,22 +4,16 @@
 // the server's response shapes only; the visual types are generated from
 // the protocol JSON Schemas (src/visual/types.gen.d.ts, `npm run gen`).
 
-interface Trust { level: "exact" | "shifted" | "stale" | "unverified"; line: number; shift: number; }
-interface Ref {
-  ref: string; path: string; start: number; end: number;
-  anchor?: string; note?: string; diff?: boolean; trust: Trust;
-}
+// Trust and Ref live in src/chat.ts, shared with the node test build.
 interface NibbleData {
   n: number; title: string; description?: LevelledText; because?: string;
   visual: Visual; refs: Ref[];
 }
-interface ReviewComment { target?: string; text: string; }
-interface Review { comments?: ReviewComment[]; }
 interface Plate {
   title: string; description?: LevelledText; repo: string; head_sha: string;
   about: { kind: string; pr?: number; range?: string };
   source: { path: string; found: boolean; git: boolean };
-  open: boolean; total: number; review: Review | null; ledger?: LedgerData | null;
+  open: boolean; total: number; thread: ThreadData; ledger?: LedgerData | null;
   nibbles: NibbleData[];
 }
 interface CodeLine { no: number; text: string; in: boolean; }
@@ -42,7 +36,11 @@ let plate: Plate | null = null;
 let active = 0;
 let justSent = false;
 let dialLevel: DialLevel = DIAL_DEFAULT;
-const pending: ReviewComment[] = [];
+// the chat: drafts typed but not sent, the focused thread, the panel state
+const drafts: Draft[] = [];
+let draftSeq = 0;
+let focusedThread: string | null = null;
+let chatOpen = true; // the chat is a full-height column; it collapses to a rail
 const read = new Set<number>(); // cards visited, for the rail only
 let knownCards = 0; // cards already on screen, for the arrival animation
 let painted = false; // first paint done — later cards are arrivals, animated
@@ -243,8 +241,7 @@ function render(): void {
   syncGhost();
 
   applySelection(strip);
-  updateCommentTarget();
-  renderReviewBar();
+  renderChat();
   camera();
 }
 
@@ -270,11 +267,14 @@ function currentTarget(): string {
     : commentTarget(plate.nibbles[active].n, hostSelection, active);
 }
 
-// updateCommentTarget keeps an open popover honest when the selection moves
-// under it; a closed popover reads the target fresh when it opens.
-function updateCommentTarget(): void {
-  if (($("#pop") as HTMLElement).hidden) return;
-  $("#pop-target").textContent = currentTarget();
+// onSelectionMoved: the chat follows the selection — the thread on the
+// selected thing is focused, or the composer offers a new one there.
+function onSelectionMoved(): void {
+  if (!plate) return;
+  const target = currentTarget();
+  const th = buildThreads(plate.thread, drafts).find((t) => t.target === target);
+  focusedThread = th ? th.key : null;
+  renderChat();
 }
 
 function setActive(i: number): void {
@@ -285,7 +285,7 @@ function setActive(i: number): void {
   document.querySelectorAll<HTMLElement>(".nibble").forEach((card, idx) => {
     card.classList.toggle("active", idx === active);
   });
-  updateCommentTarget();
+  onSelectionMoved();
   camera();
 }
 
@@ -336,9 +336,19 @@ function closeDrawer(): void {
 }
 
 async function openDrawer(n: number, ref: number): Promise<void> {
+  await openCode(`n=${n}&ref=${ref}`);
+}
+
+// openReplyRef: a reply's ref opens in the drawer inside the thread's card.
+async function openReplyRef(card: number, round: number, comment: number, ref: number): Promise<void> {
+  setActive(card);
+  await openCode(`round=${round}&comment=${comment}&ref=${ref}`);
+}
+
+async function openCode(query: string): Promise<void> {
   let resp: Response;
   try {
-    resp = await fetch(`api/code?n=${n}&ref=${ref}`);
+    resp = await fetch(`api/code?${query}`);
   } catch {
     flash("⚠ the plate’s server is gone — serve has exited; re-run nibble serve and reload");
     return;
@@ -431,109 +441,233 @@ async function openLedgerDrawer(path: string, side: string): Promise<void> {
   attachDrawer();
 }
 
-// --- the comment popover: disagree on the thing itself, where it is ---
+// --- the chat: threads pinned to things, the agent's replies in place ---
 
-// openPop shows the popover beside the selected element (or over the active
-// card's visual when nothing is selected), targeted like the review bar.
-function openPop(): void {
-  if (!plate || plate.review) return;
-  $("#pop-target").textContent = currentTarget();
-  const pop = $("#pop");
-  pop.hidden = false;
-  const anchor =
-    document.querySelector(".nibble.active [data-anchor].sel") ??
-    document.querySelector(".nibble.active .visual");
-  const r = anchor?.getBoundingClientRect();
-  if (r) {
-    let x = r.right + 12;
-    let y = r.top;
-    if (x + pop.offsetWidth > window.innerWidth - 12) {
-      x = Math.max(12, Math.min(r.left + r.width / 2 - pop.offsetWidth / 2, window.innerWidth - pop.offsetWidth - 12));
-      y = r.bottom + 10;
-    }
-    y = Math.max(12, Math.min(y, window.innerHeight - pop.offsetHeight - 12));
-    pop.style.left = `${x}px`;
-    pop.style.top = `${y}px`;
-  }
-  $<HTMLTextAreaElement>("#pop-text").focus();
+function threads(): ChatThread[] {
+  return plate ? buildThreads(plate.thread, drafts) : [];
 }
 
-function closePop(): void {
-  $("#pop").hidden = true;
-  $<HTMLTextAreaElement>("#pop-text").value = "";
+// setChatOpen: open is a full-height column, closed a slim rail. The canvas
+// takes the width either way; the camera recentres once the panel settles.
+function setChatOpen(open: boolean): void {
+  if (open === chatOpen) return;
+  chatOpen = open;
+  $("#chat").classList.toggle("collapsed", !open);
+  renderChat();
+  if (open) $<HTMLTextAreaElement>("#composer-text").focus();
 }
 
-// holdPop pins the comment for the review; the send button still posts it.
-function holdPop(): void {
-  const text = $<HTMLTextAreaElement>("#pop-text").value.trim();
-  if (!text) return;
-  pending.push({ target: currentTarget(), text });
-  closePop();
-  renderReviewBar();
+// focusComposer: `c` opens the chat if needed and puts the cursor in it.
+function focusComposer(): void {
+  setChatOpen(true);
+  $<HTMLTextAreaElement>("#composer-text").focus();
 }
 
-// askPop ends the agent's wait now: this question, plus everything pinned.
-function askPop(): void {
-  const text = $<HTMLTextAreaElement>("#pop-text").value.trim();
-  if (!text) return;
-  pending.push({ target: currentTarget(), text });
-  closePop();
-  void submit();
+// focusThread: the thread the composer writes into, scrolled into view.
+function focusThread(key: string | null): void {
+  focusedThread = key;
+  renderChat();
+  if (key) document.querySelector(`#threads .thread[data-key="${key}"]`)?.scrollIntoView({ block: "nearest" });
 }
 
-// --- review ---
-
-function renderReviewBar(): void {
+// goToThread: a thread's chip moves the camera to its card and selects its
+// element, exactly as clicking the element would.
+function goToThread(th: ChatThread): void {
   if (!plate) return;
-  const bar = $("#reviewbar");
-  const submitted = $("#submitted");
-  if (plate.review) {
-    bar.classList.add("locked");
-    $("#send").hidden = true;
-    submitted.hidden = false;
-    const n = plate.review.comments?.length ?? 0;
-    const badge = n
-      ? `<span class="trust shifted">${n} comment${n > 1 ? "s" : ""}</span>`
-      : `<span class="trust exact">done</span>`;
-    submitted.innerHTML = justSent
-      ? `review sent: ${badge} — the agent is awake; you can close this tab`
-      : `this plate was reviewed: ${badge} — you are reading it after the fact`;
-    return;
+  const card = cardOfTarget(th.target, plate.nibbles.length, plate.ledger != null);
+  if (card === null) return;
+  setActive(card);
+  const id = anchorOfTarget(th.target);
+  const cardEl = document.querySelectorAll<HTMLElement>(".nibble")[card];
+  if (id && cardEl && cardEl.querySelector(`[data-anchor="${id}"]`)) host.select(cardEl, id, true);
+  focusThread(th.key);
+}
+
+// composerDestination: what a typed message becomes — a follow-up in the
+// focused (or the selection's) sent thread, or an opener on the selection.
+function composerDestination(): { label: string; thread?: string; target?: string } {
+  const ths = threads();
+  const name = (t: string): string => t || "plate";
+  if (focusedThread) {
+    const th = ths.find((t) => t.key === focusedThread);
+    if (th) {
+      return th.id
+        ? { label: `reply in ${name(th.target)}`, thread: th.id }
+        : { label: `new thread on ${name(th.target)}`, target: th.target };
+    }
   }
-  bar.classList.remove("locked");
-  submitted.hidden = true;
-  const send = $<HTMLButtonElement>("#send");
-  send.hidden = false;
-  send.textContent = pending.length ? `send ${pending.length} comment${pending.length > 1 ? "s" : ""}` : "done";
-  $("#pending").innerHTML = pending
-    .map((c, i) => `<span class="pin"><b>${esc(c.target ?? "plate")}</b> ${esc(c.text)} <button data-i="${i}" title="remove">×</button></span>`)
-    .join("");
-  document.querySelectorAll<HTMLButtonElement>("#pending button").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      pending.splice(Number(btn.dataset.i), 1);
-      renderReviewBar();
+  const target = currentTarget();
+  const sent = sentThreadOn(ths, target);
+  return sent ? { label: `reply in ${target}`, thread: sent } : { label: `new thread on ${target}`, target };
+}
+
+// holdDraft keeps the typed message as a draft bubble; the send button
+// posts the round.
+function holdDraft(): boolean {
+  const ta = $<HTMLTextAreaElement>("#composer-text");
+  const text = ta.value.trim();
+  if (!text || !plate || turnLabel(plate.thread, justSent).locked) return false;
+  const dest = composerDestination();
+  const d: Draft = { key: ++draftSeq, text };
+  if (dest.thread !== undefined) d.thread = dest.thread;
+  else if (dest.target) d.target = dest.target;
+  drafts.push(d);
+  ta.value = "";
+  focusedThread = dest.thread ?? (dest.target !== undefined ? NEW_THREAD + dest.target : null);
+  const sent = threads().find((t) => t.id === dest.thread);
+  if (sent) focusedThread = sent.key;
+  renderChat();
+  return true;
+}
+
+// sendNow: this message and every held draft go out as the round, at once.
+// There is no done button: with nothing typed and nothing held, nothing
+// happens — silence is done.
+function sendNow(): void {
+  if (holdDraft() || drafts.length) void submit();
+}
+
+function removeDraft(key: number): void {
+  const i = drafts.findIndex((d) => d.key === key);
+  if (i >= 0) drafts.splice(i, 1);
+  renderChat();
+}
+
+// renderChat draws the panel — header, threads, composer — and the badges
+// on the plate. Thread-only reloads call it alone: the strip, the camera,
+// the selection and the drawer are never touched here.
+function renderChat(): void {
+  if (!plate) return;
+  const ths = threads();
+  const turn = turnLabel(plate.thread, justSent);
+  const nibbleCount = plate.nibbles.length;
+  const hasLedger = plate.ledger != null;
+
+  $("#chat-turn").textContent = turn.text;
+  const send = $<HTMLButtonElement>("#composer-send");
+  send.innerHTML = `${esc(sendLabel(drafts.length))} <small>⌘⏎</small>`;
+  send.disabled = turn.locked;
+  send.title = turn.locked ? turn.text : "send this message and every draft; the agent wakes (⌘⏎)";
+  // the header: the count and a live marker while the agent is answering
+  const total = ths.reduce((n, t) => n + t.messages.length, 0);
+  for (const id of ["#chat-count", "#rail-count"]) {
+    const count = $(id);
+    count.hidden = total === 0;
+    count.textContent = String(total);
+  }
+  for (const id of ["#chat-live", "#rail-live"]) ($(id) as HTMLElement).hidden = plate.thread.turn !== "agent";
+
+  const list = $("#threads");
+  const scroll = list.scrollTop;
+  list.innerHTML = "";
+  if (ths.length === 0) {
+    list.innerHTML = `<p class="chat-empty">Nothing here yet. Select a node, a step or a file row and write below — or comment on the whole nibble.</p>`;
+  }
+  for (const th of ths) {
+    const card = cardOfTarget(th.target, nibbleCount, hasLedger);
+    const el = document.createElement("section");
+    el.className = "thread" + (th.key === focusedThread ? " focused" : "");
+    el.dataset.key = th.key;
+    if (card !== null) el.dataset.card = String(card);
+    const drawn = (id: string): boolean => {
+      const v = card === null ? null : visualOfCard(card);
+      return v !== null && anchorDrawnAt(v, id, dialLevel);
+    };
+    const head = `<header><button type="button" class="tchip mono" title="go to it on the plate">${esc(th.target || "plate")}</button></header>`;
+    const msgs = th.messages.map((m) => {
+      if (m.from === "draft") {
+        return `<div class="msg draft"><span class="who">you · unsent</span><p>${esc(m.text)}</p><button type="button" class="rm" data-draft="${m.draftKey}" title="remove this draft">×</button></div>`;
+      }
+      if (m.from === "reader") {
+        return `<div class="msg reader"><span class="who">you</span><p>${esc(m.text)}</p></div>`;
+      }
+      const refs = (m.refs ?? []).map((r, i) =>
+        `<button type="button" class="mref" data-round="${m.at?.round}" data-comment="${m.at?.comment}" data-ref="${i}" title="${esc(r.ref)}"><span class="mono">${esc(r.path)}:${r.start}${r.end > r.start ? `–${r.end}` : ""}</span>${trustBadge(r.trust)}</button>`).join("");
+      return `<div class="msg agent"><span class="who">agent</span><div class="mtext">${proseToHtml(m.text, drawn)}</div>${refs ? `<div class="mrefs">${refs}</div>` : ""}${m.because ? `<p class="because">over budget because: ${esc(m.because)}</p>` : ""}</div>`;
+    }).join("");
+    const awaiting = th.awaiting ? `<div class="msg awaiting"><span class="pulse"></span>awaiting the agent's reply…</div>` : "";
+    el.innerHTML = head + `<div class="msgs">${msgs}${awaiting}</div>`;
+    list.appendChild(el);
+  }
+  list.scrollTop = scroll;
+
+  const dest = composerDestination();
+  $("#composer-on").textContent = turn.locked ? turn.text : dest.label;
+  const ta = $<HTMLTextAreaElement>("#composer-text");
+  ta.disabled = turn.locked;
+  ta.placeholder = turn.locked ? "the agent is answering…" : "disagree on the thing itself…";
+  $<HTMLButtonElement>("#composer-hold").disabled = turn.locked;
+
+  applyBadges(ths);
+}
+
+// applyBadges: a message count on every element and card with a thread —
+// derived on each render, never stored, never posted.
+function applyBadges(ths: readonly ChatThread[]): void {
+  if (!plate) return;
+  const strip = $("#strip");
+  strip.querySelectorAll(".msg-badge").forEach((b) => b.remove());
+  const counts = badgeCounts(ths, plate.nibbles.length, plate.ledger != null);
+  strip.querySelectorAll<HTMLElement>(".nibble").forEach((card) => {
+    const i = Number(card.dataset.i);
+    const n = counts.cards.get(i) ?? 0;
+    const h2 = card.querySelector(".nside h2");
+    if (h2 && n) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "msg-badge card-badge";
+      b.textContent = `${n} message${n > 1 ? "s" : ""}`;
+      b.title = "open the conversation on this card";
+      b.dataset.badgeCard = String(i);
+      h2.appendChild(b);
+    }
+    counts.elements.forEach((count, k) => {
+      const sep = k.indexOf(":");
+      if (Number(k.slice(0, sep)) !== i) return;
+      const id = k.slice(sep + 1);
+      const el = card.querySelector(`.visual-body [data-anchor="${id}"]`);
+      if (!el) return;
+      const key = counts.keys.get(k) ?? "";
+      if (el instanceof SVGGraphicsElement) {
+        const bb = el.getBBox();
+        // on the element's top-right corner, inset so the border stays whole
+        const g = svgEl("g", { class: "msg-badge", "data-badge-key": key, transform: `translate(${bb.x + bb.width - 6} ${bb.y + 6})`, role: "button", tabindex: 0 });
+        g.appendChild(svgEl("title", {}, `${count} message${count > 1 ? "s" : ""} — open the thread`));
+        g.appendChild(svgEl("circle", { r: 8 }));
+        g.appendChild(svgEl("text", { y: 3.5, "text-anchor": "middle" }, String(count)));
+        el.appendChild(g);
+      } else {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "msg-badge msg-badge-h";
+        b.textContent = String(count);
+        b.title = `${count} message${count > 1 ? "s" : ""} — open the thread`;
+        b.dataset.badgeKey = key;
+        el.appendChild(b);
+      }
     });
   });
 }
 
 async function submit(): Promise<void> {
+  if (!plate || drafts.length === 0 || turnLabel(plate.thread, justSent).locked) return;
   let resp: Response;
   try {
     resp = await fetch("api/review", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: reviewBody(pending),
+      body: reviewBody(draftComments(drafts)),
     });
   } catch {
-    flash("⚠ could not submit — serve has exited; re-run nibble serve and reload");
+    flash("⚠ could not send — serve has exited; re-run nibble serve and reload");
     return;
   }
   if (resp.ok || resp.status === 409) {
+    // The round ended serve; the agent is awake. The tab stays: it
+    // reconnects when the plate is served again on this address.
+    drafts.length = 0;
     justSent = true;
     await loadPlate();
-    // The review ended serve; this tab's job is done. Browsers only honor
-    // close() for single-entry tabs — the locked state is the fallback.
-    setTimeout(() => window.close(), 900);
   } else {
     const body = await resp.text();
     flash(`⚠ review rejected: ${body.slice(0, 200)}`);
@@ -554,13 +688,19 @@ async function loadPlate(): Promise<void> {
   const next = (await resp.json()) as Plate;
   if (!loads.isCurrent(token)) return;
   const prev = shownShape;
-  shownShape = plateShape(next.nibbles, next.open, next.review != null, next.ledger != null);
+  shownShape = plateShape(next.nibbles, next.open, next.thread, next.ledger != null);
   const plan = arrivalPlan(prev, shownShape);
   const prevCards = prev ? prev.nibbles.length + (prev.ledger ? 1 : 0) : 0;
   plate = next;
   if (plan === "none") return;
+  if (plan === "thread") {
+    // only the conversation moved: the panel and the badges, nothing else
+    renderChat();
+    return;
+  }
   if (plan === "append") {
     appendCards(prevCards);
+    renderChat();
     return;
   }
   active = Math.min(active, Math.max(0, cards() - 1));
@@ -602,20 +742,36 @@ function listen(): void {
   es.addEventListener("review", () => void loadPlate());
   // The EventSource retries forever and errors on every transient reconnect,
   // so the error alone proves nothing. Probe the plate once per episode: a
-  // dead fetch means serve is gone — say so instead of silently going stale.
+  // dead fetch means serve is gone — say so instead of silently going
+  // stale, then keep probing: when the plate is served again on this
+  // address (the agent re-serving after its replies), pick it up.
   let probing = false;
   let dead = false;
+  const back = (): void => {
+    dead = false;
+    const el = document.getElementById("notice");
+    if (el) { el.hidden = true; el.textContent = ""; }
+    void loadPlate();
+  };
   es.addEventListener("error", () => {
     if (probing || dead) return;
     probing = true;
     fetch("api/plate").then(
       () => { probing = false; }, // still there — a reconnect, stay quiet
       () => {
+        probing = false;
         dead = true;
-        flash("⚠ the plate’s server is gone — serve has exited; re-run nibble serve and reload");
+        flash(justSent
+          ? "the agent is awake and has your round — this tab reconnects when it serves the plate again (if it relays a new link, open that instead)"
+          : "⚠ the plate’s server is gone — serve has exited; re-run nibble serve and this tab reconnects");
+        const poll = setInterval(() => {
+          fetch("api/plate").then((r) => { if (r.ok) { clearInterval(poll); back(); } }, () => {});
+        }, 2000);
       },
     );
   });
+  // a stream that reopens after a drop missed events: reload once
+  es.addEventListener("open", () => { if (dead) back(); });
 }
 
 // --- wire up ---
@@ -628,20 +784,63 @@ document.querySelectorAll<HTMLButtonElement>("#dial .dial-pos").forEach((btn) =>
 });
 $("#drawer-close").addEventListener("click", closeDrawer);
 const legend = $("#legend");
-// Held comments are a draft; only the send button posts the review.
-// With no comments it sends "done" — that alone ends the agent's wait.
-$<HTMLButtonElement>("#send").addEventListener("click", () => void submit());
-// The popover: hold pins the comment, ask now sends the review with it.
-$("#pop-hold").addEventListener("click", holdPop);
-$("#pop-ask").addEventListener("click", askPop);
-$<HTMLTextAreaElement>("#pop-text").addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closePop();
+// The composer: send posts this message and every held draft (⌘⏎, the
+// default) — that is what wakes the agent; hold keeps a draft for the next
+// send (⇧⌘⏎). There is no done button: silence is done.
+$("#chat-rail").addEventListener("click", () => setChatOpen(true));
+$("#chat-close").addEventListener("click", () => setChatOpen(false));
+$("#chat").addEventListener("transitionend", camera);
+$("#composer-hold").addEventListener("click", () => { holdDraft(); });
+$("#composer-send").addEventListener("click", sendNow);
+$<HTMLTextAreaElement>("#composer-text").addEventListener("keydown", (e) => {
+  if (e.key === "Escape") setChatOpen(false);
   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
     e.preventDefault();
-    if (e.shiftKey) askPop();
-    else holdPop();
+    if (e.shiftKey) holdDraft();
+    else sendNow();
   }
 });
+// Inside the panel: chips go to the plate, drafts can be removed, reply refs
+// open the drawer, reply links light and select the thread's visual.
+const threadList = $("#threads");
+const cardOfThreadEl = (el: Element): HTMLElement | null => {
+  const idx = el.closest<HTMLElement>(".thread")?.dataset.card;
+  return idx === undefined ? null : document.querySelectorAll<HTMLElement>(".nibble")[Number(idx)] ?? null;
+};
+threadList.addEventListener("click", (e) => {
+  const t = e.target as Element | null;
+  if (!t) return;
+  const section = t.closest<HTMLElement>(".thread");
+  if (!section) return;
+  const th = threads().find((x) => x.key === section.dataset.key);
+  const rm = t.closest<HTMLElement>("[data-draft]");
+  if (rm) { removeDraft(Number(rm.dataset.draft)); return; }
+  if (t.closest(".tchip")) { if (th) goToThread(th); return; }
+  const mref = t.closest<HTMLElement>(".mref");
+  if (mref && section.dataset.card !== undefined) {
+    void openReplyRef(Number(section.dataset.card), Number(mref.dataset.round), Number(mref.dataset.comment), Number(mref.dataset.ref));
+    return;
+  }
+  const link = t.closest(".plink[data-link-anchor]");
+  const cardEl = cardOfThreadEl(t);
+  if (link && cardEl) {
+    const id = link.getAttribute("data-link-anchor");
+    if (id) { setActive(Number(cardEl.dataset.i)); host.select(cardEl, id, true); }
+    return;
+  }
+  focusThread(section.dataset.key ?? null);
+});
+// hovering a reply's phrase lights the element on the thread's card
+const lightFromPanel = (t: EventTarget | null, on: boolean): void => {
+  const link = t instanceof Element ? t.closest(".plink[data-link-anchor]") : null;
+  if (!link) return;
+  const cardEl = cardOfThreadEl(link);
+  const id = link.getAttribute("data-link-anchor");
+  if (!cardEl || !id) return;
+  cardEl.querySelectorAll(`[data-anchor="${id}"]`).forEach((el) => el.classList.toggle("lit", on));
+};
+threadList.addEventListener("mouseover", (e) => lightFromPanel(e.target, true));
+threadList.addEventListener("mouseout", (e) => lightFromPanel(e.target, false));
 document.addEventListener("keydown", (e) => {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
   if (e.key === "ArrowLeft") setActive(active - 1);
@@ -657,13 +856,12 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "d") setDial(dialToggle(dialLevel));
   if (e.key === "c") {
     e.preventDefault(); // or the c itself lands in the focused textarea
-    openPop();
+    focusComposer();
   }
   if (e.key === "?") legend.classList.toggle("pinned");
-  if (e.key === "s" && plate && !plate.review) void submit();
+  if (e.key === "s") void submit();
   if (e.key === "Escape") {
-    if (!($("#pop") as HTMLElement).hidden) closePop();
-    else if (legend.classList.contains("pinned")) legend.classList.remove("pinned");
+    if (legend.classList.contains("pinned")) legend.classList.remove("pinned");
     else if (!($("#drawer") as HTMLElement).hidden) closeDrawer();
     else clearVisualSelection($("#strip"), hostWiring);
   }
@@ -673,18 +871,33 @@ legend.addEventListener("transitionend", camera);
 
 const hostWiring: HostWiring = {
   openRef: (n, ref) => void openDrawer(n, ref),
-  onTarget: updateCommentTarget,
+  onTarget: onSelectionMoved,
 };
-// Ledger chips open the ledger drawer; registered before the host wiring so
-// stopImmediatePropagation keeps a chip click from toggling the row's
-// selection, mirroring how code chips behave inside visuals.
+// Ledger chips open the ledger drawer, message badges open the chat on
+// their thread; both registered before the host wiring so
+// stopImmediatePropagation keeps the click from toggling a selection,
+// mirroring how code chips behave inside visuals.
 $("#strip").addEventListener("click", (e) => {
-  const chip = (e.target as Element | null)?.closest?.("[data-ledger-path]");
-  if (!chip) return;
+  const t = e.target as Element | null;
+  const chip = t?.closest?.("[data-ledger-path]");
+  if (chip) {
+    e.stopImmediatePropagation();
+    void openLedgerDrawer(chip.getAttribute("data-ledger-path")!, chip.getAttribute("data-ledger-side") ?? "head");
+    return;
+  }
+  const badge = t?.closest?.(".msg-badge");
+  if (!badge) return;
   e.stopImmediatePropagation();
-  void openLedgerDrawer(chip.getAttribute("data-ledger-path")!, chip.getAttribute("data-ledger-side") ?? "head");
+  const key = badge.getAttribute("data-badge-key");
+  const cardIdx = badge.getAttribute("data-badge-card");
+  setChatOpen(true);
+  if (key) focusThread(key);
+  else if (cardIdx !== null && plate) {
+    const th = threads().find((x) => cardOfTarget(x.target, plate!.nibbles.length, plate!.ledger != null) === Number(cardIdx));
+    focusThread(th ? th.key : null);
+  }
 });
-wireVisualHost($("#strip"), hostWiring);
+const host = wireVisualHost($("#strip"), hostWiring);
 
 void loadPlate();
 listen();

@@ -1,0 +1,18 @@
+{
+  "replies": [
+    {
+      "to": 1,
+      "text": "Billing reads through the same [db](@db) pool, so the lines below are the ones it sees.",
+      "refs": [
+        {
+          "ref": "src/pool.ts:1-2 the pool and its idle timeout",
+          "fp": "fp1:fa524adb5cb6c76c34c3cc3c54c57e585871226d665bd26b0b0b6ea9c4d03f52",
+          "lines": [
+            "f52314814c6173c17f7dca9738380b2679d3df670dcc0b30703b71cffa2e38ae",
+            "1b58026bf2d7ac7c8a5851c39c34a72945c9b5cf37067a39cb9a5902090acdf9"
+          ]
+        }
+      ]
+    }
+  ]
+}

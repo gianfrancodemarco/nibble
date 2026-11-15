@@ -76,7 +76,7 @@ type apiPlate struct {
 	Description *apiDescription `json:"description"`
 	Open        bool            `json:"open"`
 	Total       int             `json:"total"`
-	Review      *map[string]any `json:"review"`
+	Thread      apiThreadOut    `json:"thread"`
 	Nibbles     []struct {
 		N           int             `json:"n"`
 		Title       string          `json:"title"`
@@ -91,6 +91,108 @@ type apiPlate struct {
 			Trust  apiTrust `json:"trust"`
 		} `json:"refs"`
 	} `json:"nibbles"`
+}
+
+// apiThreadOut mirrors the plate endpoint's thread: whose turn, and every
+// round's comments with their replies.
+type apiThreadOut struct {
+	Turn   string `json:"turn"`
+	Rounds []struct {
+		N        int `json:"n"`
+		Comments []struct {
+			ID     string `json:"id"`
+			Target string `json:"target"`
+			Thread string `json:"thread"`
+			Text   string `json:"text"`
+			Reply  *struct {
+				Text    string `json:"text"`
+				Because string `json:"because"`
+				Refs    []struct {
+					Ref   string   `json:"ref"`
+					Path  string   `json:"path"`
+					Trust apiTrust `json:"trust"`
+				} `json:"refs"`
+			} `json:"reply"`
+		} `json:"comments"`
+	} `json:"rounds"`
+}
+
+func TestAPIThread(t *testing.T) {
+	repo, plate, ts := apiFixture(t)
+	ctx := Ctx{Dir: repo, Home: filepath.Dir(filepath.Dir(plate))}
+
+	var p apiPlate
+	getJSON(t, ts.URL+"/api/plate", &p)
+	if p.Thread.Turn != "reader" || len(p.Thread.Rounds) != 0 {
+		t.Fatalf("fresh plate thread = %+v", p.Thread)
+	}
+
+	writeFile(t, plate, "review.json", `{"comments":[{"target":"n1:cache","text":"theirs too?"},{"target":"n2","text":"why?"}]}`)
+	if code, _, errb := run(t, ctx, "reply", plate, "--to", "1", "--text", "the same [cache](@cache) lines",
+		"--ref", "src/prices.ts:3-4 the ttl lines"); code != 0 {
+		t.Fatal(errb)
+	}
+	getJSON(t, ts.URL+"/api/plate", &p)
+	if p.Thread.Turn != "agent" || len(p.Thread.Rounds) != 1 {
+		t.Fatalf("thread = %+v", p.Thread)
+	}
+	cs := p.Thread.Rounds[0].Comments
+	if len(cs) != 2 || cs[0].ID != "1.1" || cs[1].ID != "1.2" || cs[0].Target != "n1:cache" {
+		t.Fatalf("comments = %+v", cs)
+	}
+	if cs[0].Reply == nil || cs[0].Reply.Text != "the same [cache](@cache) lines" || len(cs[0].Reply.Refs) != 1 {
+		t.Fatalf("reply = %+v", cs[0].Reply)
+	}
+	if r := cs[0].Reply.Refs[0]; r.Path != "src/prices.ts" || r.Trust.Level != "exact" {
+		t.Fatalf("reply ref = %+v", r)
+	}
+	if cs[1].Reply != nil {
+		t.Fatalf("comment 2 should have no reply: %+v", cs[1].Reply)
+	}
+
+	// a follow-up carries its thread link and the opener's target
+	if code, _, errb := run(t, ctx, "reply", plate, "--to", "2", "--text", "jitter"); code != 0 {
+		t.Fatal(errb)
+	}
+	writeFile(t, plate, "review.2.json", `{"comments":[{"thread":"1.1","text":"and billing?"}]}`)
+	getJSON(t, ts.URL+"/api/plate", &p)
+	if p.Thread.Turn != "agent" || len(p.Thread.Rounds) != 2 {
+		t.Fatalf("thread = %+v", p.Thread)
+	}
+	c := p.Thread.Rounds[1].Comments[0]
+	if c.ID != "2.1" || c.Thread != "1.1" || c.Target != "n1:cache" {
+		t.Fatalf("follow-up = %+v", c)
+	}
+}
+
+// Reply refs open in the drawer through the same endpoint as nibble refs.
+func TestAPIReplyCode(t *testing.T) {
+	repo, plate, ts := apiFixture(t)
+	ctx := Ctx{Dir: repo, Home: filepath.Dir(filepath.Dir(plate))}
+	writeFile(t, plate, "review.json", `{"comments":[{"target":"n1","text":"?"}]}`)
+	if code, _, errb := run(t, ctx, "reply", plate, "--to", "1", "--text", "see", "--ref", "src/prices.ts:3-4 the ttl lines"); code != 0 {
+		t.Fatal(errb)
+	}
+	var c struct {
+		Path  string   `json:"path"`
+		Trust apiTrust `json:"trust"`
+		Lines []struct {
+			No int  `json:"no"`
+			In bool `json:"in"`
+		} `json:"lines"`
+	}
+	if code := getJSON(t, ts.URL+"/api/code?round=1&comment=1&ref=0", &c); code != 200 {
+		t.Fatalf("status = %d", code)
+	}
+	if c.Path != "src/prices.ts" || c.Trust.Level != "exact" || len(c.Lines) != 5 || !c.Lines[2].In || !c.Lines[3].In || c.Lines[4].In {
+		t.Fatalf("reply code = %+v", c)
+	}
+	for _, q := range []string{"round=2&comment=1&ref=0", "round=1&comment=2&ref=0", "round=1&comment=1&ref=1"} {
+		var e map[string]any
+		if code := getJSON(t, ts.URL+"/api/code?"+q, &e); code != 404 {
+			t.Fatalf("%s: status = %d, want 404", q, code)
+		}
+	}
 }
 
 func TestAPIPlate(t *testing.T) {
@@ -244,6 +346,47 @@ func TestAPIReview(t *testing.T) {
 	if string(raw2) != string(raw) {
 		t.Fatal("second review must not overwrite the first")
 	}
+
+	// Once the round is answered, the next round lands as review.2.json —
+	// a follow-up with no target of its own included; a bad thread link is
+	// refused before anything is written.
+	writeFile(t, plate, "reply.json", `{"replies":[{"to":1,"text":"it is covered"}]}`)
+	code, body = postJSON(t, ts.URL+"/api/review", `{"comments":[{"thread":"1.7","text":"?"}]}`)
+	if code != 400 || !strings.Contains(body, "review.thread") {
+		t.Fatalf("bad thread: %d %s", code, body)
+	}
+	if _, err := os.Stat(filepath.Join(plate, "review.2.json")); !os.IsNotExist(err) {
+		t.Fatal("rejected round must not be written")
+	}
+	code, body = postJSON(t, ts.URL+"/api/review", `{"comments":[{"thread":"1.1","text":"and the tests?"}]}`)
+	if code != 200 {
+		t.Fatalf("round 2: %d %s", code, body)
+	}
+	raw2, err = os.ReadFile(filepath.Join(plate, "review.2.json"))
+	if err != nil || !strings.Contains(string(raw2), `"thread": "1.1"`) {
+		t.Fatalf("review.2.json = %q err %v", raw2, err)
+	}
+	var p apiPlate
+	getJSON(t, ts.URL+"/api/plate", &p)
+	if c := p.Thread.Rounds[1].Comments[0]; c.Target != "n1" || c.Thread != "1.1" {
+		t.Fatalf("follow-up = %+v", c)
+	}
+
+	// Done is not an end: the chat stays open and a later round may follow.
+	writeFile(t, plate, "reply.2.json", `{"replies":[{"to":1,"text":"green"}]}`)
+	if code, body = postJSON(t, ts.URL+"/api/review", `{"comments":[]}`); code != 200 {
+		t.Fatalf("round 3 (done): %d %s", code, body)
+	}
+	if code, body = postJSON(t, ts.URL+"/api/review", `{"comments":[{"target":"n1","text":"one more thing"}]}`); code != 200 {
+		t.Fatalf("after done: %d %s", code, body)
+	}
+	if _, err := os.Stat(filepath.Join(plate, "review.4.json")); err != nil {
+		t.Fatal("a round after done should land as review.4.json")
+	}
+	getJSON(t, ts.URL+"/api/plate", &p)
+	if p.Thread.Turn != "agent" || len(p.Thread.Rounds) != 4 {
+		t.Fatalf("after the late round: %+v", p.Thread)
+	}
 }
 
 // sseEvents connects to /api/events and forwards parsed events on a channel.
@@ -307,8 +450,16 @@ func TestAPIEvents(t *testing.T) {
 	}
 	waitEvent(t, ch, `sealed {"total":3}`)
 
-	writeFile(t, plate, "review.json", reviewDone)
-	waitEvent(t, ch, `review {"comments":0}`)
+	writeFile(t, plate, "review.json", `{"comments":[{"target":"n1","text":"a"},{"target":"n2","text":"b"}]}`)
+	waitEvent(t, ch, `review {"round":1,"comments":2}`)
+
+	writeFile(t, plate, "reply.json", `{"replies":[{"to":1,"text":"x"}]}`)
+	waitEvent(t, ch, `reply {"round":1,"answered":1,"of":2}`)
+	writeFile(t, plate, "reply.json", `{"replies":[{"to":1,"text":"x"},{"to":2,"text":"y"}]}`)
+	waitEvent(t, ch, `reply {"round":1,"answered":2,"of":2}`)
+
+	writeFile(t, plate, "review.2.json", reviewDone)
+	waitEvent(t, ch, `review {"round":2,"comments":0}`)
 }
 
 func TestAPIStaticUI(t *testing.T) {

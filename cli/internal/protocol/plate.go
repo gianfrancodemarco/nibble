@@ -85,9 +85,14 @@ type Review struct {
 }
 
 // ReviewComment is one pinned comment, targeted at a nibble or an element.
+// Thread, when set, names the comment (of an earlier round) that opened the
+// conversation this one continues; the target is then the opener's. ID is
+// derived at load time: "<round>.<index>".
 type ReviewComment struct {
 	Target string `json:"target,omitempty"`
 	Text   string `json:"text"`
+	Thread string `json:"thread,omitempty"`
+	ID     string `json:"-"`
 }
 
 // Plate is a parsed, validated plate folder.
@@ -97,7 +102,7 @@ type Plate struct {
 	Total   int  // from the done marker; 0 while open
 	Open    bool // no done marker yet
 	Ledger  *Ledger
-	Review  *Review
+	Rounds  []Round // the review thread, in order; empty before the first review
 }
 
 // UnmarshalJSON accepts the four about forms: "code", "worktree",
@@ -247,14 +252,12 @@ func ParsePlate(dir string) (*Plate, error) {
 		p.Ledger = l
 	}
 
-	// Review.
-	if rawReview, err := os.ReadFile(filepath.Join(dir, "review.json")); err == nil {
-		r, err := ParseReview(rawReview)
-		if err != nil {
-			return nil, err
-		}
-		p.Review = r
+	// The review thread.
+	rounds, err := loadRounds(dir, p.Nibbles)
+	if err != nil {
+		return nil, err
 	}
+	p.Rounds = rounds
 
 	return p, nil
 }
@@ -298,13 +301,8 @@ func parseNibble(raw []byte, n int) (*Nibble, error) {
 		if err != nil {
 			return nil, err
 		}
-		if !fpRe.MatchString(r.FP) {
-			return nil, errf(CodeRefFPInvalid, "n%d.json ref %q: fp must match fp1:<64 hex>", n, r.Ref)
-		}
-		for _, h := range append(append(append([]string{}, r.Lines...), r.CtxBefore...), r.CtxAfter...) {
-			if !hashRe.MatchString(h) {
-				return nil, errf(CodeRefFPInvalid, "n%d.json ref %q: line hash %q is not 64 hex", n, r.Ref, h)
-			}
+		if err := checkStoredRefShape(fmt.Sprintf("n%d.json", n), r); err != nil {
+			return nil, err
 		}
 		if ref.Anchor != "" && !slices.Contains(anchors, ref.Anchor) {
 			return nil, errf(CodeRefAnchorDangling, "n%d.json ref %q: no element %q in this nibble's visual", n, r.Ref, ref.Anchor)

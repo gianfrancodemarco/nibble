@@ -44,6 +44,7 @@ nibble serve <plate> [--timeout <dur>] &                          # start servin
 nibble add   <plate> --title <md> [--description <md>] [--description-standard <md>] --visual <file.json> [--ref <ref>]...
 nibble done  <plate> --check                                      # diff plates: what the walkthrough missed, while you can still add
 nibble done  <plate>                                              # seals it; serve keeps waiting for the review
+nibble reply <plate> --to <N> --text <md> [--ref <ref>]...        # after the review: answer comment N on the same plate
 ```
 
 `--about` says what code the plate is about: `code` (the code as it is, the
@@ -61,7 +62,9 @@ have it, then keep adding.
 the review: 0 done (no comments), 2 comments to handle, 5 timeout. The
 review itself comes out on stdout. The human can answer before you seal —
 if `serve` ends while you still have nibbles queued, stop adding and handle
-the review.
+the review. Comments are answered on the same plate with `reply`, and the
+plate goes back for another round until it comes back done — see
+[The review](#the-review).
 
 ## A worked review
 
@@ -320,24 +323,126 @@ plate over a rejection — the message tells you the fix.
 ## The review
 
 When `serve` returns, the exit code says what came back and stdout is the
-review — the human's comments, or nothing to address:
+round — the human's comments, or nothing to address:
 
-```json
-{"comments": [{"target": "n2:s4", "text": "enqueue can fail — what does the client get then?"}]}
+```
+comments: 1 · round 1
+
+## n2:s4 · 1.1
+> enqueue can fail — what does the client get then?
 ```
 
 A target `n2` is nibble 2; `n2:s4` is element `s4` on nibble 2's visual —
 here, the enqueue arrow in the sequence. A target `ledger` is the not-shown
 ledger as a whole, and `ledger:src/billing.ts` is one of its files
-(`ledger:<path>#base` when the uncovered lines are deletions) —
-the reviewer read something you didn't walk through, so look at those exact
-lines before answering. Map each comment back to what it points at.
+(`ledger:<path>#base` when the uncovered lines are deletions) — the reviewer
+read something you didn't walk through, so look at those exact lines before
+answering. `1.1` is the comment's id: round 1, comment 1. Map each comment
+back to what it points at.
 
 - done (exit 0, no comments): the reader is done with the plate. Report it
   and move on; don't re-serve.
-- comments (exit 2): read each comment and decide from its text what it
-  needs — a question gets an answer (a reply, or a new nibble if the plate
-  is still open, rather than rebuilding the plate from scratch); a change
-  request gets addressed where the work happens — in the code — and then an
-  explanation of what changed.
-- timeout (exit 5): nobody read it. Say so and carry on without a review.
+- comments (exit 2): read the whole round first, then answer every comment
+  on the plate with `nibble reply` — never rebuild the plate.
+- timeout (exit 5): nothing more came. The chat has no done button —
+  silence is how the reader says they are done — so after a timeout on an
+  answered plate, carry on; a timeout on a plate nobody opened means
+  nobody read it: say so.
+
+Answering is a conversation pinned to the plate. Each comment opens a
+thread on the thing it points at; your reply lands under it, in the reader's
+chat panel, with the lines that prove it. Decide from the comment's text
+what it needs: a question gets an answer; a change request gets the change
+made where the work happens — in the code — and then a reply saying what
+changed, with a `--ref` on the new lines. The loop, in order:
+
+1. The page outlived `serve`'s exit: a keeper holds the address, so the
+   tab the human left open shows each reply the moment you write it. You
+   do not have to serve first.
+2. `nibble reply <plate> --to <N> --text "<md>" [--ref "<ref>"]...` for
+   each comment, `N` being its index in the round. The text is markdown,
+   150 words or fewer (`--because` to go over, like every budget); it may
+   link `[phrase](@id)` into the visual of the nibble the thread is on.
+   Refs are verified and fingerprinted like a nibble's and take no
+   `@anchor`. A comment answered twice is `reply.duplicate`; an index the
+   round doesn't have is `reply.target` (the message lists the comments).
+3. `nibble serve <plate> &` again, then `wait` on it. It takes the address
+   the tab is on back from the keeper by itself — no `--addr` needed — and
+   blocks for the next round. Once every comment has a reply, the reader
+   can send it: done (exit 0), or more comments (exit 2) — some of them
+   follow-ups in a thread you already answered. A follow-up prints with
+   the thread's history above it, marked `reader` and `agent`, so you read
+   the conversation, not a fragment. Reply to it the same way: by its
+   index in *its* round. Keep going until a round comes back done.
+
+## A worked conversation
+
+The image-resize plate above comes back with two comments. The agent
+answers both — the open tab shows each reply as it lands — serves again to
+wait, and gets a follow-up in the first thread. The reviews below are what
+`serve` found on disk; the commands are what you run.
+
+```
+$ wait %1
+comments: 2 · round 1
+
+## n2:s4 · 1.1
+> enqueue can fail — what does the client get then?
+
+## ledger:src/upload/handler.ts · 1.2
+> is the header comment change really all that's left?
+```
+
+```json review.json
+{ "comments": [
+    { "target": "n2:s4", "text": "enqueue can fail — what does the client get then?" },
+    { "target": "ledger:src/upload/handler.ts", "text": "is the header comment change really all that's left?" } ] }
+```
+
+```
+$ nibble reply <plate> --to 1 \
+    --text "A 503, and nothing is stored: the [enqueue](@s4) is wrapped in a try, and a failure rolls the stored original back before the handler returns." \
+    --ref "src/upload/handler.ts:15-19 the try around the enqueue"
+✓ reply 1 of 2
+
+$ nibble reply <plate> --to 2 \
+    --text "Yes — the ledger's one hunk is the file's header comment; every logic change is referenced by a nibble."
+✓ reply 2 of 2 — round 1 answered; the reader can send the next round
+
+$ nibble serve <plate> --timeout 45m &                            # back on the tab's address, waiting for the next round
+reader: http://127.0.0.1:52314
+
+$ wait %1
+comments: 1 · round 2
+
+## n2:s4 · 2.1 continues 1.1
+reader · round 1
+> enqueue can fail — what does the client get then?
+agent · round 1
+> A 503, and nothing is stored: the enqueue is wrapped in a try…
+reader · round 2
+> and if the queue is full — does the client wait?
+```
+
+```json review.2.json
+{ "comments": [ { "thread": "1.1", "text": "and if the queue is full — does the client wait?" } ] }
+```
+
+```
+$ nibble reply <plate> --to 1 \
+    --text "No: the enqueue is non-blocking; a full queue fails fast and takes the same 503 path." \
+    --ref "src/upload/handler.ts:15-19 same path"
+✓ reply 1 of 1 — round 2 answered; the reader can send the next round
+
+$ nibble serve <plate> --timeout 45m &
+reader: http://127.0.0.1:52314
+
+$ wait %1
+done — no comments · round 3
+```
+
+The thread on `s4` ran three messages deep without the plate changing: the
+nibble and its picture stayed where the human first looked, and the answers
+gathered under it. When a comment needs a new picture rather than an
+answer, say so in the reply — adding nibbles in reply arrives with the next
+version.

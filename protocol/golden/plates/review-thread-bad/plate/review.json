@@ -1,0 +1,6 @@
+{
+  "comments": [
+    { "target": "n1:cache", "text": "callers in billing/ also read this — is the TTL theirs too?" },
+    { "target": "n1", "text": "why not jitter the TTL?" }
+  ]
+}

@@ -1,5 +1,4 @@
 {
-  "title": "Every key expires **on the hour**.",
   "refs": [
     {
       "ref": "src/pool.ts:1 @db pool size",
@@ -12,6 +11,7 @@
       ]
     }
   ],
+  "title": "Every key expires **on the hour**.",
   "visual": {
     "kind": "timeline",
     "title": "expiries on the hour",
