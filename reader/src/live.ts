@@ -65,3 +65,12 @@ function latestWins(): LatestWins {
     isCurrent: (token) => token === seq,
   };
 }
+
+// --- stepping the camera ---
+
+// stepCard: the card a step lands on — clamped to the strip, and 0 on an
+// empty strip (the ghost holds the camera until the first card lands).
+function stepCard(active: number, delta: number, count: number): number {
+  if (count <= 0) return 0;
+  return Math.max(0, Math.min(count - 1, active + delta));
+}

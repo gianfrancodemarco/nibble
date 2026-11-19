@@ -209,3 +209,26 @@ t("drawerBadges marks a thread's first shown line, where trust resolved it", () 
   const merged = drawerBadges(shifted, "src/a.ts", [20, 21]);
   eq(merged.get(20), { count: 3, key: "1.1" }, "two threads meeting one line sum (2 + 1), the first thread's key wins");
 });
+
+t("composerLock: nothing to write on until the first card lands", () => {
+  const open = { text: "write on anything, then send", locked: false };
+  const none = composerLock(0, open);
+  ok(none.locked && none.text.includes("first nibble"), none.text);
+  eq(composerLock(1, open), open, "with a card the turn decides");
+  const agent = { text: "the agent is answering · 0 of 1", locked: true };
+  eq(composerLock(3, agent), agent, "a locked turn stays locked");
+});
+
+t("railSegments: numbered, the active one marked, read ones distinct, message counts as badges", () => {
+  const cards = [{ label: "1", name: "nibble 1" }, { label: "2", name: "nibble 2" }, { label: "3", name: "nibble 3" }, { label: "≡", name: "not-shown ledger" }];
+  const counts = new Map<number, number>([[1, 4], [3, 2]]);
+  const segs = railSegments(cards, 1, new Set([0, 1]), counts);
+  eq(segs.map((s) => s.label), ["1", "2", "3", "≡"], "labels");
+  eq(segs.map((s) => s.state), ["read", "on", "", ""], "the active card is on, the visited one read, the rest ahead");
+  eq(segs.map((s) => s.badge), [0, 4, 0, 2], "badges carry the card's message count");
+  eq(segs[1].title, "nibble 2 · 4 messages", "the title names the card and its messages");
+  eq(segs[3].title, "not-shown ledger · 2 messages", "the ledger card too");
+  eq(segs[0].title, "nibble 1", "no messages, no suffix");
+  eq(railSegments(cards, 0, new Set(), new Map([[0, 1]]))[0].title, "nibble 1 · 1 message", "singular");
+  eq(railSegments([], 0, new Set(), new Map()), [], "an empty strip has no segments");
+});

@@ -25,6 +25,7 @@
     "../src/visual/ledger.ts",
     "../src/live.ts",
     "../src/chat.ts",
+    "../src/shell.ts",
     "host.test.ts",
     "map.test.ts",
     "sequence.test.ts",
@@ -40,6 +41,7 @@
     "prose.test.ts",
     "proselink.test.ts",
     "types.test.ts",
+    "shell.test.ts",
     "run.ts"
   ]
 }

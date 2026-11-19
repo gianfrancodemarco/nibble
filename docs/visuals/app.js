@@ -638,6 +638,17 @@ function mapEdgeEnds(a, b) {
         return { x1: a.x + a.w / 2, y1: a.y + a.h, x2: b.x + b.w / 2, y2: b.y - 7, horizontal: false };
     return { x1: a.x + a.w / 2, y1: a.y, x2: b.x + b.w / 2, y2: b.y + b.h + 7, horizontal: false };
 }
+// mapEdgeSide: an edge that has a twin running the other way between the
+// same two nodes bends to one side (-1 or 1, the earlier-declared one
+// first) so the pair reads as two arrows instead of one line drawn twice,
+// with the labels on opposite sides. A lone edge is straight (0).
+function mapEdgeSide(edges, ei) {
+    const e = edges[ei];
+    const twin = edges.findIndex((o, i) => i !== ei && o.from === e.to && o.to === e.from);
+    if (twin < 0)
+        return 0;
+    return twin > ei ? -1 : 1;
+}
 let mapIdSeq = 0;
 function renderMapVisual(v, ctx) {
     const level = ctx.level ?? "standard";
@@ -696,9 +707,13 @@ function renderMapVisual(v, ctx) {
         if (!a || !b)
             return; // validation forbids this; stay defensive
         const { x1, y1, x2, y2, horizontal } = mapEdgeEnds(a, b);
+        // A twin pair bends apart: each curve bows out of the straight line by
+        // BOW on its own side, and its label follows it there.
+        const side = mapEdgeSide(v.edges ?? [], ei);
+        const BOW = 18 * side;
         const d = horizontal
-            ? `M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`
-            : `M ${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
+            ? `M ${x1} ${y1 + BOW / 2} C ${(x1 + x2) / 2} ${y1 + BOW}, ${(x1 + x2) / 2} ${y2 + BOW}, ${x2} ${y2 + BOW / 2}`
+            : `M ${x1 + BOW / 2} ${y1} C ${x1 + BOW} ${(y1 + y2) / 2}, ${x2 + BOW} ${(y1 + y2) / 2}, ${x2 + BOW / 2} ${y2}`;
         const g = svgEl("g", { class: `edge ${e.style ?? "flow"}`, "data-from": e.from, "data-to": e.to });
         g.appendChild(svgEl("path", { d, "marker-end": `url(#${uid}-arr)` }));
         g.appendChild(svgEl("title", {}, e.label ?? ""));
@@ -710,14 +725,17 @@ function renderMapVisual(v, ctx) {
         if (e.label) {
             if (horizontal) {
                 if (Math.abs(x2 - x1) > e.label.length * 6.5) {
+                    // above the line, or below it for the twin that bows downwards
+                    const below = side > 0;
                     g.appendChild(svgEl("text", {
-                        x: (x1 + x2) / 2, y: (y1 + y2) / 2 - 7, "text-anchor": "middle", class: "elabel",
+                        x: (x1 + x2) / 2, y: (y1 + y2) / 2 + BOW + (below ? 14 : -7), "text-anchor": "middle", class: "elabel",
                     }, e.label));
                 }
             }
             else {
+                const left = side < 0;
                 g.appendChild(svgEl("text", {
-                    x: (x1 + x2) / 2 + 8, y: (y1 + y2) / 2 + 3.5, "text-anchor": "start", class: "elabel",
+                    x: (x1 + x2) / 2 + BOW + (left ? -8 : 8), y: (y1 + y2) / 2 + 3.5, "text-anchor": left ? "end" : "start", class: "elabel",
                 }, e.label));
             }
         }
@@ -1481,6 +1499,27 @@ function latestWins() {
         isCurrent: (token) => token === seq,
     };
 }
+// --- stepping the camera ---
+// stepCard: the card a step lands on — clamped to the strip, and 0 on an
+// empty strip (the ghost holds the camera until the first card lands).
+function stepCard(active, delta, count) {
+    if (count <= 0)
+        return 0;
+    return Math.max(0, Math.min(count - 1, active + delta));
+}
+// wheelStep: a trackpad swipe steps the camera once. Only a clearly
+// horizontal gesture counts (a vertical scroll inside a card must never
+// move it), it has to cross a threshold, and one gesture is one step:
+// the cooldown eats the momentum frames that follow.
+const WHEEL_THRESHOLD = 40;
+const WHEEL_COOLDOWN_MS = 500;
+function wheelStep(dx, dy, lastAt, now) {
+    if (Math.abs(dx) < WHEEL_THRESHOLD || Math.abs(dx) <= Math.abs(dy))
+        return 0;
+    if (now - lastAt < WHEEL_COOLDOWN_MS)
+        return 0;
+    return dx > 0 ? 1 : -1;
+}
 // The chat: the pure decisions behind the conversation panel — reassembling
 // threads from the server's rounds, placing drafts, mapping targets to
 // cards and elements, counting badges, and wording the turn. No DOM here:
@@ -1684,6 +1723,64 @@ function turnLabel(thread, justSent) {
 function sendLabel(drafts) {
     return drafts ? `Send ${drafts > 1 ? `+${drafts}` : "+1"}` : "Send";
 }
+// composerLock: before the first card lands there is nothing to write on,
+// whatever the turn says — the composer waits, locked, and says why.
+function composerLock(cards, turn) {
+    if (cards === 0)
+        return { text: "the first nibble hasn't landed yet — the chat opens with it", locked: true };
+    return turn;
+}
+// railSegments: the top bar's rail — each card as a numbered, clickable
+// segment: the active one marked, the visited ones distinct from those
+// still ahead, and the card's message count as a badge.
+function railSegments(cards, active, read, counts) {
+    return cards.map((c, i) => {
+        const badge = counts.get(i) ?? 0;
+        return {
+            label: c.label,
+            state: i === active ? "on" : read.has(i) ? "read" : "",
+            badge,
+            title: badge ? `${c.name} · ${badge} message${badge > 1 ? "s" : ""}` : c.name,
+        };
+    });
+}
+// The shell's pure decisions, kept out of the DOM so the node test build
+// can exercise them: what esc closes first, the fullscreen stage's
+// controls, and the fold on the plate description. app.ts owns the wiring.
+// escAction: the outermost thing esc closes — the help first, then what the
+// drawer holds, the drawer itself, the fullscreen stage, and last the
+// selection (which is the reading, not a layer over it).
+function escAction(l) {
+    if (l.help)
+        return "help";
+    if (l.lines)
+        return "lines";
+    if (l.drawer)
+        return "drawer";
+    if (l.fullscreen)
+        return "fullscreen";
+    if (l.selection)
+        return "selection";
+    return "none";
+}
+// fsStage: the stage's own controls — where the card stands in the strip,
+// and whether there is a card either side. The caption is the card's own
+// title: nothing is copied.
+function fsStage(active, cards) {
+    if (cards <= 0)
+        return { count: "", prevDisabled: true, nextDisabled: true };
+    const i = Math.max(0, Math.min(cards - 1, active));
+    return { count: `${i + 1} / ${cards}`, prevDisabled: i <= 0, nextDisabled: i >= cards - 1 };
+}
+// --- the plate description's fold ---
+// foldLabel: the toggle beside the one-line plate description — none when
+// the text fits its line, else what pressing it does. The shell measures
+// the overflow; the decision lives here.
+function foldLabel(open, overflows) {
+    if (open)
+        return "less";
+    return overflows ? "more" : null;
+}
 // nibble reader shell — pure presentation over the Go server's JSON API.
 // Protocol logic (refs, trust, validation) never happens here: the server
 // hands us computed trust and resolved code. Hand-written types below cover
@@ -1721,6 +1818,12 @@ let drawerQuery = null; // what the drawer shows; re-opening the same code keeps
 const read = new Set(); // cards visited, for the rail only
 let knownCards = 0; // cards already on screen, for the arrival animation
 let painted = false; // first paint done — later cards are arrivals, animated
+let fsOn = false; // fullscreen: the active card covers the window
+let plateDescOpen = false; // the plate description unfolded from its one line
+// a navigation in flight: the card the camera is heading for, so the cards
+// it passes on the way never become active
+let scrollTarget = null;
+let scrollTimer = 0;
 const visualOfCard = (card) => plate?.nibbles[card]?.visual ?? null;
 // cards: the nibbles plus the ledger card when the plate carries a ledger
 const cards = () => (plate ? cardCount(plate.nibbles.length, plate.ledger) : 0);
@@ -1774,10 +1877,11 @@ function buildNibbleCard(nb, i) {
     // links re-evaluate for free.
     const drawn = (id) => anchorDrawnAt(nb.visual, id, dialLevel);
     const tpl = document.createElement("template");
-    tpl.innerHTML = `<article class="nibble${i === active ? " active" : ""}" data-i="${i}">
+    tpl.innerHTML = `<article class="nibble${i === active ? " active" : ""}${fsOn && i === active ? " fs" : ""}" data-i="${i}">
     <div class="nbody">
       <div class="visual">
         <div class="vhead"><span class="kind">${esc(vs.kind)}</span></div>
+        ${expandButton()}
         <span class="soon">${esc(vs.detail)} — this build has no ${esc(vs.kind)} renderer</span>
         ${vs.anchors.length ? `<div class="anchors">${vs.anchors.map((a) => `<span class="anchor">${esc(a)}</span>`).join("")}</div>` : ""}
       </div>
@@ -1791,14 +1895,19 @@ function buildNibbleCard(nb, i) {
   </article>`;
     return tpl.content.firstElementChild;
 }
+// expandButton: ⤢ on a visual — fullscreen (f)
+function expandButton() {
+    return `<button type="button" class="expand" title="fullscreen (f)" aria-label="fullscreen">⤢</button>`;
+}
 function buildLedgerCard(ledger, i) {
     const card = document.createElement("article");
-    card.className = "nibble ledger" + (active === i ? " active" : "");
+    card.className = "nibble ledger" + (active === i ? " active" : "") + (fsOn && active === i ? " fs" : "");
     card.dataset.i = String(i);
     const nbody = document.createElement("div");
     nbody.className = "nbody";
     const slot = document.createElement("div");
     slot.className = "visual rendered";
+    slot.innerHTML = expandButton();
     const body = renderLedgerBody(ledger);
     body.classList.add("visual-body");
     slot.appendChild(body);
@@ -1871,9 +1980,9 @@ function render() {
     $("#plate-title").textContent = plate.title;
     $("#plate-meta").textContent = `${aboutLabel(plate)} · ${plate.head_sha.slice(0, 7)}`;
     const plateDesc = descriptionAt(plate.description, dialLevel);
-    const pdEl = $("#plate-desc");
-    pdEl.hidden = plateDesc === null;
-    pdEl.innerHTML = plateDesc === null ? "" : mdLite(plateDesc);
+    $("#plate-desc").hidden = plateDesc === null;
+    $("#plate-desc-text").innerHTML = plateDesc === null ? "" : mdLite(plateDesc);
+    foldPlateDesc();
     const notice = $("#notice");
     if (!plate.source.found) {
         notice.hidden = false;
@@ -1888,6 +1997,7 @@ function render() {
     }
     renderProgress();
     const strip = $("#strip");
+    watcher.disconnect(); // the old cards go with the strip
     strip.innerHTML = "";
     plate.nibbles.forEach((nb, i) => strip.appendChild(buildNibbleCard(nb, i)));
     // The not-shown ledger ends a diff plate: one last card after the nibbles.
@@ -1899,6 +2009,7 @@ function render() {
         ? hostSelection
         : selectionAfterDial(hostSelection, visualOfCard, dialLevel);
     strip.querySelectorAll(".nibble").forEach(mountCard);
+    watchCards();
     // A card that streamed in after the first paint slides into place — only
     // indexes beyond the known count are new. The camera stays where it is:
     // arrivals never steal it. (live arrivals take appendCards instead; this
@@ -1919,6 +2030,19 @@ function render() {
     renderChat();
     camera();
 }
+// foldPlateDesc: the plate description is one line under the header, with a
+// `more` toggle when it is clipped — so turning the dial, which swaps the
+// text, never changes the canvas height under the camera.
+function foldPlateDesc() {
+    const el = $("#plate-desc");
+    const text = $("#plate-desc-text");
+    el.classList.toggle("open", plateDescOpen);
+    const label = foldLabel(plateDescOpen, text.scrollWidth > text.clientWidth);
+    const btn = $("#plate-desc-more");
+    btn.hidden = label === null;
+    if (label)
+        btn.textContent = label;
+}
 // --- the detail dial: one plate-wide level, same canvas, same camera ---
 function setDial(level) {
     if (level === dialLevel)
@@ -1935,9 +2059,10 @@ function setDial(level) {
 function currentTarget() {
     if (!plate)
         return `n${active + 1}`;
-    return isLedgerCard(active)
-        ? ledgerCommentTarget(hostSelection, active)
-        : commentTarget(plate.nibbles[active].n, hostSelection, active);
+    if (isLedgerCard(active))
+        return ledgerCommentTarget(hostSelection, active);
+    const nb = plate.nibbles[active];
+    return nb ? commentTarget(nb.n, hostSelection, active) : ""; // an empty strip: nothing to point at yet
 }
 // currentLines: the ref string of the drawer's selected lines, if any —
 // the most specific pointer the reader has made.
@@ -1962,20 +2087,42 @@ function onSelectionMoved() {
     focusedThread = th ? th.key : null;
     renderChat();
 }
-function setActive(i) {
+// setActive: the card becomes the active one. By default the camera goes to
+// it; `move` is false when the camera is already there — the reader scrolled
+// the strip and the watcher is telling us which card they landed on.
+function setActive(i, move = true) {
     if (!plate)
         return;
-    const next = Math.max(0, Math.min(cards() - 1, i));
-    if (next !== active)
+    const next = stepCard(i, 0, cards());
+    const moved = next !== active;
+    if (moved)
         closeDrawer(); // the drawer shows the active card's code
     active = next;
     document.querySelectorAll(".nibble").forEach((card, idx) => {
         card.classList.toggle("active", idx === active);
+        card.classList.toggle("fs", fsOn && idx === active);
     });
-    onSelectionMoved();
-    camera();
+    // The chat follows the camera, not a click on the card already in view:
+    // re-activating the active card must not drop a focused thread.
+    if (moved)
+        onSelectionMoved();
+    if (move)
+        camera();
+    else
+        rail();
+    if (fsOn)
+        paintStage();
 }
-function camera() {
+// camera: the canvas's scroll position. A navigation scrolls smoothly to
+// the card and the snap points hold it there; a relayout (the chat changing
+// width, the window resizing) jumps, because the card must stay centred
+// through the resize rather than lurch and slide back. In fullscreen the
+// active card is out of the strip's flow: the camera catches up when the
+// card comes back.
+function camera(animate = true) {
+    rail();
+    if (fsOn)
+        return;
     const strip = $("#strip");
     // An empty strip still has the ghost: center it, or the placeholder hugs
     // the left edge until the first nibble lands.
@@ -1984,24 +2131,147 @@ function camera() {
     if (!card)
         return;
     const canvas = $("#canvas");
-    const x = canvas.clientWidth / 2 - card.offsetLeft - card.offsetWidth / 2;
-    strip.style.transform = `translateX(${x}px)`;
-    rail();
+    const left = card.offsetLeft + card.offsetWidth / 2 - canvas.clientWidth / 2;
+    const smooth = animate && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (smooth) {
+        scrollTarget = active;
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(settleCamera, 1200);
+    }
+    canvas.scrollTo({ left, behavior: smooth ? "smooth" : "instant" });
 }
-// rail: one segment per card in the top bar — read, active, or still ahead.
-// Segments reconcile in place: rewriting them would kill their transitions,
-// and an arriving card's segment must join without the others flashing.
+// settleCamera: once a scroll has ended (the browser says so, or the timer
+// gives up waiting), the camera and the active card must agree. A smooth
+// navigation can be cut short — the browser's own focus scroll lands on top
+// of it when the reader tabs into a neighbour, and the strip snaps to
+// whatever card is nearest. Keyboard focus in the active card means the
+// reader meant that card: recentre it. Otherwise the card nearest the
+// centre is where the reader scrolled to: it becomes active.
+function settleCamera() {
+    clearTimeout(scrollTimer);
+    scrollTarget = null;
+    if (fsOn || !plate)
+        return;
+    const canvas = $("#canvas");
+    const mid = canvas.scrollLeft + canvas.clientWidth / 2;
+    let nearest = -1;
+    let gap = Infinity;
+    document.querySelectorAll(".nibble").forEach((c, i) => {
+        const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid);
+        if (d < gap) {
+            gap = d;
+            nearest = i;
+        }
+    });
+    if (nearest < 0)
+        return;
+    const activeCard = document.querySelectorAll(".nibble")[active];
+    const focusInActive = !!activeCard && activeCard.contains(document.activeElement);
+    if (nearest !== active && !focusInActive)
+        setActive(nearest, false);
+    else if (nearest !== active || gap > 2)
+        camera(false);
+}
+// The watcher: whichever card is mostly in view is the active one — a swipe,
+// a drag or a focus scroll move the camera, and the shell follows. A
+// navigation in flight is ignored until it lands, so the cards passed on
+// the way never flash active.
+const watcher = new IntersectionObserver((entries) => {
+    if (fsOn)
+        return;
+    for (const en of entries) {
+        if (!en.isIntersecting || en.intersectionRatio < 0.6)
+            continue;
+        const i = Number(en.target.dataset.i);
+        if (scrollTarget !== null) {
+            if (i === scrollTarget)
+                scrollTarget = null;
+            continue;
+        }
+        if (i !== active)
+            setActive(i, false);
+    }
+}, { root: $("#canvas"), threshold: [0.6] });
+function watchCards() {
+    document.querySelectorAll("#strip .nibble").forEach((c) => watcher.observe(c));
+}
+// cardLabel: how the rail and the step buttons name a card.
+function cardLabel(i) {
+    if (!plate)
+        return "";
+    return isLedgerCard(i) ? "not-shown ledger" : `nibble ${plate.nibbles[i]?.n ?? i + 1}`;
+}
+// cardShort: the rail's one-glyph name for a card — the nibble's number,
+// a list mark for the ledger.
+function cardShort(i) {
+    if (!plate)
+        return "";
+    return isLedgerCard(i) ? "≡" : String(plate.nibbles[i]?.n ?? i + 1);
+}
+// rail: one numbered segment per card in the top bar — read, active, or
+// still ahead, with the card's message count as a badge; each one a button
+// that takes the camera there. Segments reconcile in place: rewriting them
+// would kill their transitions, and an arriving card's segment must join
+// without the others flashing. The step buttons at the canvas edges follow
+// the same count.
 function rail() {
     read.add(active);
     const el = $("#rail");
     const want = cards();
     while (el.children.length > want)
         el.lastElementChild.remove();
-    while (el.children.length < want)
-        el.appendChild(document.createElement("i"));
-    for (let i = 0; i < want; i++) {
-        el.children[i].className = i === active ? "on" : read.has(i) ? "read" : "";
+    while (el.children.length < want) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.dataset.card = String(el.children.length);
+        el.appendChild(b);
     }
+    const counts = plate ? badgeCounts(threads(), plate.nibbles.length, plate.ledger != null).cards : new Map();
+    const names = Array.from({ length: want }, (_, i) => ({ label: cardShort(i), name: cardLabel(i) }));
+    railSegments(names, active, read, counts).forEach((seg, i) => {
+        const b = el.children[i];
+        b.className = seg.state;
+        b.title = b.ariaLabel = seg.title;
+        b.textContent = seg.label;
+        if (seg.badge) {
+            const badge = document.createElement("span");
+            badge.className = "rail-badge";
+            badge.textContent = String(seg.badge);
+            b.appendChild(badge);
+        }
+    });
+    $("#prev").disabled = active <= 0;
+    $("#next").disabled = active >= want - 1;
+}
+// --- fullscreen: the active card over the whole window ---
+// The card itself leaves the strip's flow and covers the window: nothing is
+// moved or copied, so the visual's state — a sequence step, the timeline
+// cursor, a selection, the open drawer — is exactly what it was, and chips,
+// badges and prose links keep their wiring. Stepping hands the class to the
+// next card; the strip underneath catches up when the mode ends.
+function setFullscreen(on) {
+    if (on === fsOn || !plate || cards() === 0)
+        return;
+    fsOn = on;
+    document.body.classList.toggle("fs", on);
+    document.querySelectorAll(".nibble").forEach((card, idx) => card.classList.toggle("fs", on && idx === active));
+    if (on) {
+        paintStage();
+        if (document.fullscreenEnabled && !document.fullscreenElement)
+            document.documentElement.requestFullscreen().catch(() => { });
+    }
+    else {
+        camera(false); // the card is back in the flow where it was: recentre on the spot
+        if (document.fullscreenElement)
+            document.exitFullscreen().catch(() => { });
+    }
+}
+// paintStage: the stage's own controls — the count, the edge buttons.
+function paintStage() {
+    const st = fsStage(active, cards());
+    $("#fs-count").textContent = st.count;
+    $("#fs-prev").disabled = st.prevDisabled;
+    $("#fs-next").disabled = st.nextDisabled;
 }
 // --- code drawer: one element, mounted inside the active card while open ---
 // attachDrawer moves the drawer into the active card, so the evidence reads
@@ -2036,9 +2306,10 @@ async function openDrawer(n, ref) {
 }
 // openReplyRef: a reply's ref opens in the drawer inside the thread's card;
 // lines selected there belong to the thread's target.
-async function openReplyRef(card, round, comment, ref, target) {
+async function openReplyRef(card, round, comment, ref, target, key) {
     setActive(card);
     await openCode(`round=${round}&comment=${comment}&ref=${ref}`, target);
+    focusThread(key); // the camera move must not drop the thread being read
 }
 // openCommentLines: a line thread's chip opens the drawer on the lines the
 // comment is about, inside the thread's card.
@@ -2276,10 +2547,14 @@ function composerDestination() {
 }
 // holdDraft keeps the typed message as a draft bubble; the send button
 // posts the round.
+// composerTurn: whose move it is, and whether there is anything to write on.
+function composerTurn() {
+    return composerLock(cards(), turnLabel(plate?.thread ?? null, justSent));
+}
 function holdDraft() {
     const ta = $("#composer-text");
     const text = ta.value.trim();
-    if (!text || !plate || turnLabel(plate.thread, justSent).locked)
+    if (!text || !plate || composerTurn().locked)
         return false;
     const dest = composerDestination();
     const d = { key: ++draftSeq, text };
@@ -2320,7 +2595,7 @@ function renderChat() {
     if (!plate)
         return;
     const ths = threads();
-    const turn = turnLabel(plate.thread, justSent);
+    const turn = composerTurn();
     const nibbleCount = plate.nibbles.length;
     const hasLedger = plate.ledger != null;
     $("#chat-turn").textContent = turn.text;
@@ -2381,6 +2656,7 @@ function renderChat() {
     $("#composer-hold").disabled = turn.locked;
     applyBadges(ths);
     applyDrawerBadges();
+    rail(); // the segments wear the counts
 }
 // applyBadges: a message count on every element and card with a thread —
 // derived on each render, never stored, never posted.
@@ -2434,7 +2710,7 @@ function applyBadges(ths) {
     });
 }
 async function submit() {
-    if (!plate || drafts.length === 0 || turnLabel(plate.thread, justSent).locked)
+    if (!plate || drafts.length === 0 || composerTurn().locked)
         return;
     let resp;
     try {
@@ -2512,6 +2788,7 @@ function appendCards(from) {
         strip.insertBefore(card, ghost); // a null ghost appends
         mountCard(card);
     }
+    watchCards();
     requestAnimationFrame(() => requestAnimationFrame(() => {
         for (const card of fresh)
             card.classList.remove("in");
@@ -2580,10 +2857,23 @@ function listen() {
 }
 // --- wire up ---
 document.querySelectorAll("#dial .dial-pos").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-        e.stopPropagation(); // the dial lives in the legend; don't toggle its pin
-        setDial(btn.dataset.level);
-    });
+    btn.addEventListener("click", () => setDial(btn.dataset.level));
+});
+// The help: a popover over the canvas — ? or the button up top; esc, the
+// button again or a click elsewhere closes it.
+const help = $("#help");
+function toggleHelp(on = help.hidden) {
+    help.hidden = !on;
+    $("#helpbtn").setAttribute("aria-expanded", String(on));
+}
+$("#helpbtn").addEventListener("click", () => toggleHelp());
+document.addEventListener("click", (e) => {
+    if (!help.hidden && !e.target?.closest?.("#help, #helpbtn"))
+        toggleHelp(false);
+});
+$("#plate-desc-more").addEventListener("click", () => {
+    plateDescOpen = !plateDescOpen;
+    foldPlateDesc();
 });
 $("#drawer-close").addEventListener("click", closeDrawer);
 // The review gutter: a line number selects the line, shift extends the
@@ -2612,13 +2902,11 @@ $("#drawer-code").addEventListener("keydown", (e) => {
     e.preventDefault();
     toggleLine(Number(no.closest(".ln").dataset.no), e.shiftKey);
 });
-const legend = $("#legend");
 // The composer: send posts this message and every held draft (⌘⏎, the
 // default) — that is what wakes the agent; hold keeps a draft for the next
 // send (⇧⌘⏎). There is no done button: silence is done.
 $("#chat-rail").addEventListener("click", () => setChatOpen(true));
 $("#chat-close").addEventListener("click", () => setChatOpen(false));
-$("#chat").addEventListener("transitionend", camera);
 $("#composer-hold").addEventListener("click", () => { holdDraft(); });
 $("#composer-send").addEventListener("click", sendNow);
 $("#composer-text").addEventListener("keydown", (e) => {
@@ -2664,7 +2952,7 @@ threadList.addEventListener("click", (e) => {
     }
     const mref = t.closest(".mref");
     if (mref && section.dataset.card !== undefined && th) {
-        void openReplyRef(Number(section.dataset.card), Number(mref.dataset.round), Number(mref.dataset.comment), Number(mref.dataset.ref), th.target);
+        void openReplyRef(Number(section.dataset.card), Number(mref.dataset.round), Number(mref.dataset.comment), Number(mref.dataset.ref), th.target, th.key);
         return;
     }
     const link = t.closest(".plink[data-link-anchor]");
@@ -2692,6 +2980,50 @@ const lightFromPanel = (t, on) => {
 };
 threadList.addEventListener("mouseover", (e) => lightFromPanel(e.target, true));
 threadList.addEventListener("mouseout", (e) => lightFromPanel(e.target, false));
+// Stepping: the arrow keys, home/end, the buttons at the canvas edges and
+// on the stage, the rail's segments — every one a camera move. A trackpad
+// swipe scrolls the strip natively, the snap points stop it one card on,
+// and the watcher makes that card active.
+$("#prev").addEventListener("click", () => setActive(active - 1));
+$("#next").addEventListener("click", () => setActive(active + 1));
+$("#fs-prev").addEventListener("click", () => setActive(active - 1));
+$("#fs-next").addEventListener("click", () => setActive(active + 1));
+$("#fs-close").addEventListener("click", () => setFullscreen(false));
+$("#rail").addEventListener("click", (e) => {
+    const seg = e.target?.closest?.("[data-card]");
+    if (seg)
+        setActive(Number(seg.dataset.card));
+});
+// A neighbour peeking at the edge is a button: a click on it anywhere brings
+// it in and does nothing else — its chips and nodes answer once it is the
+// active card. (capture: the click never reaches them)
+$("#strip").addEventListener("click", (e) => {
+    const card = e.target?.closest?.(".nibble");
+    if (card && Number(card.dataset.i) !== active) {
+        e.stopPropagation();
+        setActive(Number(card.dataset.i));
+    }
+}, true);
+// Keyboard focus landing in another card (tabbing through its chips) takes
+// the camera there — on the next frame, after the browser's own focus
+// scroll, which would otherwise land on top of ours and leave the canvas
+// snapped to the wrong card.
+$("#strip").addEventListener("focusin", (e) => {
+    const card = e.target?.closest?.(".nibble");
+    if (card && Number(card.dataset.i) !== active)
+        requestAnimationFrame(() => setActive(Number(card.dataset.i)));
+});
+// Fullscreen: ⤢ on the visual, or a double-click on it (not on a thing in it).
+$("#strip").addEventListener("dblclick", (e) => {
+    const t = e.target;
+    if (!t?.closest?.(".visual") || t.closest("[data-anchor], [data-code], .plink, button, input, a"))
+        return;
+    setFullscreen(!fsOn);
+});
+document.addEventListener("fullscreenchange", () => {
+    if (!document.fullscreenElement && fsOn)
+        setFullscreen(false); // the browser's exit leaves ours too
+});
 document.addEventListener("keydown", (e) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
         return;
@@ -2699,6 +3031,10 @@ document.addEventListener("keydown", (e) => {
         setActive(active - 1);
     if (e.key === "ArrowRight")
         setActive(active + 1);
+    if (e.key === "Home")
+        setActive(0);
+    if (e.key === "End")
+        setActive(cards() - 1);
     if (e.key === " ") {
         // space steps the active visual (sequence steps, etc.), shift reverses
         const body = document.querySelector(".nibble.active .visual-body");
@@ -2713,26 +3049,35 @@ document.addEventListener("keydown", (e) => {
         e.preventDefault(); // or the c itself lands in the focused textarea
         focusComposer();
     }
+    if (e.key === "f")
+        setFullscreen(!fsOn);
     if (e.key === "?")
-        legend.classList.toggle("pinned");
+        toggleHelp();
     if (e.key === "s")
         void submit();
     if (e.key === "Escape") {
-        if (legend.classList.contains("pinned"))
-            legend.classList.remove("pinned");
-        else if (drawerLines) {
+        const act = escAction({ help: !help.hidden, lines: drawerLines !== null, drawer: !$("#drawer").hidden, fullscreen: fsOn, selection: hostSelection !== null });
+        if (act === "help")
+            toggleHelp(false);
+        else if (act === "lines") {
             drawerLines = null;
             paintDrawerLines();
             onSelectionMoved();
         }
-        else if (!$("#drawer").hidden)
+        else if (act === "drawer")
             closeDrawer();
-        else
+        else if (act === "fullscreen")
+            setFullscreen(false);
+        else if (act === "selection")
             clearVisualSelection($("#strip"), hostWiring);
     }
 });
-window.addEventListener("resize", camera);
-legend.addEventListener("transitionend", camera);
+// Any relayout of the canvas — the window or the chat column changing
+// width — recentres the active card on the spot, every frame of a width
+// transition included; only navigation animates the strip. The plate
+// description's fold follows the width too.
+new ResizeObserver(() => { camera(false); foldPlateDesc(); }).observe($("#canvas"));
+$("#canvas").addEventListener("scrollend", settleCamera);
 const hostWiring = {
     openRef: (n, ref) => void openDrawer(n, ref),
     onTarget: onSelectionMoved,
@@ -2743,6 +3088,11 @@ const hostWiring = {
 // mirroring how code chips behave inside visuals.
 $("#strip").addEventListener("click", (e) => {
     const t = e.target;
+    if (t?.closest?.(".expand")) {
+        e.stopImmediatePropagation();
+        setFullscreen(!fsOn);
+        return;
+    }
     const chip = t?.closest?.("[data-ledger-path]");
     if (chip) {
         e.stopImmediatePropagation();

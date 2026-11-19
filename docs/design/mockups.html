@@ -83,6 +83,17 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: v
 .rail i { width: 26px; height: 7px; border-radius: 999px; background: var(--border); }
 .rail i.read { background: var(--accent); opacity: .45; }
 .rail i.on { background: var(--accent); width: 40px; }
+/* 03: the plate's rail is numbered, with the dial and the help beside it */
+#pRail i { width: 28px; height: 20px; font: 600 11px "JetBrains Mono", monospace; font-style: normal; color: var(--muted); background: var(--surface); border: 1px solid var(--border); display: inline-flex; align-items: center; justify-content: center; }
+#pRail i.read { color: var(--accent); background: var(--surface); opacity: 1; }
+#pRail i.on { color: #fff; background: var(--accent); border-color: var(--accent); width: 36px; }
+.chrome .dial { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; font-size: 11px; }
+.chrome .dial b { font-weight: 500; padding: 2px 9px; color: var(--muted); }
+.chrome .dial b.on { background: var(--accent); color: #fff; }
+.chrome .phelp { font-size: 11px; }
+.pdesc { display: flex; gap: 10px; align-items: baseline; }
+.pdesc .txt { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pdesc .more { flex: none; font-size: 11px; border: 1px solid var(--border); border-radius: 999px; padding: 1px 8px; color: var(--muted); }
 .chrome .meta { font-size: 12px; color: var(--muted); white-space: nowrap; }
 
 .stage { position: relative; background:
@@ -202,7 +213,6 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: v
 .nbar mark, .pbar mark { background: var(--lit); box-shadow: inset 0 -2px 0 var(--lit-edge); color: inherit; border-radius: 3px; padding: 0 2px; }
 .pdesc { padding: 10px 18px; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--muted); }
 .platewrap { display: flex; }
-.plegend { flex: none; border-right: 1px solid var(--border); padding: 14px 10px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .pcanvas { flex: 1; min-width: 0; overflow: hidden; padding: 22px 0; background: var(--bg); position: relative; }
 .platestrip { display: flex; gap: 18px; will-change: transform; transition: transform .45s cubic-bezier(.22, 1, .36, 1); }
 @media (prefers-reduced-motion: reduce) { .platestrip { transition: none; } }
@@ -225,7 +235,7 @@ kbd { font-family: "JetBrains Mono", monospace; font-size: 11.5px; background: v
 .ppin b { color: var(--sel); font-family: "JetBrains Mono", monospace; font-weight: 600; }
 .ppin .px { color: var(--muted); }
 .pdone { padding: 4px 12px; font-size: 12.5px; }
-@media (max-width: 760px) { .pcard { flex-direction: column; } .pcard .pbar { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 10px; flex-basis: auto; } .plegend { display: none; } }
+@media (max-width: 760px) { .pcard { flex-direction: column; } .pcard .pbar { border-left: 0; padding-left: 0; border-top: 1px solid var(--border); padding-top: 10px; flex-basis: auto; } }
 
 /* detail dial: overview draws less of the same picture; nothing moves */
 #dialwin [data-lvl] { transition: opacity .25s; }
@@ -437,18 +447,18 @@ aside.side { position: sticky; top: 20px; font-size: 13.5px; padding-top: 6px; }
 <section>
   <h2>03 · The plate (live)</h2>
   <h3>The whole window, not one card</h3>
-  <p class="note">Everything else on this page zooms into one card. The plate is the whole window: its own title and levelled description up top, the keyboard legend on the left — the detail dial lives inside it — and one strip of cards the camera glides across — neighbours stay in sight, so moving is a <b>camera move, not a page swap</b>. Nothing frames the strip from below: held comments float in the corner, and the one send button sits in the title bar. <b>Click a neighbour</b> to move.</p>
+  <p class="note">Everything else on this page zooms into one card. The plate is the whole window: its own title, a numbered rail (each segment wears its card's message count), the detail dial and the help button up top, the levelled description folded on one line beneath, and one strip of cards the camera glides across — neighbours peek at the edges, so moving is a <b>camera move, not a page swap</b>, and <b>clicking a neighbour</b> brings it in. The keys are a popover (<kbd>?</kbd>), not a column, so nothing ever resizes the canvas under the card; <kbd>f</kbd> puts the visual over the whole window with the claim as its caption. This is the <b>Filmstrip</b> direction, chosen from the three live variants of the <a href="revamp/index.html">reader revamp</a> — try <a href="revamp/v1-filmstrip.html">variant A</a> with real code.</p>
   <div class="win">
     <div class="chrome">
       <div class="lights" aria-hidden="true"><span></span><span></span><span></span></div>
       <div class="title">Why checkout slows down every hour</div>
-      <div class="rail" id="pRail" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
+      <div class="rail" id="pRail" aria-hidden="true"><i class="on">1</i><i>2</i><i>3</i></div>
+      <span class="dial" aria-hidden="true"><b>overview</b><b class="on">standard</b></span><kbd class="phelp" aria-hidden="true">?</kbd>
       <div class="meta">code · 79e700f</div>
       <span class="b primary pdone">send 1 comment</span>
     </div>
-    <div class="pdesc">Checkout p99 jumps to 4.2 s on the hour. The cause is one flat cache TTL — and the fix is one line of jitter.</div>
+    <div class="pdesc"><span class="txt">Checkout p99 jumps to 4.2 s on the hour. The cause is one flat cache TTL — and the fix is one line of jitter.</span><span class="more">more</span></div>
     <div class="platewrap">
-      <div class="plegend" aria-hidden="true"><kbd>←→</kbd><kbd>d</kbd><kbd>⎵</kbd><kbd>c</kbd><kbd>s</kbd><kbd>esc</kbd><kbd>?</kbd></div>
       <div class="pcanvas" id="pCanvas">
         <div class="platestrip" id="pStrip">
           <div class="pcard on">

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stage</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="revamp.css">
+<style>
+/* C — Stage: one visual fills the window, the claim sits under it as a
+   caption, and a chapter bar at the bottom is the only navigation chrome.
+   Code and chat are sheets that slide over the stage, so the picture never
+   changes size. Presentation mode for a plate. */
+#app { display: flex; flex-direction: column; height: 100%; }
+#top { display: flex; align-items: center; gap: 14px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+#ptitle { font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#stage { flex: 1; position: relative; min-height: 0; overflow: hidden; }
+.scene { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 18px 56px 12px; gap: 12px; opacity: 0; transform: translateX(24px); transition: opacity .3s, transform .3s; pointer-events: none; }
+.scene.active { opacity: 1; transform: none; pointer-events: auto; }
+.scene.before { transform: translateX(-24px); }
+.scene .vbox { flex: 1; min-height: 0; }
+.caption { flex: none; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 18px; align-items: baseline; padding: 10px 18px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+.caption .nn { font-size: 12px; }
+.caption .ntitle { font-size: 18px; }
+.caption .desc { grid-column: 2; margin: 2px 0 0; font-size: 14px; }
+.caption .desc[hidden] { display: none; }
+.caption .more { grid-column: 3; grid-row: 1; }
+#bar { flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-top: 1px solid var(--line); background: var(--surface-2); }
+#chapters { display: flex; gap: 6px; flex: 1; justify-content: center; align-items: center; min-width: 0; }
+#chapters button { position: relative; height: 30px; min-width: 36px; padding: 0 10px; border-radius: 8px; font: 600 12px var(--mono); color: var(--muted); display: inline-flex; align-items: center; gap: 8px; max-width: 260px; }
+#chapters button .t { font: 400 12px var(--sans); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: none; }
+#chapters button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+#chapters button.on .t { display: inline; }
+#chapters button.read:not(.on) { color: var(--accent); }
+#chapters button .msg-badge { position: absolute; top: -7px; right: -6px; font-size: 9.5px; padding: 1px 5px; }
+.stepbtn { width: 34px; height: 34px; padding: 0; border-radius: 50%; font-size: 22px; line-height: 1; color: var(--muted); }
+.stepbtn:disabled { opacity: .25; }
+/* sheets over the stage: code from below, chat from the right */
+#sheet { position: absolute; left: 56px; right: 56px; bottom: 0; max-height: 55%; z-index: 10; border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; box-shadow: var(--shadow); transform: translateY(100%); transition: transform .25s; display: flex; }
+#sheet.open { transform: none; }
+#chat { position: absolute; top: 0; right: 0; bottom: 0; width: 380px; z-index: 11; display: flex; flex-direction: column; background: var(--card); border-left: 1px solid var(--line); box-shadow: var(--shadow); transform: translateX(100%); transition: transform .25s; }
+#chat.open { transform: none; }
+#chat > header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); font-weight: 700; }
+#chat .turn { font-weight: 400; font-size: 12.5px; color: var(--muted); }
+#help { top: 10px; left: 56px; }
+@media (max-width: 760px) { .scene { padding: 12px 14px; } #sheet { left: 0; right: 0; } #chat { width: 100%; } .caption { grid-template-columns: auto minmax(0, 1fr); } .caption .more { grid-column: 2; justify-self: end; } }
+</style>
+</head>
+<body>
+<div id="app">
+<header id="top">
+  <span class="brand">nibble<span class="bite"></span></span>
+  <span id="ptitle"></span><span id="pmeta" class="meta"></span>
+  <span class="spacer"></span>
+  <span class="dial" id="dial" title="detail dial (d)"><button data-pos="overview">overview</button><button data-pos="standard" class="on">standard</button></span>
+  <button class="ghost" id="helpbtn" title="keys (?)"><kbd>?</kbd></button>
+  <button class="ghost" id="chatbtn" title="chat (c)">chat <span class="rcount" id="ccount"></span></button>
+</header>
+<main id="stage" aria-label="plate">
+  <div id="sheet" class="drawer" aria-label="code"></div>
+  <aside id="chat" aria-label="conversation">
+    <header>Chat <span class="turn">your turn — reply, or write elsewhere</span><span class="spacer"></span><button class="ghost" id="chatclose">›</button></header>
+    <div class="threads" id="threads"></div>
+    <div class="composer"><div class="on" id="composer-on">new thread on n1</div><textarea id="composer" rows="3" placeholder="disagree on the thing itself…"></textarea><div class="acts"><button id="hold">Hold <small>⇧⌘⏎</small></button><button class="primary">Send <small>⌘⏎</small></button></div></div>
+  </aside>
+  <div id="help" class="help" hidden></div>
+</main>
+<footer id="bar">
+  <button id="prev" class="stepbtn" aria-label="previous nibble" title="previous (←)">‹</button>
+  <nav id="chapters" aria-label="nibbles"></nav>
+  <span id="progress" class="meta"></span>
+  <button id="next" class="stepbtn" aria-label="next nibble" title="next (→)">›</button>
+</footer>
+</div>
+<a class="variant-tag" href="index.html">C · stage</a>
+<script src="plate.js"></script>
+<script src="common.js"></script>
+<script>
+(function () {
+  const C = window.COMMON, P = C.plate, $ = (s) => document.querySelector(s);
+  let level = 'standard', active = 0, focused = null, sel = null;
+  const read = new Set([0]);
+  $('#ptitle').textContent = P.title; $('#pmeta').textContent = P.about + ' · ' + C.descAt(P.desc, 'overview').replace(/<[^>]+>/g, '').slice(0, 60) + '…'; $('#progress').textContent = P.progress;
+  const stage = $('#stage'), chapters = $('#chapters');
+  P.nibbles.forEach((nb, i) => {
+    const sc = document.createElement('section'); sc.className = 'scene' + (i === 0 ? ' active' : ''); sc.dataset.i = i;
+    sc.innerHTML = `<div class="vbox">${C.visualHTML(nb)}</div><div class="caption"><span class="nn">nibble ${nb.n}</span><p class="ntitle">${nb.title}</p><button class="ghost more" hidden>more</button><p class="desc" hidden></p></div>`;
+    stage.insertBefore(sc, $('#sheet'));
+    C.wireVisual(sc.querySelector('.vbox'), { openDrawer: (ref) => openDrawer(ref), onSelect: (id) => { sel = id; composerOn(); } });
+    sc.querySelector('.more').addEventListener('click', (e) => { const d = sc.querySelector('.desc'); d.hidden = !d.hidden; e.target.textContent = d.hidden ? 'more' : 'less'; });
+    const b = document.createElement('button'); b.innerHTML = `${nb.n}<span class="t">${nb.title.replace(/<[^>]+>/g, '')}</span>`; b.title = nb.title.replace(/<[^>]+>/g, ''); b.addEventListener('click', () => go(i)); chapters.appendChild(b);
+  });
+  const scenes = [...stage.querySelectorAll('.scene')];
+  const descs = () => scenes.forEach((s, i) => { const d = C.descAt(P.nibbles[i].desc, level); const el = s.querySelector('.desc'); const more = s.querySelector('.more'); el.innerHTML = d || ''; more.hidden = !d; if (!d) el.hidden = true; });
+  descs();
+  const badges = () => [...chapters.children].forEach((b, i) => { b.querySelector('.msg-badge')?.remove(); const n = P.threads.filter((t) => t.card === i).reduce((a, t) => a + t.msgs.length, 0); if (n) b.insertAdjacentHTML('beforeend', `<span class="msg-badge">${n}</span>`); $('#ccount').textContent = P.threads.reduce((a, t) => a + t.msgs.length, 0); }); badges();
+  function go(i) {
+    i = Math.max(0, Math.min(scenes.length - 1, i)); if (i === active) return;
+    scenes.forEach((s, k) => { s.classList.toggle('active', k === i); s.classList.toggle('before', k < i); });
+    active = i; read.add(i); $('#sheet').classList.remove('open'); paint();
+  }
+  function paint() { [...chapters.children].forEach((b, i) => { b.className = i === active ? 'on' : read.has(i) ? 'read' : ''; }); $('#prev').disabled = active === 0; $('#next').disabled = active === scenes.length - 1; composerOn(); }
+  $('#prev').addEventListener('click', () => go(active - 1)); $('#next').addEventListener('click', () => go(active + 1));
+  let lastWheel = 0;
+  stage.addEventListener('wheel', (e) => { if (Math.abs(e.deltaX) < 40 || Math.abs(e.deltaX) <= Math.abs(e.deltaY) || e.timeStamp - lastWheel < 500) return; e.preventDefault(); lastWheel = e.timeStamp; go(active + (e.deltaX > 0 ? 1 : -1)); }, { passive: false });
+  const sheet = $('#sheet');
+  function openDrawer(ref, card) { if (card !== undefined && card !== active) go(card); sheet.innerHTML = C.drawerHTML(ref); sheet.classList.add('open'); }
+  sheet.addEventListener('click', (e) => { if (e.target.closest('.close')) sheet.classList.remove('open'); const no = e.target.closest('.no'); if (no) no.parentElement.classList.toggle('lsel'); });
+  const threads = $('#threads');
+  const renderChat = () => { threads.innerHTML = C.threadsHTML(focused); }; renderChat();
+  threads.addEventListener('click', (e) => { const s = e.target.closest('.thread'); if (!s) return; const t = P.threads.find((x) => x.key === s.dataset.key); if (e.target.closest('.tchip')) go(t.card); const m = e.target.closest('.mref'); if (m) openDrawer(m.dataset.ref, t.card); focused = t.key; renderChat(); composerOn(); });
+  function composerOn() { const t = P.threads.find((x) => x.key === focused); $('#composer-on').textContent = t ? `reply in ${t.target}` : `new thread on n${P.nibbles[active].n}${sel ? ':' + sel : ''}`; }
+  $('#hold').addEventListener('click', () => { const ta = $('#composer'); if (!ta.value.trim()) return; const t = P.threads.find((x) => x.key === focused) || (P.threads.push({ key: 'd' + Date.now(), target: `n${P.nibbles[active].n}${sel ? ':' + sel : ''}`, card: active, msgs: [] }), P.threads[P.threads.length - 1]); t.msgs.push({ from: 'draft', text: ta.value.trim() }); ta.value = ''; focused = t.key; renderChat(); badges(); });
+  const setChat = (open) => { $('#chat').classList.toggle('open', open); if (open) $('#composer').focus(); };
+  $('#chatbtn').addEventListener('click', () => setChat(!$('#chat').classList.contains('open'))); $('#chatclose').addEventListener('click', () => setChat(false));
+  const setDial = (l) => { level = l; document.body.classList.toggle('ov', l === 'overview'); $('#dial').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.pos === l)); descs(); };
+  $('#dial').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setDial(b.dataset.pos); });
+  $('#help').innerHTML = C.helpHTML([['← →', 'previous / next nibble — or swipe, or a chapter in the bar'], ['⎵', 'step the visual: sequence steps, timeline cursor, compare flip'], ['d', 'detail dial: overview / standard'], ['c', 'write in the chat'], ['esc', 'close the code, the chat, the help'], ['?', 'this help']]);
+  const help = (on) => { $('#help').hidden = on === undefined ? !$('#help').hidden : !on; };
+  $('#helpbtn').addEventListener('click', () => help());
+  document.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLTextAreaElement) { if (e.key === 'Escape') setChat(false); return; }
+    if (e.key === 'ArrowLeft') go(active - 1); if (e.key === 'ArrowRight') go(active + 1); if (e.key === 'Home') go(0); if (e.key === 'End') go(99);
+    if (e.key === ' ') { e.preventDefault(); C.stepActive(scenes[active].querySelector('.vbox'), e.shiftKey ? -1 : 1); }
+    if (e.key === 'd') setDial(level === 'standard' ? 'overview' : 'standard');
+    if (e.key === 'c') { e.preventDefault(); setChat(true); }
+    if (e.key === '?') help();
+    if (e.key === 'Escape') { if (!$('#help').hidden) help(false); else if (sheet.classList.contains('open')) sheet.classList.remove('open'); else setChat(false); }
+  });
+  C.theme();
+  paint();
+})();
+</script>
+</body>
+</html>

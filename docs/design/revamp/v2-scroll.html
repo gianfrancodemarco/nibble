@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reading Column</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="revamp.css">
+<style>
+/* B — Reading column: the plate is a document you scroll down. One card per
+   screen, the claim as a header band over a full-width visual, a table of
+   contents on the left that is also the progress and the message map, the
+   chat on the right. The camera is the page's own scroll. Arrivals append at
+   the bottom. */
+html { scroll-snap-type: y proximity; scroll-padding-top: 52px; scroll-behavior: smooth; }
+body { height: auto; }
+#top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 14px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--surface-2); height: 52px; }
+#ptitle { font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#page { display: grid; grid-template-columns: 240px minmax(0, 1fr) 340px; gap: 0; align-items: start; }
+#toc { position: sticky; top: 52px; height: calc(100vh - 52px); overflow-y: auto; padding: 18px 14px 18px 18px; border-right: 1px solid var(--line); background: var(--surface-2); font-size: 13px; }
+#toc .pdesc { color: var(--muted); line-height: 1.5; margin: 0 0 16px; font-size: 13px; }
+#toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+#toc li { display: flex; gap: 10px; align-items: flex-start; padding: 7px 8px; border-radius: 8px; cursor: pointer; line-height: 1.35; color: var(--muted); border-left: 3px solid transparent; }
+#toc li:hover { background: var(--card); color: var(--ink); }
+#toc li.on { color: var(--ink); background: var(--card); border-left-color: var(--accent); }
+#toc li.read:not(.on) { border-left-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+#toc .num { font: 600 11px var(--mono); color: var(--accent); min-width: 14px; padding-top: 2px; }
+#toc .claim { flex: 1; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#toc .claim b { font-weight: 600; }
+#toc .claim code { font-family: var(--mono); font-size: 11.5px; }
+#toc .msg-badge { flex: none; margin-top: 2px; }
+#toc .foot { margin-top: 18px; color: var(--muted); font-size: 12px; display: flex; flex-direction: column; gap: 6px; }
+#column { padding: 18px 26px 40vh; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.card { scroll-snap-align: start; scroll-margin-top: 16px; display: flex; flex-direction: column; min-height: calc(100vh - 52px - 34px); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; opacity: .72; transition: opacity .25s, border-color .25s; }
+.card.active { opacity: 1; border-color: var(--accent); }
+.card > header { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 8px 28px; padding: 16px 20px 14px; border-bottom: 1px solid var(--line); align-items: start; }
+.card > header .nn { display: flex; align-items: center; gap: 8px; }
+.card > header .ntitle { font-size: 18px; }
+.card > header .desc { margin: 0; align-self: end; }
+.card .vbox { flex: 1; margin: 14px 20px 16px; min-height: 340px; }
+.card .drawer { flex: none; max-height: 420px; }
+@media (max-width: 1100px) { #page { grid-template-columns: 200px minmax(0, 1fr); } #chat { display: none; } }
+@media (max-width: 760px) { #page { grid-template-columns: minmax(0, 1fr); } #toc { display: none; } .card > header { grid-template-columns: 1fr; } }
+#chat { position: sticky; top: 52px; height: calc(100vh - 52px); display: flex; flex-direction: column; min-height: 0; background: var(--card); border-left: 1px solid var(--line); }
+#chat > header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); font-weight: 700; }
+#chat .turn { font-weight: 400; font-size: 12.5px; color: var(--muted); }
+#help { top: 60px; right: 350px; }
+</style>
+</head>
+<body>
+<header id="top">
+  <span class="brand">nibble<span class="bite"></span></span>
+  <span id="ptitle"></span><span id="pmeta" class="meta"></span>
+  <span class="spacer"></span>
+  <span id="progress" class="meta"></span>
+  <span class="dial" id="dial" title="detail dial (d)"><button data-pos="overview">overview</button><button data-pos="standard" class="on">standard</button></span>
+  <button class="ghost" id="helpbtn" title="keys (?)"><kbd>?</kbd></button>
+</header>
+<div id="page">
+  <nav id="toc" aria-label="nibbles"><p class="pdesc" id="pdesc"></p><ol id="list"></ol><div class="foot"><span><kbd>j</kbd> <kbd>k</kbd> or <kbd>↑</kbd> <kbd>↓</kbd> step · <kbd>⎵</kbd> poke the visual</span><span><kbd>?</kbd> all keys</span></div></nav>
+  <main id="column" aria-label="plate"></main>
+  <aside id="chat" aria-label="conversation">
+    <header>Chat <span class="turn">your turn — reply, or write elsewhere</span></header>
+    <div class="threads" id="threads"></div>
+    <div class="composer"><div class="on" id="composer-on">new thread on n1</div><textarea id="composer" rows="3" placeholder="disagree on the thing itself…"></textarea><div class="acts"><button id="hold">Hold <small>⇧⌘⏎</small></button><button class="primary">Send <small>⌘⏎</small></button></div></div>
+  </aside>
+</div>
+<div id="help" class="help" hidden></div>
+<a class="variant-tag" href="index.html">B · reading column</a>
+<script src="plate.js"></script>
+<script src="common.js"></script>
+<script>
+(function () {
+  const C = window.COMMON, P = C.plate, $ = (s) => document.querySelector(s);
+  let level = 'standard', active = 0, focused = null, sel = null;
+  const read = new Set([0]);
+  $('#ptitle').textContent = P.title; $('#pmeta').textContent = P.about; $('#progress').textContent = P.progress;
+  const pdesc = () => { $('#pdesc').innerHTML = C.descAt(P.desc, level); }; pdesc();
+  const column = $('#column'), list = $('#list');
+  P.nibbles.forEach((nb, i) => {
+    const card = document.createElement('article'); card.className = 'card' + (i === 0 ? ' active' : ''); card.dataset.i = i; card.id = 'n' + nb.n;
+    card.innerHTML = `<header><div><div class="nn">nibble ${nb.n}</div><p class="ntitle">${nb.title}</p></div><p class="desc"></p></header><div class="vbox">${C.visualHTML(nb)}</div><div class="drawer" hidden></div>`;
+    column.appendChild(card);
+    C.wireVisual(card.querySelector('.vbox'), { openDrawer: (ref) => openDrawer(i, ref), onSelect: (id) => { sel = id; composerOn(); } });
+    card.querySelector('.drawer').addEventListener('click', (e) => { if (e.target.closest('.close')) card.querySelector('.drawer').hidden = true; const no = e.target.closest('.no'); if (no) no.parentElement.classList.toggle('lsel'); });
+    const li = document.createElement('li'); li.innerHTML = `<span class="num">${nb.n}</span><span class="claim">${nb.title}</span>`; li.title = `nibble ${nb.n}`; li.addEventListener('click', () => go(i)); list.appendChild(li);
+  });
+  const cards = [...column.children];
+  const descs = () => cards.forEach((c, i) => { const d = C.descAt(P.nibbles[i].desc, level); const el = c.querySelector('.desc'); el.hidden = !d; el.innerHTML = d || ''; }); descs();
+  const badges = () => [...list.children].forEach((li, i) => { li.querySelector('.msg-badge')?.remove(); const n = P.threads.filter((t) => t.card === i).reduce((a, t) => a + t.msgs.length, 0); if (n) li.insertAdjacentHTML('beforeend', `<span class="msg-badge">${n}</span>`); }); badges();
+  function paint() { cards.forEach((c, i) => c.classList.toggle('active', i === active)); [...list.children].forEach((li, i) => { li.classList.toggle('on', i === active); li.classList.toggle('read', read.has(i)); }); composerOn(); }
+  // the camera is the page scroll: the card nearest the top of the viewport is active
+  const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) { active = +e.target.dataset.i; read.add(active); paint(); } }, { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
+  cards.forEach((c) => io.observe(c));
+  function go(i) { i = Math.max(0, Math.min(cards.length - 1, i)); cards[i].scrollIntoView({ block: 'start' }); }
+  function openDrawer(i, ref) { const d = cards[i].querySelector('.drawer'); d.innerHTML = C.drawerHTML(ref); d.hidden = false; if (i !== active) go(i); }
+  const threads = $('#threads');
+  const renderChat = () => { threads.innerHTML = C.threadsHTML(focused); };
+  renderChat();
+  threads.addEventListener('click', (e) => { const s = e.target.closest('.thread'); if (!s) return; const t = P.threads.find((x) => x.key === s.dataset.key); if (e.target.closest('.tchip')) go(t.card); const m = e.target.closest('.mref'); if (m) openDrawer(t.card, m.dataset.ref); focused = t.key; renderChat(); composerOn(); });
+  function composerOn() { const t = P.threads.find((x) => x.key === focused); $('#composer-on').textContent = t ? `reply in ${t.target}` : `new thread on n${P.nibbles[active].n}${sel ? ':' + sel : ''}`; }
+  $('#hold').addEventListener('click', () => { const ta = $('#composer'); if (!ta.value.trim()) return; const t = P.threads.find((x) => x.key === focused) || (P.threads.push({ key: 'd' + Date.now(), target: `n${P.nibbles[active].n}${sel ? ':' + sel : ''}`, card: active, msgs: [] }), P.threads[P.threads.length - 1]); t.msgs.push({ from: 'draft', text: ta.value.trim() }); ta.value = ''; focused = t.key; renderChat(); badges(); });
+  const setDial = (l) => { level = l; document.body.classList.toggle('ov', l === 'overview'); $('#dial').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.pos === l)); descs(); pdesc(); };
+  $('#dial').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setDial(b.dataset.pos); });
+  $('#help').innerHTML = C.helpHTML([['↑ ↓', 'previous / next nibble (also j / k, ← →), or scroll, or the list on the left'], ['⎵', 'step the visual: sequence steps, timeline cursor, compare flip'], ['d', 'detail dial: overview / standard'], ['c', 'write in the chat'], ['esc', 'close the drawer or the help'], ['?', 'this help']]);
+  const help = (on) => { $('#help').hidden = on === undefined ? !$('#help').hidden : !on; };
+  $('#helpbtn').addEventListener('click', () => help());
+  document.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLTextAreaElement) return;
+    if (['ArrowUp', 'ArrowLeft', 'k'].includes(e.key)) { e.preventDefault(); go(active - 1); }
+    if (['ArrowDown', 'ArrowRight', 'j'].includes(e.key)) { e.preventDefault(); go(active + 1); }
+    if (e.key === 'Home') go(0); if (e.key === 'End') go(99);
+    if (e.key === ' ') { e.preventDefault(); C.stepActive(cards[active].querySelector('.vbox'), e.shiftKey ? -1 : 1); }
+    if (e.key === 'd') setDial(level === 'standard' ? 'overview' : 'standard');
+    if (e.key === 'c') { e.preventDefault(); $('#composer').focus(); }
+    if (e.key === '?') help();
+    if (e.key === 'Escape') { if (!$('#help').hidden) help(false); else cards[active].querySelector('.drawer').hidden = true; }
+  });
+  C.theme();
+  paint();
+})();
+</script>
+</body>
+</html>

@@ -24,6 +24,7 @@
     "src/visual/ledger.ts",
     "src/live.ts",
     "src/chat.ts",
+    "src/shell.ts",
     "src/app.ts"
   ]
 }
