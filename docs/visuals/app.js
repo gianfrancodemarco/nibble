@@ -1507,19 +1507,6 @@ function stepCard(active, delta, count) {
         return 0;
     return Math.max(0, Math.min(count - 1, active + delta));
 }
-// wheelStep: a trackpad swipe steps the camera once. Only a clearly
-// horizontal gesture counts (a vertical scroll inside a card must never
-// move it), it has to cross a threshold, and one gesture is one step:
-// the cooldown eats the momentum frames that follow.
-const WHEEL_THRESHOLD = 40;
-const WHEEL_COOLDOWN_MS = 500;
-function wheelStep(dx, dy, lastAt, now) {
-    if (Math.abs(dx) < WHEEL_THRESHOLD || Math.abs(dx) <= Math.abs(dy))
-        return 0;
-    if (now - lastAt < WHEEL_COOLDOWN_MS)
-        return 0;
-    return dx > 0 ? 1 : -1;
-}
 // The chat: the pure decisions behind the conversation panel — reassembling
 // threads from the server's rounds, placing drafts, mapping targets to
 // cards and elements, counting badges, and wording the turn. No DOM here:

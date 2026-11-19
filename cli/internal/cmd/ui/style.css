@@ -78,6 +78,7 @@ button:hover { border-color: var(--accent); }
   display: flex; align-items: center; gap: 14px;
   padding: 10px 20px; border-bottom: 1px solid var(--line);
   background: var(--surface-2);
+  container-type: inline-size; /* the bar sheds its extras by its own width, not the window's: the chat takes a share of the window */
 }
 /* a bare icon button: the help trigger, the fullscreen close */
 .iconbtn { padding: 0; width: 30px; height: 26px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
@@ -103,7 +104,7 @@ button:hover { border-color: var(--accent); }
   font: 700 9.5px var(--mono); color: #fff; background: var(--sel);
   border: 1.5px solid var(--surface-2); border-radius: 999px;
 }
-@media (max-width: 700px) { #rail { display: none; } }
+@container (max-width: 560px) { #rail { display: none; } }
 /* the live marker: the agent is still writing this plate */
 #progress .pulse, .ghost .pulse {
   display: inline-block; width: 8px; height: 8px; margin-right: 6px;
@@ -117,10 +118,11 @@ button:hover { border-color: var(--accent); }
   border-radius: 50%; background: var(--accent);
   clip-path: polygon(0 0, 100% 0, 100% 55%, 55% 55%, 55% 100%, 0 100%);
 }
-#plate-title { font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#plate-title { font-weight: 600; min-width: 8ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #plate-meta, #progress { white-space: nowrap; flex: none; }
 #helpbtn { flex: none; }
-@media (max-width: 900px) { #plate-meta { display: none; } }
+@container (max-width: 1000px) { #plate-meta { display: none; } }
+@container (max-width: 760px) { #progress { display: none; } }
 
 #main { flex: 1; display: flex; min-height: 0; position: relative; }
 /* The camera is the canvas's scroll position: the strip scrolls natively,
@@ -167,7 +169,7 @@ button:hover { border-color: var(--accent); }
   box-shadow: var(--shadow);
   padding: 18px 22px; max-height: 100%; height: 100%; overflow: hidden;
   opacity: .45; transform: scale(.96); cursor: pointer;
-  transition: opacity .3s, transform .3s, border-color .3s;
+  transition: opacity .3s, transform .3s, border-color .3s;  container-type: inline-size; /* the card stacks by its own width: the chat takes a share of the window */
 }
 .nibble .nbody { display: flex; flex-direction: row; gap: 20px; flex: 1 1 auto; min-height: 0; }
 .nibble.active { opacity: 1; transform: scale(1); border-color: var(--accent); cursor: default; }
@@ -224,10 +226,9 @@ button:hover { border-color: var(--accent); }
   border-left: 1px solid var(--line); padding-left: 20px;
   align-self: stretch;
 }
-@media (max-width: 880px) {
-  .nibble { overflow: auto; }
-  .nibble .nbody { flex-direction: column; }
-  .nside { flex: 0 0 auto; border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
+@container (max-width: 720px) {
+  .nibble:not(.fs) .nbody { flex-direction: column; overflow: auto; }
+  .nibble:not(.fs) .nside { flex: 0 0 auto; border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
 }
 
 .visual {
