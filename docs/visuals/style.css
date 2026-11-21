@@ -388,7 +388,7 @@ button:hover { border-color: var(--accent); }
 .cmp-label [data-anchor] { cursor: pointer; }
 .cmp-label [data-anchor].sel { color: var(--sel); text-decoration: underline; }
 .cmp-label .trust { margin-left: 0; }
-.cmp-code { font-size: 12px; line-height: 1.5; overflow: auto; flex: 1; display: grid; grid-template-columns: minmax(100%, max-content); align-content: start; }
+.cmp-code { font-size: 12px; line-height: 1.5; overflow: auto; flex: 1; display: grid; grid-template-columns: minmax(max-content, 100%); align-content: start; }
 .cmp-code.bare { color: var(--muted); }
 .cmp-code .ln { display: flex; white-space: pre; }
 .cmp-code .no { width: 40px; flex: none; text-align: right; padding-right: 10px; color: var(--muted); user-select: none; }
@@ -477,8 +477,10 @@ button:hover { border-color: var(--accent); }
   flex: 1; overflow: auto; margin: 0; padding: 0 0 10px; font-size: 13px; line-height: 1.7;
   /* one column, as wide as the longest line and never narrower than the
      pane: every row shares that width, so the highlight and the selection
-     tint run to the end of a long line without a ragged right edge */
-  display: grid; grid-template-columns: minmax(100%, max-content); align-content: start;
+     tint run to the end of a long line without a ragged right edge. The
+     content width is the track's base, so it may overflow the pane; a 100%
+     base would never grow, since the pane leaves no free space */
+  display: grid; grid-template-columns: minmax(max-content, 100%); align-content: start;
 }
 
 /* syntax colours (the mockup palette): highlight.js token classes mapped
