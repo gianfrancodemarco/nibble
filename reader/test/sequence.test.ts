@@ -50,3 +50,13 @@ t("sequence steps stack top to bottom in declared order", () => {
   }
   eq(l.steps.length, 5, "all steps laid out");
 });
+
+t("seqCurrentId names the step just revealed, by its anchor", () => {
+  const v = seqFixture();
+  const drawn = [0, 1, 2, 3, 4];
+  eq(seqCurrentId(0, drawn, v.steps), null, "nothing revealed yet: no step");
+  eq(seqCurrentId(1, drawn, v.steps), "s1", "the first reveal is the first step");
+  eq(seqCurrentId(3, [0, 2, 4], v.steps), "s5", "stepping walks the drawn subset: the third drawn step is s5");
+  const bare = v.steps.map((s) => ({ ...s, id: undefined }));
+  eq(seqCurrentId(2, drawn, bare), null, "a step without an id anchors nothing");
+});

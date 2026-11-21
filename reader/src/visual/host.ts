@@ -292,12 +292,28 @@ function wireVisualHost(strip: HTMLElement, wiring: HostWiring): HostController 
     wiring.onTarget();
     // a fresh selection also opens the element's code, when it carries any;
     // a toggle-off never does, and the chip's own path stays select-free
-    if (hostSelection) {
-      const chip = card.querySelector(codeChipSelector(id));
-      if (chip) wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
-    }
+    if (hostSelection) openCodeOf(card, id);
   };
+  // openCodeOf: open the code an element carries, if any
+  const openCodeOf = (card: HTMLElement, id: string): void => {
+    const chip = card.querySelector(codeChipSelector(id));
+    if (chip) wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
+  };
+  // A sequence step revealed — by click, space or the ▸ ◂ controls — is
+  // selected and its code opens, every time: a step is a place in the
+  // story and its code comes with it, even when the step was already the
+  // selection or the drawer had been closed.
+  strip.addEventListener("seqstep", (e) => {
+    const id = (e as CustomEvent<{ id: string | null }>).detail.id;
+    const card = (e.target as Element | null)?.closest?.<HTMLElement>(".nibble");
+    if (!id || !card) return;
+    const idx = Number(card.dataset.i);
+    const again = hostSelection !== null && hostSelection.card === idx && hostSelection.id === id;
+    selectId(card, id, true);
+    if (again) openCodeOf(card, id);
+  });
   strip.addEventListener("click", (e) => {
+    if (e.defaultPrevented) return; // a renderer handled the click itself
     const t = e.target as Element | null;
     if (!t) return;
     const chip = t.closest("[data-code]");
