@@ -59,8 +59,8 @@ body {
   margin: 0; background: var(--paper); color: var(--ink);
   font: 15px/1.5 var(--sans);
 }
-/* the app is a row: the page (top bar, description, legend, canvas) and
-   the chat, full height on the right */
+/* the app is a row: the page (top bar, description, canvas) and the
+   chat, full height on the right */
 #app { display: flex; height: 100%; }
 #page { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .mono { font-family: var(--mono); }
@@ -75,17 +75,36 @@ button {
 button:hover { border-color: var(--accent); }
 
 #top {
-  display: flex; align-items: baseline; gap: 14px;
-  padding: 12px 20px; border-bottom: 1px solid var(--line);
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 20px; border-bottom: 1px solid var(--line);
   background: var(--surface-2);
+  container-type: inline-size; /* the bar sheds its extras by its own width, not the window's: the chat takes a share of the window */
 }
+/* a bare icon button: the help trigger, the fullscreen close */
+.iconbtn { padding: 0; width: 30px; height: 26px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); }
+.iconbtn:hover { color: var(--accent); }
+.iconbtn kbd { border-bottom-width: 1px; }
 
-/* the rail: one segment per card — read, active (wider), or still ahead */
-#rail { display: flex; gap: 5px; align-items: center; align-self: center; }
-#rail i { width: 26px; height: 7px; border-radius: 999px; background: var(--line); transition: width .2s, background .2s; }
-#rail i.read { background: var(--accent); opacity: .45; }
-#rail i.on { background: var(--accent); width: 40px; }
-@media (max-width: 700px) { #rail { display: none; } }
+/* the rail: one numbered segment per card — read, active (wider), or still
+   ahead; each a button that takes the camera there, wearing the card's
+   message count as a badge */
+#rail { display: flex; gap: 6px; align-items: center; align-self: center; }
+#rail > button {
+  width: 30px; height: 22px; padding: 0; border-radius: 999px;
+  font: 600 11.5px var(--mono); color: var(--muted); background: var(--card);
+  transition: width .2s, background .2s, color .2s;
+  position: relative; cursor: pointer;
+}
+#rail > button:hover { border-color: var(--accent); color: var(--accent); }
+#rail > button.read { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+#rail > button.on { background: var(--accent); border-color: var(--accent); color: #fff; width: 40px; }
+#rail > button:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+#rail .rail-badge {
+  position: absolute; top: -7px; right: -6px; padding: 1px 5px; line-height: 1.2;
+  font: 700 9.5px var(--mono); color: #fff; background: var(--sel);
+  border: 1.5px solid var(--surface-2); border-radius: 999px;
+}
+@container (max-width: 560px) { #rail { display: none; } }
 /* the live marker: the agent is still writing this plate */
 #progress .pulse, .ghost .pulse {
   display: inline-block; width: 8px; height: 8px; margin-right: 6px;
@@ -99,37 +118,66 @@ button:hover { border-color: var(--accent); }
   border-radius: 50%; background: var(--accent);
   clip-path: polygon(0 0, 100% 0, 100% 55%, 55% 55%, 55% 100%, 0 100%);
 }
-#plate-title { font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#plate-meta, #progress { white-space: nowrap; }
+#plate-title { font-weight: 600; min-width: 8ch; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#plate-meta, #progress { white-space: nowrap; flex: none; }
+#helpbtn { flex: none; }
+@container (max-width: 1000px) { #plate-meta { display: none; } }
+@container (max-width: 760px) { #progress { display: none; } }
 
-#main { flex: 1; display: flex; min-height: 0; }
-#canvas { flex: 1; overflow: hidden; position: relative; }
-#strip {
-  display: flex; gap: 48px; align-items: center; height: 100%;
-  padding: 24px 0; will-change: transform;
-  transition: transform .45s cubic-bezier(.22, 1, .36, 1);
+#main { flex: 1; display: flex; min-height: 0; position: relative; }
+/* The camera is the canvas's scroll position: the strip scrolls natively,
+   snap points keep one card centred, and the neighbours peek at the edges.
+   No scrollbar — the rail and the edge buttons say where you are. */
+#canvas {
+  flex: 1; min-width: 0; position: relative;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  scrollbar-width: none;
 }
+#canvas::-webkit-scrollbar { display: none; }
+#strip {
+  display: flex; gap: 28px; align-items: stretch; height: 100%;
+  padding: 18px 0;
+}
+/* the gutters are flex items, not padding: a card is 84 % of the strip's
+   content box, so only content either side of it leaves the first and the
+   last card room to sit centred (the trailing gutter counts as scrollable
+   overflow, padding would not); the gap is taken out of them */
+#strip::before, #strip::after { content: ""; flex: 0 0 calc(8% - 28px); }
+/* the step buttons: on the canvas edges, over the gutters beside the card
+   (not `.step`: that is a sequence diagram's arrow) */
+.stepbtn {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 34px; height: 34px; padding: 0; border-radius: 50%;
+  font-size: 22px; line-height: 1; color: var(--muted);
+  background: var(--card); box-shadow: var(--shadow);
+  opacity: .85; transition: opacity .2s, color .2s;
+}
+#prev { left: 10px; }
+#next { right: 10px; }
+.stepbtn:hover { opacity: 1; color: var(--accent); }
+.stepbtn:disabled { opacity: 0; pointer-events: none; }
 
-/* One card per page: the active card fills the canvas, its neighbours wait
-   off-screen, and moving reads as a camera slide across one canvas, not a
-   page swap. The card is a row: the visual takes the space, the lateral
-   bar the words. */
+/* One card in view: the active card takes the canvas, its neighbours peek
+   dimmed at the edges (a click brings one in), and moving reads as a camera
+   slide across one canvas, not a page swap. The card is a row: the visual
+   takes the space, the lateral bar the words. */
 .nibble {
-  flex: 0 0 100%;
+  flex: 0 0 84%; scroll-snap-align: center; scroll-snap-stop: always;
   display: flex; flex-direction: column;
   background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 18px 22px; max-height: 100%; height: 100%; overflow: hidden;
-  opacity: .45; transform: scale(.96);
-  transition: opacity .3s, transform .3s, border-color .3s;
+  opacity: .45; transform: scale(.96); cursor: pointer;
+  transition: opacity .3s, transform .3s, border-color .3s;  container-type: inline-size; /* the card stacks by its own width: the chat takes a share of the window */
 }
 .nibble .nbody { display: flex; flex-direction: row; gap: 20px; flex: 1 1 auto; min-height: 0; }
-.nibble.active { opacity: 1; transform: scale(1); border-color: var(--accent); }
+.nibble.active { opacity: 1; transform: scale(1); border-color: var(--accent); cursor: default; }
 /* a card that just streamed in slides into place; the camera never moves */
 .nibble.in { opacity: 0; transform: translateX(32px) scale(.96); }
 /* the ghost: where the next nibble will land while the agent writes */
 .ghost {
-  flex: 0 0 44%; min-width: 280px; max-width: 620px;
+  flex: 0 0 44%; min-width: 280px; max-width: 620px; margin: 0 auto; /* alone in the strip: centred */
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
   border: 1.5px dashed var(--line); border-radius: var(--radius);
   padding: 18px 22px; max-height: 100%; height: 100%;
@@ -153,7 +201,7 @@ button:hover { border-color: var(--accent); }
 .ghost .gnote { margin: 0; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; }
 @keyframes ghostpulse { 0%, 100% { opacity: .5; } 50% { opacity: .18; } }
 @media (prefers-reduced-motion: reduce) {
-  .nibble, #strip { transition: none; }
+  .nibble { transition: none; }
   .vis-map .edge.miss path { animation: none; }
   #progress .pulse, .ghost .pulse { animation: none; }
   .ghost .gnode, .ghost .gbar { animation: none; }
@@ -178,16 +226,24 @@ button:hover { border-color: var(--accent); }
   border-left: 1px solid var(--line); padding-left: 20px;
   align-self: stretch;
 }
-@media (max-width: 880px) {
-  .nibble { overflow: auto; }
-  .nibble .nbody { flex-direction: column; }
-  .nside { flex: 0 0 auto; border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
+@container (max-width: 720px) {
+  .nibble:not(.fs) .nbody { flex-direction: column; overflow: auto; }
+  .nibble:not(.fs) .nside { flex: 0 0 auto; border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
 }
 
 .visual {
   border: 1px dashed var(--line); border-radius: 10px;
-  padding: 12px 14px; flex: 1; min-width: 0;
+  padding: 12px 14px; flex: 1; min-width: 0; position: relative;
 }
+/* ⤢ on the visual: fullscreen; shows on hover and keyboard focus */
+.visual .expand {
+  position: absolute; top: 8px; right: 10px; z-index: 2;
+  width: 28px; height: 28px; padding: 0; border-radius: 8px;
+  font-size: 15px; line-height: 1; color: var(--muted);
+  opacity: 0; transition: opacity .15s, color .15s;
+}
+.visual:hover .expand, .visual .expand:focus-visible { opacity: 1; }
+.visual .expand:hover { color: var(--accent); }
 .visual .kind {
   display: inline-block; font-size: 11px; font-weight: 700;
   text-transform: uppercase; letter-spacing: .08em;
@@ -197,8 +253,11 @@ button:hover { border-color: var(--accent); }
 .visual .soon { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); }
 .visual .vhead { display: flex; align-items: baseline; }
 
-/* rendered visuals: the SVG body is the card's dominant element, flexing to
-   whatever height the card's text leaves it (min-height keeps it readable) */
+/* rendered visuals: the body is the card's dominant element. An SVG takes
+   its intrinsic height for the slot's width — a wide map is as tall as it
+   draws, centred, never letterboxed into the whole slot — and shrinks when
+   the slot is shorter than that; a non-SVG body (timeline, compare, the
+   ledger) fills the slot and lays itself out inside. */
 .visual.rendered {
   border-style: solid; padding: 10px 12px;
   background: radial-gradient(circle, var(--grid) 1px, transparent 1.2px) 0 0 / 22px 22px, var(--card);
@@ -209,6 +268,7 @@ button:hover { border-color: var(--accent); }
   flex: 1 1 0; min-height: 0;
   margin-top: 8px;
 }
+.visual.rendered > svg.visual-body { height: auto; flex: 0 1 auto; margin: auto 0; }
 .visual-body text { font-family: var(--sans); fill: var(--ink); }
 .visual-body [data-anchor] { cursor: pointer; }
 .nibble.has-sel .visual-body [data-anchor]:not(.sel) { opacity: .4; }
@@ -363,17 +423,24 @@ button:hover { border-color: var(--accent); }
 .trust.unverified { color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, transparent); }
 #notice { padding: 7px 20px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); background: var(--card); }
 
-/* levelled descriptions: the plate's under the header, a nibble's on its card */
+/* levelled descriptions: the plate's under the header — one line, folded,
+   so the dial never changes the canvas height — a nibble's on its card */
 #plate-desc {
-  padding: 10px 20px; border-bottom: 1px solid var(--line);
-  color: var(--muted); font-size: 14.5px; line-height: 1.55; max-width: 110ch;
+  display: flex; gap: 12px; align-items: baseline;
+  padding: 8px 20px; border-bottom: 1px solid var(--line);
+  color: var(--muted); font-size: 14.5px; line-height: 1.55;
 }
 #plate-desc[hidden] { display: none; }
+#plate-desc-text { min-width: 0; flex: 1; }
+#plate-desc:not(.open) #plate-desc-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#plate-desc.open #plate-desc-text { max-width: 110ch; }
+#plate-desc-more { flex: none; padding: 1px 10px; font-size: 12.5px; border-radius: 999px; color: var(--muted); }
+#plate-desc-more[hidden] { display: none; }
 .nibble .desc { color: var(--ink); opacity: .82; font-size: 14.5px; line-height: 1.55; margin: 6px 0 0; }
 
-/* the detail dial: two positions, the active one marked; lives in the legend */
+/* the detail dial: two positions, the active one marked; lives in the top bar */
 #dial {
-  display: inline-flex; align-items: center; width: auto;
+  display: inline-flex; align-items: center; width: auto; flex: none;
   border: 1px solid var(--line); border-radius: 999px; overflow: hidden;
   background: var(--card);
 }
@@ -437,25 +504,19 @@ button:hover { border-color: var(--accent); }
 #drawer-code .ln.sel .no { color: var(--sel); font-weight: 700; }
 #drawer-code .gutter-badge { position: absolute; left: 2px; top: 50%; transform: translateY(-50%); margin: 0; padding: 1px 5px; font-size: 9.5px; }
 
-#legend {
-  flex: none; width: 58px; overflow: hidden; white-space: nowrap;
-  background: var(--card); border-right: 1px solid var(--line);
-  padding: 16px 10px 16px 8px;
+/* the help: a popover over the canvas (? or the button up top) — it lays
+   over the card, so opening it never resizes the canvas under the camera */
+#help {
+  position: absolute; top: 10px; left: 12px; z-index: 30; width: 380px; max-width: calc(100% - 24px);
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); padding: 12px 14px;
   display: flex; flex-direction: column; gap: 2px;
-  transition: width .22s ease;
 }
-#legend:hover, #legend.pinned { width: 330px; }
-#legend .kfoot { margin-top: auto; }
-.krow { display: flex; align-items: flex-start; gap: 12px; padding: 4px 0; }
-.krow kbd { flex: none; min-width: 38px; text-align: center; }
-.krow span, #legend .kfoot { opacity: 0; transition: opacity .18s ease .05s; font-size: 13px; }
-/* legend rows wrap when the panel is open, never clipping mid-sentence;
-   collapsed they stay one (hidden) line, keeping the key column compact */
-.krow > span { width: 258px; line-height: 1.45; }
-#legend:hover .krow > span, #legend.pinned .krow > span { white-space: normal; }
-#legend:hover .krow span, #legend.pinned .krow span,
-#legend:hover .kfoot, #legend.pinned .kfoot { opacity: 1; }
-#legend .kfoot { margin: 8px 0 0; color: var(--muted); white-space: normal; width: 290px; }
+#help[hidden] { display: none; }
+.krow { display: flex; align-items: flex-start; gap: 12px; padding: 4px 0; font-size: 13px; }
+.krow > kbd { flex: none; min-width: 38px; text-align: center; }
+.krow > span { min-width: 0; line-height: 1.45; }
+#help .kfoot { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 kbd {
   font-family: var(--mono); font-size: 11.5px;
   border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px;
@@ -611,3 +672,39 @@ kbd {
 .ledger-file .code-chip-h { margin-left: auto; }
 #drawer-code .ln.gap { color: var(--muted); user-select: none; }
 .nibble.ledger .visual-body { display: block; }
+
+/* fullscreen: the active card leaves the strip and covers the window. The
+   card itself goes fixed — nothing is moved or copied — so its visual's
+   state, its badges, chips and prose links are exactly what they were; the
+   lateral bar becomes a caption under the visual, the drawer a sheet
+   between them. The stage's own controls sit top-right. */
+.nibble.fs {
+  position: fixed; inset: 0; z-index: 40;
+  height: auto; max-height: none; flex: none; scroll-snap-align: none;
+  transform: none; opacity: 1; cursor: default;
+  border: none; border-radius: 0; box-shadow: none;
+  padding: 14px 18px 12px; background: var(--paper);
+}
+.nibble.fs .nbody { display: contents; }
+.nibble.fs .visual { order: 1; flex: 1; min-height: 0; }
+.nibble.fs .visual.rendered { background-color: var(--card); }
+.nibble.fs .expand { display: none; }
+.nibble.fs #drawer { order: 2; flex: none; max-height: 42%; margin: 10px 0 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.nibble.fs .nside {
+  order: 3; flex: none; overflow: visible; align-self: auto;
+  display: flex; align-items: baseline; gap: 14px; margin-top: 10px;
+  border-left: none; padding: 10px 16px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.nibble.fs .nside h2 { margin: 0; white-space: nowrap; }
+.nibble.fs .nside .ntitle { flex: 1; min-width: 0; }
+.nibble.fs .nside .desc, .nibble.fs .nside .because { display: none; }
+#fs-ctl {
+  display: none; position: fixed; top: 12px; right: 18px; z-index: 41;
+  align-items: center; gap: 6px;
+  padding: 4px 6px 4px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow);
+}
+body.fs #fs-ctl { display: flex; }
+#fs-ctl .stepbtn { position: static; transform: none; width: 28px; height: 28px; font-size: 19px; box-shadow: none; opacity: 1; }
+#fs-ctl .stepbtn:disabled { opacity: .3; pointer-events: none; }
+#fs-ctl #fs-count { white-space: nowrap; }

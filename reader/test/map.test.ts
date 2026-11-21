@@ -275,3 +275,14 @@ t("the dial hides ringed nodes without moving the rest", () => {
     eq(b, std.find((n) => n.id === b.id), `box ${b.id} moved between levels`);
   }
 });
+
+t("opposite edges between the same two nodes bend apart; a lone edge stays straight", () => {
+  const edges = [
+    { from: "api", to: "cache" },
+    { from: "cache", to: "api" },
+    { from: "api", to: "db" },
+  ];
+  eq(mapEdgeSide(edges, 0), -1, "the first of a pair bends one way");
+  eq(mapEdgeSide(edges, 1), 1, "its twin bends the other way");
+  eq(mapEdgeSide(edges, 2), 0, "a lone edge is straight");
+});

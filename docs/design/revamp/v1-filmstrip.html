@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Filmstrip</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="revamp.css">
+<style>
+/* A — Filmstrip: the shipped layout, kept, with the camera handed to the
+   browser. Cards sit in a native horizontally scrolling strip with snap
+   points, neighbours peek at both edges and are clickable, the top rail is
+   numbered and clickable, and the help is a popover, so nothing ever
+   resizes the canvas under the card. */
+#app { display: flex; flex-direction: column; height: 100%; }
+#top { display: flex; align-items: center; gap: 14px; padding: 10px 18px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+#ptitle { font-weight: 600; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#rail { display: flex; gap: 6px; align-items: center; }
+#rail button { width: 30px; height: 22px; padding: 0; border-radius: 999px; font: 600 11.5px var(--mono); color: var(--muted); background: var(--card); position: relative; }
+#rail button.read { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+#rail button.on { background: var(--accent); border-color: var(--accent); color: #fff; width: 40px; }
+#rail button .msg-badge { position: absolute; top: -7px; right: -6px; padding: 1px 5px; font-size: 9.5px; }
+#pdesc { display: flex; gap: 10px; align-items: baseline; padding: 8px 18px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 14px; line-height: 1.5; }
+#pdesc .txt { min-width: 0; }
+#pdesc:not(.open) .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pdesc .more { flex: none; }
+#main { flex: 1; display: flex; min-height: 0; position: relative; }
+#canvas { flex: 1; min-width: 0; position: relative; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+#canvas::-webkit-scrollbar { display: none; }
+#strip { display: flex; gap: 28px; height: 100%; padding: 18px 8%; align-items: stretch; }
+.card { flex: 0 0 84%; scroll-snap-align: center; scroll-snap-stop: always; display: flex; flex-direction: column; min-height: 0;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 20px; overflow: hidden;
+  opacity: .5; transform: scale(.97); transition: opacity .3s, transform .3s, border-color .3s; cursor: pointer; }
+.card.active { opacity: 1; transform: none; border-color: var(--accent); cursor: default; }
+.nbody { display: flex; gap: 20px; flex: 1 1 auto; min-height: 0; }
+.vbox { flex: 1; }
+.nside { flex: 0 0 280px; min-width: 0; overflow-y: auto; border-left: 1px solid var(--line); padding-left: 18px; }
+.nside .nn { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.card .drawer { margin: 14px -20px -16px; max-height: 52%; flex: none; }
+.stepbtn { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 36px; height: 36px; padding: 0; border-radius: 50%; font-size: 22px; line-height: 1; color: var(--muted); box-shadow: var(--shadow); }
+#prev { left: 12px; } #next { right: 12px; }
+.stepbtn:hover { color: var(--accent); }
+.stepbtn:disabled { opacity: 0; pointer-events: none; }
+#help { top: 10px; left: 12px; }
+/* fullscreen: the active visual fills the window, the claim becomes a
+   caption, the drawer a sheet; stepping keeps working and swaps the picture */
+.vbox .expand { position: absolute; top: 8px; right: 10px; z-index: 2; width: 28px; height: 28px; padding: 0; border-radius: 8px; font-size: 15px; color: var(--muted); background: var(--card); opacity: 0; transition: opacity .15s; }
+.vbox:hover .expand, .vbox .expand:focus-visible { opacity: 1; }
+.vbox .expand:hover { color: var(--accent); }
+#fs { position: fixed; inset: 0; z-index: 40; display: none; flex-direction: column; background: var(--paper); padding: 14px 18px 12px; gap: 10px; }
+#fs.on { display: flex; }
+#fs-slot { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+#fs .vbox { flex: 1; min-height: 0; }
+#fs .vbox .expand { opacity: 1; }
+#fs .caption { flex: none; display: flex; align-items: baseline; gap: 14px; padding: 10px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+#fs .caption .ntitle { flex: 1; min-width: 0; font-size: 17px; }
+#fs .caption .count { font: 600 12px var(--mono); color: var(--muted); white-space: nowrap; }
+#fs .caption .stepbtn { position: static; transform: none; width: 30px; height: 30px; font-size: 20px; box-shadow: none; }
+#fs .drawer { flex: none; max-height: 45%; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+#fs .drawer[hidden] { display: none; }
+@media (max-width: 760px) { #fs { padding: 10px; } }
+#chat { flex: none; width: 360px; display: flex; flex-direction: column; min-height: 0; background: var(--card); border-left: 1px solid var(--line); }
+#chat[hidden] { display: none; }
+#chat > header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); font-weight: 700; }
+#chat .turn { font-weight: 400; font-size: 12.5px; color: var(--muted); }
+@media (max-width: 900px) { .nbody { flex-direction: column; } .nside { flex: 0 0 auto; border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 10px; } #chat { width: 46vw; } #pdesc { display: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+<header id="top">
+  <span class="brand">nibble<span class="bite"></span></span>
+  <span id="ptitle"></span><span id="pmeta" class="meta"></span>
+  <span class="spacer"></span>
+  <nav id="rail" aria-label="nibbles"></nav>
+  <span id="progress" class="meta"></span>
+  <span class="dial" id="dial" title="detail dial (d)"><button data-pos="overview">overview</button><button data-pos="standard" class="on">standard</button></span>
+  <button class="ghost" id="helpbtn" title="keys (?)"><kbd>?</kbd></button>
+  <button class="ghost" id="chatbtn" title="chat (c)">chat <span class="rcount" id="ccount"></span></button>
+</header>
+<div id="pdesc"><span class="txt" id="pdesc-txt"></span><button class="ghost more" id="pdesc-more">more</button></div>
+<div id="main">
+  <main id="canvas" aria-label="plate"><div id="strip"></div></main>
+  <button id="prev" class="stepbtn" aria-label="previous nibble" title="previous (←)">‹</button>
+  <button id="next" class="stepbtn" aria-label="next nibble" title="next (→)">›</button>
+  <div id="help" class="help" hidden></div>
+  <aside id="chat" aria-label="conversation">
+    <header>Chat <span class="turn">your turn — reply, or write elsewhere</span><span class="spacer"></span><button class="ghost" id="chatclose">›</button></header>
+    <div class="threads" id="threads"></div>
+    <div class="composer"><div class="on" id="composer-on">new thread on n1</div><textarea id="composer" rows="3" placeholder="disagree on the thing itself…"></textarea><div class="acts"><button id="hold">Hold <small>⇧⌘⏎</small></button><button class="primary">Send <small>⌘⏎</small></button></div></div>
+  </aside>
+</div>
+</div>
+<div id="fs" aria-label="fullscreen visual" role="dialog">
+  <div id="fs-slot"></div>
+  <div class="drawer" id="fs-drawer" hidden></div>
+  <div class="caption"><span class="nn" id="fs-nn"></span><p class="ntitle" id="fs-title"></p><span class="count" id="fs-count"></span><button class="stepbtn" id="fs-prev" title="previous (←)">‹</button><button class="stepbtn" id="fs-next" title="next (→)">›</button><button class="ghost" id="fs-close" title="leave fullscreen (esc, f)">✕</button></div>
+</div>
+<a class="variant-tag" href="index.html">A · filmstrip</a>
+<script src="plate.js"></script>
+<script src="common.js"></script>
+<script>
+(function () {
+  const C = window.COMMON, P = C.plate, $ = (s) => document.querySelector(s);
+  let level = 'standard', active = 0, focused = null, sel = null;
+  const read = new Set([0]);
+  $('#ptitle').textContent = P.title; $('#pmeta').textContent = P.about; $('#progress').textContent = P.progress;
+  const pdesc = () => { $('#pdesc-txt').innerHTML = C.descAt(P.desc, level); };
+  pdesc();
+  $('#pdesc-more').addEventListener('click', () => { const o = $('#pdesc').classList.toggle('open'); $('#pdesc-more').textContent = o ? 'less' : 'more'; });
+  // cards
+  const strip = $('#strip');
+  P.nibbles.forEach((nb, i) => {
+    const card = document.createElement('article'); card.className = 'card' + (i === 0 ? ' active' : ''); card.dataset.i = i;
+    card.innerHTML = `<div class="nbody"><div class="vbox">${C.visualHTML(nb)}<button class="expand" title="fullscreen (f)" aria-label="fullscreen">⤢</button></div><aside class="nside"><div class="nn">nibble ${nb.n}</div><p class="ntitle">${nb.title}</p><p class="desc"></p></aside></div><div class="drawer" hidden></div>`;
+    strip.appendChild(card);
+    C.wireVisual(card.querySelector('.vbox'), { openDrawer: (ref) => openDrawer(i, ref), onSelect: (id) => { sel = id; composerOn(); } });
+    card.addEventListener('click', (e) => { if (i !== active) { e.stopPropagation(); go(i); } });
+    card.querySelector('.expand').addEventListener('click', (e) => { e.stopPropagation(); fullscreen(true); });
+    card.querySelector('.vbox').addEventListener('dblclick', (e) => { if (!e.target.closest('[data-anchor], .chip, button, input')) fullscreen(true); });
+    card.querySelector('.drawer').addEventListener('click', (e) => { if (e.target.closest('.close')) closeDrawer(i); const no = e.target.closest('.no'); if (no) no.parentElement.classList.toggle('lsel'); });
+  });
+  const cards = [...strip.children];
+  const descs = () => cards.forEach((c, i) => { const d = C.descAt(P.nibbles[i].desc, level); const el = c.querySelector('.desc'); el.hidden = !d; el.innerHTML = d || ''; });
+  descs();
+  // the rail: numbered, clickable, badged
+  const rail = $('#rail');
+  P.nibbles.forEach((nb, i) => { const b = document.createElement('button'); b.textContent = nb.n; b.title = `nibble ${nb.n}`; b.addEventListener('click', () => go(i)); const n = P.threads.filter((t) => t.card === i).reduce((a, t) => a + t.msgs.length, 0); if (n) b.innerHTML += `<span class="msg-badge">${n}</span>`; rail.appendChild(b); });
+  function paint() {
+    cards.forEach((c, i) => c.classList.toggle('active', i === active));
+    if (fsOn && fsCard !== active) fsShow(active);
+    [...rail.children].forEach((b, i) => { b.className = i === active ? 'on' : read.has(i) ? 'read' : ''; });
+    $('#prev').disabled = active === 0; $('#next').disabled = active === cards.length - 1;
+    composerOn();
+  }
+  // the camera is the scroll position: snap points keep a card centred,
+  // and whichever card is most in view is the active one
+  const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting && e.intersectionRatio >= .6) { active = +e.target.dataset.i; read.add(active); paint(); } }, { root: $('#canvas'), threshold: [.6] });
+  cards.forEach((c) => io.observe(c));
+  function go(i, instant) {
+    i = Math.max(0, Math.min(cards.length - 1, i));
+    cards[i].scrollIntoView({ behavior: instant ? 'instant' : 'smooth', inline: 'center', block: 'nearest' });
+    // on the stage the strip is covered: the step is immediate, the strip follows underneath
+    if (fsOn && i !== active) { active = i; read.add(i); paint(); }
+  }
+  new ResizeObserver(() => go(active, true)).observe($('#canvas'));
+  $('#prev').addEventListener('click', () => go(active - 1)); $('#next').addEventListener('click', () => go(active + 1));
+  // drawer, in the card
+  function openDrawer(i, ref) {
+    if (i !== active) go(i);
+    const d = fsOn ? $('#fs-drawer') : cards[i].querySelector('.drawer');
+    d.innerHTML = C.drawerHTML(ref); d.hidden = false;
+  }
+  $('#fs-drawer').addEventListener('click', (e) => { if (e.target.closest('.close')) $('#fs-drawer').hidden = true; const no = e.target.closest('.no'); if (no) no.parentElement.classList.toggle('lsel'); });
+  // fullscreen: the active card lends its visual to the stage; stepping
+  // hands it back and borrows the next one, so state (sequence step,
+  // timeline cursor, selection) survives both ways
+  let fsOn = false, fsCard = -1;
+  function fsShow(i) {
+    if (fsCard >= 0) cards[fsCard].querySelector('.nbody').prepend($('#fs-slot').firstElementChild);
+    fsCard = i; $('#fs-slot').appendChild(cards[i].querySelector('.vbox'));
+    $('#fs-nn').textContent = `nibble ${P.nibbles[i].n}`; $('#fs-title').innerHTML = P.nibbles[i].title; $('#fs-count').textContent = `${i + 1} / ${cards.length}`;
+    $('#fs-prev').disabled = i === 0; $('#fs-next').disabled = i === cards.length - 1; $('#fs-drawer').hidden = true;
+  }
+  function fullscreen(on) {
+    if (on === fsOn) return;
+    fsOn = on; $('#fs').classList.toggle('on', on);
+    if (on) { fsShow(active); if (document.fullscreenEnabled && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {}); }
+    else { cards[fsCard].querySelector('.nbody').prepend($('#fs-slot').firstElementChild); fsCard = -1; if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); }
+  }
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && fsOn) fullscreen(false); });
+  $('#fs-close').addEventListener('click', () => fullscreen(false));
+  $('#fs-prev').addEventListener('click', () => go(active - 1)); $('#fs-next').addEventListener('click', () => go(active + 1));
+  function closeDrawer(i) { cards[i].querySelector('.drawer').hidden = true; }
+  // chat
+  const threads = $('#threads');
+  const renderChat = () => { threads.innerHTML = C.threadsHTML(focused); $('#ccount').textContent = P.threads.reduce((a, t) => a + t.msgs.length, 0); };
+  renderChat();
+  threads.addEventListener('click', (e) => { const s = e.target.closest('.thread'); if (!s) return; const t = P.threads.find((x) => x.key === s.dataset.key); if (e.target.closest('.tchip')) go(t.card); const m = e.target.closest('.mref'); if (m) openDrawer(t.card, m.dataset.ref); focused = t.key; renderChat(); composerOn(); });
+  function composerOn() { const t = P.threads.find((x) => x.key === focused); $('#composer-on').textContent = t ? `reply in ${t.target}` : `new thread on n${P.nibbles[active].n}${sel ? ':' + sel : ''}`; }
+  $('#hold').addEventListener('click', () => { const ta = $('#composer'); if (!ta.value.trim()) return; const t = P.threads.find((x) => x.key === focused) || (P.threads.push({ key: 'd' + Date.now(), target: `n${P.nibbles[active].n}${sel ? ':' + sel : ''}`, card: active, msgs: [] }), P.threads[P.threads.length - 1]); t.msgs.push({ from: 'draft', text: ta.value.trim() }); ta.value = ''; focused = t.key; renderChat(); [...rail.children].forEach((b, i) => { const n = P.threads.filter((x) => x.card === i).reduce((a, x) => a + x.msgs.length, 0); b.querySelector('.msg-badge')?.remove(); if (n) b.innerHTML += `<span class="msg-badge">${n}</span>`; }); });
+  const setChat = (open) => { $('#chat').hidden = !open; if (open) $('#composer').focus(); };
+  $('#chatbtn').addEventListener('click', () => setChat($('#chat').hidden)); $('#chatclose').addEventListener('click', () => setChat(false));
+  // dial, help, keys
+  const setDial = (l) => { level = l; document.body.classList.toggle('ov', l === 'overview'); $('#dial').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.pos === l)); descs(); pdesc(); };
+  $('#dial').addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) setDial(b.dataset.pos); });
+  $('#help').innerHTML = C.helpHTML([['← →', 'previous / next nibble — or swipe, click a neighbour, or a number up top'], ['f', 'fullscreen: the visual fills the window (also ⤢ on the visual, or double-click it); arrows keep stepping'], ['⎵', 'step the visual: sequence steps, timeline cursor, compare flip'], ['d', 'detail dial: overview / standard'], ['c', 'write in the chat'], ['esc', 'leave fullscreen, close the drawer, the help, the chat'], ['?', 'this help']]);
+  const help = (on) => { $('#help').hidden = on === undefined ? !$('#help').hidden : !on; };
+  $('#helpbtn').addEventListener('click', () => help());
+  document.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLTextAreaElement) { if (e.key === 'Escape') setChat(false); return; }
+    if (e.key === 'ArrowLeft') go(active - 1); if (e.key === 'ArrowRight') go(active + 1); if (e.key === 'Home') go(0); if (e.key === 'End') go(99);
+    if (e.key === ' ') { e.preventDefault(); C.stepActive(fsOn ? $('#fs-slot .vbox') : cards[active].querySelector('.vbox'), e.shiftKey ? -1 : 1); }
+    if (e.key === 'f') fullscreen(!fsOn);
+    if (e.key === 'd') setDial(level === 'standard' ? 'overview' : 'standard');
+    if (e.key === 'c') { e.preventDefault(); setChat(true); }
+    if (e.key === '?') help();
+    if (e.key === 'Escape') { if (!$('#help').hidden) help(false); else if (fsOn && !$('#fs-drawer').hidden) $('#fs-drawer').hidden = true; else if (fsOn) fullscreen(false); else if (!cards[active].querySelector('.drawer').hidden) closeDrawer(active); else setChat(false); }
+  });
+  C.theme();
+  paint();
+})();
+</script>
+</body>
+</html>

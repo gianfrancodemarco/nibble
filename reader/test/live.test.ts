@@ -84,3 +84,15 @@ t("arrivalPlan: the conversation moving alone patches in place; with cards, rebu
   eq(arrivalPlan(open2, grownAndReviewed), "rebuild", "a nibble and the thread at once");
   eq(arrivalPlan(open2, plateShape([liveN1, liveN2, liveN3], true, null, false)), "append", "a nibble with the thread unchanged");
 });
+
+// --- stepping: clamped, and never off an empty strip ---
+
+t("stepCard clamps to the strip and stays put on an empty one", () => {
+  eq(stepCard(0, 1, 5), 1, "forward");
+  eq(stepCard(4, 1, 5), 4, "past the end stays on the last card");
+  eq(stepCard(0, -1, 5), 0, "before the start stays on the first");
+  eq(stepCard(2, -9, 5), 0, "big jumps clamp too");
+  eq(stepCard(3, 0, 5), 3, "no move");
+  eq(stepCard(0, 1, 0), 0, "empty strip: nowhere to go");
+  eq(stepCard(7, 0, 3), 2, "an index past a shrunk strip clamps back");
+});

@@ -46,7 +46,8 @@
 <table class="keys">
   <thead><tr><th>key</th><th>does</th></tr></thead>
   <tbody>
-    <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>previous / next nibble (camera move, not a page swap)</td></tr>
+    <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>previous / next nibble (camera move, not a page swap) — also <kbd>home</kbd> / <kbd>end</kbd>, the ‹ › buttons at the canvas edges, a number on the rail up top, a click on the neighbour peeking at the edge, or a sideways trackpad swipe</td></tr>
+    <tr><td><kbd>f</kbd></td><td>fullscreen: the visual fills the window with the claim as a caption (also ⤢ on the visual, or double-click it); <kbd>←</kbd> <kbd>→</kbd> keep stepping, chips open the code as a sheet, <kbd>esc</kbd> hands the visual back with its state intact</td></tr>
     <tr><td><kbd>space</kbd></td><td>play / step the active visual (step a sequence, jump the timeline cursor, flip a compare; <kbd>shift</kbd> reverses)</td></tr>
     <tr><td><kbd>d</kbd></td><td>detail dial: flip every visual between overview and standard (deep arrives in <span class="soon">v0.2</span>)</td></tr>
     <tr><td><kbd>e</kbd></td><td>open the evidence drawer (the code behind the selection)</td></tr>
@@ -54,10 +55,12 @@
     <tr><td><kbd>v</kbd></td><td>request a missing visual from the selected thing <span class="soon">v0.2</span></td></tr>
     <tr><td><kbd>w</kbd></td><td>voice walk: titles read aloud, highlight in sync <span class="soon">v0.2</span></td></tr>
     <tr><td><kbd>s</kbd></td><td>send your held drafts</td></tr>
+    <tr><td><kbd>?</kbd></td><td>the keys, as a popover over the canvas (so opening it never moves the card)</td></tr>
+    <tr><td><kbd>esc</kbd></td><td>one layer at a time: the help, then the drawer's selected lines, the drawer, fullscreen, the selection</td></tr>
     <tr><td><kbd>q</kbd></td><td>close without answering</td></tr>
   </tbody>
 </table>
-<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd>, <kbd>space</kbd>, <kbd>d</kbd> (the dial), <kbd>c</kbd> (write in the chat), <kbd>s</kbd> (send your held drafts), <kbd>esc</kbd> (drawer, then selection) and <kbd>?</kbd> (the in-reader legend) are live. Clicking does the rest: selecting an element pins the conversation to it (<span class="mono">n2:cache</span>), its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer, a line number in the drawer selects that line to comment on (shift-click for a range; <kbd>esc</kbd> clears the lines before it closes the drawer), and a message-count badge on an element, a card or a drawer line opens its thread.</p>
+<p class="meta" style="color:var(--muted);font-size:13px">In the v0.1 reader, <kbd>←</kbd> <kbd>→</kbd> (also <kbd>home</kbd> / <kbd>end</kbd>, the ‹ › buttons at the canvas edges, a numbered segment of the rail up top — it wears the card's message count — a click on the neighbour peeking at the edge, or a sideways trackpad swipe), <kbd>f</kbd> (fullscreen), <kbd>space</kbd>, <kbd>d</kbd> (the dial, up top), <kbd>c</kbd> (write in the chat), <kbd>s</kbd> (send your held drafts), <kbd>esc</kbd> and <kbd>?</kbd> (the help popover) are live. The plate's description sits folded on one line under the title with a <i>more</i> toggle, so the dial never moves the card. Before the first nibble lands the chat waits, locked, and says so. Clicking does the rest: selecting an element pins the conversation to it (<span class="mono">n2:cache</span>), its <span class="mono">&lt;/&gt;</span> chip or any ref opens the code drawer, a line number in the drawer selects that line to comment on (shift-click for a range; <kbd>esc</kbd> clears the lines before it closes the drawer), and a message-count badge on an element, a card or a drawer line opens its thread.</p>
 
 <h4 id="visuals">The visuals</h4>
 <p>Each visual renders as interactive SVG. The reader lays it out from what the agent declared: the agent sends the meaning, the reader draws the pixels.</p>
@@ -70,7 +73,7 @@
 <div class="demo">
   <div class="demobar">
     <b>Live demo: the real reader, on a real plate.</b>
-    <span><kbd>←</kbd> <kbd>→</kbd> nibbles · <kbd>space</kbd> step / scrub / flip · click a node, then <kbd>c</kbd> to chat about it · the agent's replies are real, rounds you send stay local to this page</span>
+    <span><kbd>←</kbd> <kbd>→</kbd> nibbles · <kbd>f</kbd> fullscreen · <kbd>space</kbd> step / scrub / flip · click a node, then <kbd>c</kbd> to chat about it · the agent's replies are real, rounds you send stay local to this page</span>
     <span style="margin-left:auto"><a href="../visuals/reader.html" target="_blank">open full screen ↗</a></span>
   </div>
   <iframe src="../visuals/reader.html" title="nibble reader demo: a four-nibble plate using every visual kind" loading="lazy"></iframe>

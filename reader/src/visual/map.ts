@@ -195,6 +195,17 @@ function mapEdgeEnds(a: LaidOutNode, b: LaidOutNode): { x1: number; y1: number; 
   return { x1: a.x + a.w / 2, y1: a.y, x2: b.x + b.w / 2, y2: b.y + b.h + 7, horizontal: false };
 }
 
+// mapEdgeSide: an edge that has a twin running the other way between the
+// same two nodes bends to one side (-1 or 1, the earlier-declared one
+// first) so the pair reads as two arrows instead of one line drawn twice,
+// with the labels on opposite sides. A lone edge is straight (0).
+function mapEdgeSide(edges: readonly { from: string; to: string }[], ei: number): -1 | 0 | 1 {
+  const e = edges[ei];
+  const twin = edges.findIndex((o, i) => i !== ei && o.from === e.to && o.to === e.from);
+  if (twin < 0) return 0;
+  return twin > ei ? -1 : 1;
+}
+
 let mapIdSeq = 0;
 
 function renderMapVisual(v: MapVisual, ctx: RenderCtx): Element {
@@ -255,9 +266,13 @@ function renderMapVisual(v: MapVisual, ctx: RenderCtx): Element {
     const b = byId.get(e.to);
     if (!a || !b) return; // validation forbids this; stay defensive
     const { x1, y1, x2, y2, horizontal } = mapEdgeEnds(a, b);
+    // A twin pair bends apart: each curve bows out of the straight line by
+    // BOW on its own side, and its label follows it there.
+    const side = mapEdgeSide(v.edges ?? [], ei);
+    const BOW = 18 * side;
     const d = horizontal
-      ? `M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`
-      : `M ${x1} ${y1} C ${x1} ${(y1 + y2) / 2}, ${x2} ${(y1 + y2) / 2}, ${x2} ${y2}`;
+      ? `M ${x1} ${y1 + BOW / 2} C ${(x1 + x2) / 2} ${y1 + BOW}, ${(x1 + x2) / 2} ${y2 + BOW}, ${x2} ${y2 + BOW / 2}`
+      : `M ${x1 + BOW / 2} ${y1} C ${x1 + BOW} ${(y1 + y2) / 2}, ${x2 + BOW} ${(y1 + y2) / 2}, ${x2 + BOW / 2} ${y2}`;
     const g = svgEl("g", { class: `edge ${e.style ?? "flow"}`, "data-from": e.from, "data-to": e.to });
     g.appendChild(svgEl("path", { d, "marker-end": `url(#${uid}-arr)` }));
     g.appendChild(svgEl("title", {}, e.label ?? ""));
@@ -269,13 +284,16 @@ function renderMapVisual(v: MapVisual, ctx: RenderCtx): Element {
     if (e.label) {
       if (horizontal) {
         if (Math.abs(x2 - x1) > e.label.length * 6.5) {
+          // above the line, or below it for the twin that bows downwards
+          const below = side > 0;
           g.appendChild(svgEl("text", {
-            x: (x1 + x2) / 2, y: (y1 + y2) / 2 - 7, "text-anchor": "middle", class: "elabel",
+            x: (x1 + x2) / 2, y: (y1 + y2) / 2 + BOW + (below ? 14 : -7), "text-anchor": "middle", class: "elabel",
           }, e.label));
         }
       } else {
+        const left = side < 0;
         g.appendChild(svgEl("text", {
-          x: (x1 + x2) / 2 + 8, y: (y1 + y2) / 2 + 3.5, "text-anchor": "start", class: "elabel",
+          x: (x1 + x2) / 2 + BOW + (left ? -8 : 8), y: (y1 + y2) / 2 + 3.5, "text-anchor": left ? "end" : "start", class: "elabel",
         }, e.label));
       }
     }

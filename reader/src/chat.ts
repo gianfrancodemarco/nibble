@@ -258,3 +258,30 @@ function turnLabel(thread: ThreadData | null, justSent: boolean): TurnLabel {
 function sendLabel(drafts: number): string {
   return drafts ? `Send ${drafts > 1 ? `+${drafts}` : "+1"}` : "Send";
 }
+
+// composerLock: before the first card lands there is nothing to write on,
+// whatever the turn says — the composer waits, locked, and says why.
+function composerLock(cards: number, turn: TurnLabel): TurnLabel {
+  if (cards === 0) return { text: "the first nibble hasn't landed yet — the chat opens with it", locked: true };
+  return turn;
+}
+
+// --- the rail: one numbered segment per card ---
+
+interface RailCard { label: string; name: string } // "2" / "nibble 2", "≡" / "not-shown ledger"
+interface RailSegment { label: string; state: "on" | "read" | ""; badge: number; title: string }
+
+// railSegments: the top bar's rail — each card as a numbered, clickable
+// segment: the active one marked, the visited ones distinct from those
+// still ahead, and the card's message count as a badge.
+function railSegments(cards: readonly RailCard[], active: number, read: ReadonlySet<number>, counts: ReadonlyMap<number, number>): RailSegment[] {
+  return cards.map((c, i) => {
+    const badge = counts.get(i) ?? 0;
+    return {
+      label: c.label,
+      state: i === active ? "on" : read.has(i) ? "read" : "",
+      badge,
+      title: badge ? `${c.name} · ${badge} message${badge > 1 ? "s" : ""}` : c.name,
+    };
+  });
+}

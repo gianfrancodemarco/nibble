@@ -16,27 +16,31 @@
   <span id="plate-title">loading…</span>
   <span id="plate-meta" class="meta"></span>
   <span class="spacer"></span>
-  <span id="rail" aria-hidden="true"></span>
+  <nav id="rail" aria-label="nibbles"></nav>
   <span id="progress" class="meta"></span>
+  <span id="dial" role="group" aria-label="detail dial" title="detail dial (d) — skim the overview, or read everything at standard"><button type="button" class="dial-pos" data-level="overview">overview</button><button type="button" class="dial-pos on" data-level="standard">standard</button></span>
+  <button id="helpbtn" type="button" class="iconbtn" title="keys (?)" aria-label="keyboard shortcuts" aria-expanded="false" aria-controls="help"><kbd>?</kbd></button>
 </header>
-<div id="plate-desc" hidden></div>
+<div id="plate-desc" hidden><span id="plate-desc-text"></span><button id="plate-desc-more" type="button" hidden>more</button></div>
 <div id="notice" hidden></div>
 
 <div id="main">
-<aside id="legend" aria-label="keyboard shortcuts">
-  <div class="krow"><kbd>← →</kbd><span>previous / next nibble</span></div>
-  <div class="krow"><kbd>d</kbd><span id="dial" role="group" aria-label="detail dial" title="detail dial (d) — skim the overview, or read everything at standard"><button class="dial-pos" data-level="overview">overview</button><button class="dial-pos on" data-level="standard">standard</button></span></div>
-  <div class="krow"><kbd>⎵</kbd><span>step the visual — sequence steps, timeline cursor, compare flip</span></div>
+<main id="canvas" aria-label="plate">
+  <div id="strip"></div>
+  <button id="prev" class="stepbtn" type="button" title="previous nibble (←)" aria-label="previous nibble">‹</button>
+  <button id="next" class="stepbtn" type="button" title="next nibble (→)" aria-label="next nibble">›</button>
+</main>
+<div id="help" role="dialog" aria-label="keyboard shortcuts" hidden>
+  <div class="krow"><kbd>← →</kbd><span>previous / next nibble — or swipe, click a neighbour, the ‹ › buttons at the edges, or a number up top; <kbd>home</kbd> / <kbd>end</kbd> jump</span></div>
+  <div class="krow"><kbd>f</kbd><span>fullscreen — the visual fills the window (also ⤢ on the visual, or double-click it); ← → keep stepping</span></div>
+  <div class="krow"><kbd>⎵</kbd><span>step the visual — sequence steps, timeline cursor, compare flip; <kbd>shift</kbd> reverses</span></div>
+  <div class="krow"><kbd>d</kbd><span>detail dial — overview / standard</span></div>
   <div class="krow"><kbd>c</kbd><span>write in the chat — a thread on the selection or the nibble; the agent replies in place</span></div>
   <div class="krow"><kbd>s</kbd><span>send your held drafts</span></div>
-  <div class="krow"><kbd>esc</kbd><span>close the drawer</span></div>
-  <div class="krow"><kbd>?</kbd><span>pin this legend open</span></div>
-  <p class="kfoot">Refs open the code drawer; click a line number there to comment on that line, shift-click for a range. <b>Send</b> in the chat is what wakes the agent; held drafts go out with the next send.</p>
-</aside>
-
-<main id="canvas">
-  <div id="strip"></div>
-</main>
+  <div class="krow"><kbd>esc</kbd><span>close this help, then the drawer's selected lines, the drawer, fullscreen, the selection</span></div>
+  <div class="krow"><kbd>?</kbd><span>this help</span></div>
+  <p class="kfoot">Chips open the code behind a thing; click a line number there to comment on that line, shift-click for a range. <b>Send</b> in the chat is what wakes the agent; held drafts go out with the next send.</p>
+</div>
 </div>
 </div>
 
@@ -68,6 +72,13 @@
 </aside>
 </div>
 
+<!-- fullscreen: the active card covers the window; these are the stage's own controls -->
+<div id="fs-ctl" aria-label="fullscreen controls">
+  <span id="fs-count" class="meta mono"></span>
+  <button id="fs-prev" class="stepbtn" type="button" title="previous nibble (←)" aria-label="previous nibble">‹</button>
+  <button id="fs-next" class="stepbtn" type="button" title="next nibble (→)" aria-label="next nibble">›</button>
+  <button id="fs-close" class="iconbtn" type="button" title="leave fullscreen (esc, f)" aria-label="leave fullscreen">✕</button>
+</div>
 
 <aside id="drawer" hidden>
   <header>
