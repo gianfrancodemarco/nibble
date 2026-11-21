@@ -26,3 +26,14 @@ t("foldLabel: a description that fits needs no toggle", () => {
   eq(foldLabel(true, true), "less", "open: offers less");
   eq(foldLabel(true, false), "less", "open text never overflows its one line, the button still folds it back");
 });
+
+t("shortcutKey leaves chords and typing to the browser", () => {
+  const plain = { key: "c", metaKey: false, ctrlKey: false, altKey: false };
+  eq(shortcutKey(plain, false), "c", "a bare key is a shortcut");
+  eq(shortcutKey({ ...plain, metaKey: true }, false), null, "⌘c is copy, not the chat");
+  eq(shortcutKey({ ...plain, ctrlKey: true }, false), null, "ctrl-c likewise");
+  eq(shortcutKey({ ...plain, key: "s", metaKey: true }, false), null, "⌘s is the browser's save, not send");
+  eq(shortcutKey({ ...plain, key: "f", altKey: true }, false), null, "alt chords are not ours either");
+  eq(shortcutKey({ ...plain, key: "?" }, false), "?", "shift is part of the key, so ? still opens the help");
+  eq(shortcutKey(plain, true), null, "a key typed into a field is text");
+});
