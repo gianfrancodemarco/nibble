@@ -362,13 +362,33 @@ function wireVisualHost(strip, wiring) {
         wiring.onTarget();
         // a fresh selection also opens the element's code, when it carries any;
         // a toggle-off never does, and the chip's own path stays select-free
-        if (hostSelection) {
-            const chip = card.querySelector(codeChipSelector(id));
-            if (chip)
-                wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
-        }
+        if (hostSelection)
+            openCodeOf(card, id);
     };
+    // openCodeOf: open the code an element carries, if any
+    const openCodeOf = (card, id) => {
+        const chip = card.querySelector(codeChipSelector(id));
+        if (chip)
+            wiring.openRef(Number(chip.getAttribute("data-n")), Number(chip.getAttribute("data-code")));
+    };
+    // A sequence step revealed — by click, space or the ▸ ◂ controls — is
+    // selected and its code opens, every time: a step is a place in the
+    // story and its code comes with it, even when the step was already the
+    // selection or the drawer had been closed.
+    strip.addEventListener("seqstep", (e) => {
+        const id = e.detail.id;
+        const card = e.target?.closest?.(".nibble");
+        if (!id || !card)
+            return;
+        const idx = Number(card.dataset.i);
+        const again = hostSelection !== null && hostSelection.card === idx && hostSelection.id === id;
+        selectId(card, id, true);
+        if (again)
+            openCodeOf(card, id);
+    });
     strip.addEventListener("click", (e) => {
+        if (e.defaultPrevented)
+            return; // a renderer handled the click itself
         const t = e.target;
         if (!t)
             return;
@@ -806,6 +826,14 @@ const SEQ_STEP_GAP = 46;
 function seqAdvance(shown, delta, total) {
     return Math.max(0, Math.min(total, shown + delta));
 }
+// seqCurrentId: the anchor of the step just revealed — the last of the
+// `shown` drawn steps — or null before the first reveal or when that step
+// carries no id. The host selects it and opens its code on every reveal.
+function seqCurrentId(shown, drawn, steps) {
+    if (shown <= 0 || shown > drawn.length)
+        return null;
+    return steps[drawn[shown - 1]]?.id ?? null;
+}
 // seqDrawnSteps: indices into v.steps of the steps drawn at a dial level.
 // Stepping advances through these only; positions come from the full layout.
 function seqDrawnSteps(v, level) {
@@ -928,7 +956,12 @@ function renderSequenceVisual(v, ctx) {
         });
         counter.textContent = `${shown}/${total}`;
     };
-    const step = (delta) => { shown = seqAdvance(shown, delta, total); apply(); };
+    // every reveal — a click, space, the ▸ ◂ controls — names the current
+    // step to the host, which selects it and opens its code
+    const announce = () => {
+        svg.dispatchEvent(new CustomEvent("seqstep", { bubbles: true, detail: { id: seqCurrentId(shown, drawn, v.steps) } }));
+    };
+    const step = (delta) => { shown = seqAdvance(shown, delta, total); apply(); announce(); };
     back.addEventListener("click", (e) => { e.stopPropagation(); step(-1); });
     fwd.addEventListener("click", (e) => { e.stopPropagation(); step(1); });
     stepsG.addEventListener("click", (e) => {
@@ -938,8 +971,10 @@ function renderSequenceVisual(v, ctx) {
         const pos = posOf.get(Number(g.getAttribute("data-step")));
         if (pos === undefined)
             return;
+        e.preventDefault(); // handled here: the host must not toggle the selection off again
         shown = pos + 1;
         apply();
+        announce();
     });
     svg.addEventListener("stepvisual", (e) => {
         step(e.detail.delta);

@@ -52,7 +52,10 @@ A `sequence` SHALL render actors as labelled lifelines in declared order and
 steps as arrows between them — `call`, `return` and `async` visually
 distinct, `alt` steps carrying their branch label. The visual SHALL step:
 advancing (space, or clicking a step) reveals steps one at a time with the
-current step emphasized; a fully stepped sequence shows all steps.
+current step emphasized; a fully stepped sequence shows all steps. Every
+reveal SHALL select the step revealed and open its code when it carries
+any — on each reveal, not only the first, and again after the drawer was
+closed.
 
 #### Scenario: Stepping reveals one step at a time
 - **WHEN** `checkout-request.json` (5 steps) is rendered and the reader
@@ -63,6 +66,12 @@ current step emphasized; a fully stepped sequence shows all steps.
 #### Scenario: Branch label visible
 - **WHEN** a step declares `alt: "on miss"`
 - **THEN** the rendered arrow carries the "on miss" branch label
+
+#### Scenario: A revealed step brings its code
+- **WHEN** step s2 carries code and the reader reveals it — by space, the ▸
+  control, or clicking it — then closes the drawer and clicks s2 again
+- **THEN** s2 is the selection and the drawer opens on s2's code both
+  times; revealing s3 moves the drawer to s3's code
 
 ### Requirement: Timeline rendering, scrubbing and states
 

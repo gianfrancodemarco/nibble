@@ -12,6 +12,14 @@ function seqAdvance(shown: number, delta: number, total: number): number {
   return Math.max(0, Math.min(total, shown + delta));
 }
 
+// seqCurrentId: the anchor of the step just revealed — the last of the
+// `shown` drawn steps — or null before the first reveal or when that step
+// carries no id. The host selects it and opens its code on every reveal.
+function seqCurrentId(shown: number, drawn: readonly number[], steps: readonly SequenceVisual["steps"][number][]): string | null {
+  if (shown <= 0 || shown > drawn.length) return null;
+  return steps[drawn[shown - 1]]?.id ?? null;
+}
+
 // seqDrawnSteps: indices into v.steps of the steps drawn at a dial level.
 // Stepping advances through these only; positions come from the full layout.
 function seqDrawnSteps(v: SequenceVisual, level: DialLevel): number[] {
@@ -136,7 +144,12 @@ function renderSequenceVisual(v: SequenceVisual, ctx: RenderCtx): Element {
     });
     counter.textContent = `${shown}/${total}`;
   };
-  const step = (delta: number) => { shown = seqAdvance(shown, delta, total); apply(); };
+  // every reveal — a click, space, the ▸ ◂ controls — names the current
+  // step to the host, which selects it and opens its code
+  const announce = () => {
+    svg.dispatchEvent(new CustomEvent("seqstep", { bubbles: true, detail: { id: seqCurrentId(shown, drawn, v.steps) } }));
+  };
+  const step = (delta: number) => { shown = seqAdvance(shown, delta, total); apply(); announce(); };
   back.addEventListener("click", (e) => { e.stopPropagation(); step(-1); });
   fwd.addEventListener("click", (e) => { e.stopPropagation(); step(1); });
   stepsG.addEventListener("click", (e) => {
@@ -144,8 +157,10 @@ function renderSequenceVisual(v: SequenceVisual, ctx: RenderCtx): Element {
     if (!g) return;
     const pos = posOf.get(Number(g.getAttribute("data-step")));
     if (pos === undefined) return;
+    e.preventDefault(); // handled here: the host must not toggle the selection off again
     shown = pos + 1;
     apply();
+    announce();
   });
   svg.addEventListener("stepvisual", (e) => {
     step((e as CustomEvent<{ delta: number }>).detail.delta);
