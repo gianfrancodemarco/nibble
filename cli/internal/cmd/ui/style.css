@@ -478,7 +478,7 @@ button:hover { border-color: var(--accent); }
   /* one column, as wide as the longest line and never narrower than the
      pane: every row shares that width, so the highlight and the selection
      tint run to the end of a long line without a ragged right edge */
-  display: grid; grid-template-columns: minmax(100%, max-content);
+  display: grid; grid-template-columns: minmax(100%, max-content); align-content: start;
 }
 
 /* syntax colours (the mockup palette): highlight.js token classes mapped
