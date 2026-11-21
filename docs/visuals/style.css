@@ -388,9 +388,9 @@ button:hover { border-color: var(--accent); }
 .cmp-label [data-anchor] { cursor: pointer; }
 .cmp-label [data-anchor].sel { color: var(--sel); text-decoration: underline; }
 .cmp-label .trust { margin-left: 0; }
-.cmp-code { font-size: 12px; line-height: 1.5; overflow: auto; flex: 1; }
+.cmp-code { font-size: 12px; line-height: 1.5; overflow: auto; flex: 1; display: grid; grid-template-columns: minmax(100%, max-content); align-content: start; }
 .cmp-code.bare { color: var(--muted); }
-.cmp-code .ln { display: flex; white-space: pre; width: max-content; min-width: 100%; }
+.cmp-code .ln { display: flex; white-space: pre; }
 .cmp-code .no { width: 40px; flex: none; text-align: right; padding-right: 10px; color: var(--muted); user-select: none; }
 .cmp-code .in { background: var(--lit); box-shadow: inset 3px 0 0 var(--lit-edge); }
 .cmp-code .in .no { color: var(--ink); font-weight: 700; }
@@ -473,7 +473,13 @@ button:hover { border-color: var(--accent); }
 #drawer-path { color: var(--ink); font-weight: 500; }
 #drawer header button { padding: 0 8px; background: none; border: none; font-size: 15px; color: var(--muted); }
 #drawer-note { padding: 0 18px 8px; }
-#drawer-code { flex: 1; overflow: auto; margin: 0; padding: 0 0 10px; font-size: 13px; line-height: 1.7; }
+#drawer-code {
+  flex: 1; overflow: auto; margin: 0; padding: 0 0 10px; font-size: 13px; line-height: 1.7;
+  /* one column, as wide as the longest line and never narrower than the
+     pane: every row shares that width, so the highlight and the selection
+     tint run to the end of a long line without a ragged right edge */
+  display: grid; grid-template-columns: minmax(100%, max-content);
+}
 
 /* syntax colours (the mockup palette): highlight.js token classes mapped
    onto the five theme variables; the drawers and compare panes share them */
@@ -487,10 +493,7 @@ button:hover { border-color: var(--accent); }
 .hljs-comment, .hljs-quote, .hljs-deletion { color: var(--cm); font-style: italic; }
 .hljs-emphasis { font-style: italic; }
 .hljs-strong { font-weight: 600; }
-/* a row is as wide as the longest line, never just the visible part: the
-   highlight and the selection tint must follow a long line when the code
-   scrolls sideways */
-#drawer-code .ln { display: flex; width: max-content; min-width: 100%; }
+#drawer-code .ln { display: flex; }
 #drawer-code .no {
   width: 56px; flex: none; text-align: right; padding-right: 14px;
   color: var(--muted); user-select: none;
