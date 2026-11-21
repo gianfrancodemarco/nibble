@@ -47,3 +47,13 @@ function foldLabel(open: boolean, overflows: boolean): "more" | "less" | null {
   if (open) return "less";
   return overflows ? "more" : null;
 }
+
+// shortcutKey: the single-key shortcut a keydown stands for, or null when
+// the browser owns it — a chord with ⌘, ctrl or alt (copy, paste, find,
+// save) or a key typed into a field. Shift is part of the key itself, so
+// `?` arrives as `?`.
+interface KeyLike { key: string; metaKey: boolean; ctrlKey: boolean; altKey: boolean }
+function shortcutKey(e: KeyLike, inField: boolean): string | null {
+  if (inField || e.metaKey || e.ctrlKey || e.altKey) return null;
+  return e.key;
+}

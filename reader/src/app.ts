@@ -1195,13 +1195,17 @@ $("#strip").addEventListener("dblclick", (e) => {
 document.addEventListener("fullscreenchange", () => {
   if (!document.fullscreenElement && fsOn) setFullscreen(false); // the browser's exit leaves ours too
 });
+// The single-key shortcuts. A chord with ⌘, ctrl or alt is the browser's
+// (copy, paste, find, save), so it passes through untouched: a `c` with ⌘
+// held must copy the selection, not focus the composer.
 document.addEventListener("keydown", (e) => {
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-  if (e.key === "ArrowLeft") setActive(active - 1);
-  if (e.key === "ArrowRight") setActive(active + 1);
-  if (e.key === "Home") setActive(0);
-  if (e.key === "End") setActive(cards() - 1);
-  if (e.key === " ") {
+  const key = shortcutKey(e, e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement);
+  if (key === null) return;
+  if (key === "ArrowLeft") setActive(active - 1);
+  if (key === "ArrowRight") setActive(active + 1);
+  if (key === "Home") setActive(0);
+  if (key === "End") setActive(cards() - 1);
+  if (key === " ") {
     // space steps the active visual (sequence steps, etc.), shift reverses
     const body = document.querySelector(".nibble.active .visual-body");
     if (body) {
@@ -1209,15 +1213,15 @@ document.addEventListener("keydown", (e) => {
       body.dispatchEvent(new CustomEvent("stepvisual", { detail: { delta: e.shiftKey ? -1 : 1 } }));
     }
   }
-  if (e.key === "d") setDial(dialToggle(dialLevel));
-  if (e.key === "c") {
+  if (key === "d") setDial(dialToggle(dialLevel));
+  if (key === "c") {
     e.preventDefault(); // or the c itself lands in the focused textarea
     focusComposer();
   }
-  if (e.key === "f") setFullscreen(!fsOn);
-  if (e.key === "?") toggleHelp();
-  if (e.key === "s") void submit();
-  if (e.key === "Escape") {
+  if (key === "f") setFullscreen(!fsOn);
+  if (key === "?") toggleHelp();
+  if (key === "s") void submit();
+  if (key === "Escape") {
     const act = escAction({ help: !help.hidden, lines: drawerLines !== null, drawer: !$("#drawer").hidden, fullscreen: fsOn, selection: hostSelection !== null });
     if (act === "help") toggleHelp(false);
     else if (act === "lines") { drawerLines = null; paintDrawerLines(); onSelectionMoved(); }
